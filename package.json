@@ -1,0 +1,30 @@
+{
+  "name": "tidebound-rpg",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24.14 <25" },
+  "scripts": {
+    "build": "vite build",
+    "check": "tsc --noEmit",
+    "dev": "vite --host 127.0.0.1",
+    "start": "node apps/host/main.ts",
+    "test": "node --test tests/*.test.ts",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "peerjs": "1.5.5",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "zod": "4.3.6"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.57.0",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "peer": "1.0.2",
+    "typescript": "5.9.3",
+    "vite": "7.3.1"
+  }
+}
