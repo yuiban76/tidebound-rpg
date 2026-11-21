@@ -409,7 +409,7 @@ export class Game {
     let world = this.room(code)
     if (job.phase !== 'narrate') {
       this.store.phase(code, id, 'interpret')
-      let shortcut = familiarIntent(job.text)
+      let shortcut = familiarIntent(job.text, actorAt(world).character!.place)
       const question = dialogueQuestion(job.text)
       if (question && !shortcut) {
         const actor = actorAt(world)

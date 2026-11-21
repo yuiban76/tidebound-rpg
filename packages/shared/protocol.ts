@@ -9,13 +9,16 @@ export const locations = {
   goa: '哥亞王國城下町',
   lanternPort: '潮燈碼頭', lighthouse: '潮燈塔', tideCave: '海蝕洞',
   mistPort: '霧灣泊位', netSlope: '曬網坡', whiteBay: '白灘灣',
+  shellsPort: '謝爾茲鎮港口', shellsTown: '謝爾茲鎮大街', marineBase: '海軍第153分部',
+  orangePort: '橘子鎮港口', orangeStreet: '橘子鎮大街', petShop: '寵物店',
 }
-export const npcs = { keeper: '瑪琪諾', clerk: '提奧', watch: '蘇芮', courier: '岬恩', lamplighter: '蕊卡', sounder: '洛汀', mayor: '村長' }
+export const npcs = { keeper: '瑪琪諾', clerk: '提奧', watch: '蘇芮', courier: '岬恩', lamplighter: '蕊卡', sounder: '洛汀', mayor: '村長',
+  rika: '莉卡', zoro: '索隆', boodle: '布德鎮長', chouchou: '修修' }
 export const weapons = ['fist', 'sword', 'spear', 'musket'] as const
 export type Weapon = (typeof weapons)[number]
 const locationIds = Object.keys(locations) as (keyof typeof locations)[]
 const npcIds = Object.keys(npcs) as (keyof typeof npcs)[]
-export const islandIds = ['wind', 'lantern', 'mist'] as const
+export const islandIds = ['wind', 'lantern', 'mist', 'shells', 'orange'] as const
 export type IslandId = (typeof islandIds)[number]
 export const sailingPaces = ['steady', 'fast'] as const
 export type SailingPace = (typeof sailingPaces)[number]

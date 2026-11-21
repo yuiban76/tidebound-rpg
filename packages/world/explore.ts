@@ -2,7 +2,7 @@ import { locations, npcs } from '../shared/protocol.ts'
 import type { Intent, IslandId, LocationId, NpcId, Weapon } from '../shared/protocol.ts'
 import { goods, landmarks, meals, paths, people, shops } from './village.ts'
 import type { Good } from './village.ts'
-import { islands, islandStories } from './sea.ts'
+import { islandAt, islands, islandStories } from './sea.ts'
 
 const locationNames: Record<string, LocationId> = {
   ...Object.fromEntries(Object.entries(locations).map(([id, name]) => [name, id as LocationId])),
@@ -12,6 +12,14 @@ const locationNames: Record<string, LocationId> = {
   小路: 'road', 村道: 'road', 村外: 'road',
   科爾波山: 'hill', 山道: 'hill', 山徑: 'hill', 山上: 'hill',
   哥亞王國: 'goa', 哥亞: 'goa', 王國: 'goa', 城下町: 'goa',
+  海軍基地: 'marineBase', 基地: 'marineBase', 第153分部: 'marineBase', 基地廣場: 'marineBase', 刑場: 'marineBase',
+  寵物店廢墟: 'petShop',
+}
+/** Generic words that mean "the one on this island", resolved against the speaker's current island. */
+const portOf = Object.fromEntries(Object.entries(islands).map(([id, island]) => [id, island.port])) as Record<IslandId, LocationId>
+const localAliases: Record<string, Partial<Record<IslandId, LocationId>>> = {
+  港口: portOf, 碼頭: portOf, 港邊: portOf, 船邊: portOf,
+  大街: { shells: 'shellsTown', orange: 'orangeStreet' }, 鎮上: { shells: 'shellsTown', orange: 'orangeStreet' },
 }
 const weaponWords: Record<string, Weapon> = {
   普通武士刀: 'sword', 武士刀: 'sword', 刀: 'sword', 普通長槍: 'spear', 長槍: 'spear', 普通火槍: 'musket', 火槍: 'musket',
@@ -121,7 +129,7 @@ function seaIntent(text: string): Intent | undefined {
   if (/^(?:出海|出航|啟航|開船)$/.test(text)) return { kind: 'sail', order: 'depart' }
 }
 
-export function familiarIntent(input: string): Intent | undefined {
+export function familiarIntent(input: string, here?: LocationId): Intent | undefined {
   const question = sceneQuestion(input)
   if (question) return { kind: question }
   const text = input.trim().replace(/[。！!?？]+$/, '')
@@ -153,8 +161,9 @@ export function familiarIntent(input: string): Intent | undefined {
   if (text === '防守') return { kind: 'guard' }
   if (text === '撤退') return { kind: 'flee' }
   const movement = /^(?:前往|走到|走去|走向|走進|進入|移動到|跑到|回到|返回|去|到|回)\s*([^，,。\s]+?)(?:\s*[，,、]?\s*(?:再|然後)?\s*(找|問|拜訪|跟|和|向)([^，,。]+))?$/.exec(text)
-  if (movement && Object.hasOwn(locationNames, movement[1])) {
-    const destination = locationNames[movement[1]]
+  const local = movement && here ? localAliases[movement[1]]?.[islandAt(here)] : undefined
+  if (movement && (local || Object.hasOwn(locationNames, movement[1]))) {
+    const destination = local ?? locationNames[movement[1]]
     const next = movement[2] && talkIntent(movement[2] + movement[3])
     if (next) return { kind: 'move', to: destination, talkTo: next.npc }
     return { kind: 'move', to: destination }

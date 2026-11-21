@@ -176,7 +176,7 @@ export function resolveIslandTask(world: World, actor: Member, intent: TaskInten
       return { text: '搜索 D20 ' + die + '，合計 ' + check + '／11。' + story.find + '回' + locations[story.meeting] + '交付。', minutes: 10, announce: true }
     }
     task.attempts = (task.attempts ?? 0) + 1
-    return { text: '搜索 D20 ' + die + '，合計 ' + check + '／11。你錯過了痕跡，但已排除一段岸線。再搜索會比較容易。', minutes: 10 }
+    return { text: '搜索 D20 ' + die + '，合計 ' + check + '／11。' + (story.miss ?? '你錯過了痕跡，但已排除一段岸線。再搜索會比較容易。'), minutes: 10 }
   }
   if (task.stage !== 'found' || c.place !== story.meeting) return stop('先完成搜索，再回' + locations[story.meeting] + '交付。')
   task.stage = 'done'

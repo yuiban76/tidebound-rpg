@@ -13,6 +13,8 @@ export const paths: Record<LocationId, LocationId[]> = {
   dock: ['square', 'road'], road: ['square', 'dock', 'hill', 'goa'], hill: ['road'], goa: ['road'],
   lanternPort: ['lighthouse'], lighthouse: ['lanternPort', 'tideCave'], tideCave: ['lighthouse'],
   mistPort: ['netSlope'], netSlope: ['mistPort', 'whiteBay'], whiteBay: ['netSlope'],
+  shellsPort: ['shellsTown'], shellsTown: ['shellsPort', 'marineBase'], marineBase: ['shellsTown'],
+  orangePort: ['orangeStreet'], orangeStreet: ['orangePort', 'petShop'], petShop: ['orangeStreet'],
 }
 /** Game minutes to walk one path segment. The Goa Kingdom lies beyond the forest road. */
 export function walkMinutes(from: LocationId, to: LocationId) {
@@ -26,6 +28,12 @@ export const people: Record<NpcId, { place: LocationId, role: string, known: str
   lamplighter: { place: 'lighthouse', role: '守燈人', known: '防波堤旁滅了一盞燈。備用透鏡落在海蝕洞裡，我需要它讓航道重新點亮。' },
   sounder: { place: 'netSlope', role: '領潮員', known: '一艘測潮艇早上漂到白灘灣，探潮人也還沒回來，請沿著岸邊找找。' },
   mayor: { place: 'square', role: '風車村村長', known: '魯夫那小子今早真的出海當海賊去了。村民都是老實人；有事可以去港口找提奧，或到酒吧找瑪琪諾。' },
+  // Canon East Blue snapshot for the starting day. These are present states, not scripted futures:
+  // what happens next depends on the players.
+  rika: { place: 'shellsTown', role: '鎮上的小女孩', known: '劍士索隆被綁在海軍基地的廣場上，好幾天沒吃東西了。她做了飯糰想送去，但上校的兒子貝魯梅柏不准任何人靠近。' },
+  zoro: { place: 'marineBase', role: '被綁在基地廣場的劍士', known: '他砍了上校兒子養的狼，和對方約好撐過一個月就放人。他不要別人替他鬆綁，只是餓得厲害。' },
+  boodle: { place: 'orangeStreet', role: '橘子鎮鎮長', known: '小丑巴其海賊團佔據了鎮上，居民都躲到郊外。小狗修修還守著已故主人留下的寵物店，不肯離開。' },
+  chouchou: { place: 'petShop', role: '守著寵物店的小狗', known: '牠守著已故主人留下的寵物店。店裡的狗糧袋被海賊踢散了，門板也壞了。' },
 }
 export const boatCrewReplies: Partial<Record<NpcId, string>> = {
   keeper: '是魯夫喔。他天一亮就乘著小船出海，說要成為海賊王。港口的提奧負責登記船隻，細節可以問他。',
@@ -45,6 +53,12 @@ export const landmarks: Record<LocationId, string> = {
   mistPort: '停泊或搭船離開霧灣島',
   netSlope: '找領潮員洛汀',
   whiteBay: '沿岸搜索漂流船和探潮人',
+  shellsPort: '停泊或搭船離開謝爾茲鎮',
+  shellsTown: '找莉卡，鎮民都很怕海軍上校',
+  marineBase: '基地廣場綁著劍士索隆',
+  orangePort: '停泊或搭船離開橘子鎮',
+  orangeStreet: '找布德鎮長，街上空無一人',
+  petShop: '小狗修修守著的店',
 }
 export const meals = {
   bread: { name: '烤麵包', price: 15 },
