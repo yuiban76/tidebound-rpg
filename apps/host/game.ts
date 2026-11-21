@@ -386,6 +386,7 @@ export class Game {
       party: party(world).map(m => m.character!.name),
       partyHere: party(world).filter(m => m.character!.place === c.place).map(m => m.character!.name),
       items: c.inventory,
+      chronicle: world.chronicle ?? [],
     }
   }
   private kick(code: string) {
@@ -475,7 +476,8 @@ export class Game {
           for (const item of news) this.store.entry({ ...world, minute: item.minute }, null, 'world', item.text)
         }
         this.store.entry(world, result.announce ? null : job.actor, 'result', text, id)
-        const story = result.free ? { free: true, recent: this.recentStory(world, job.actor) } : {}
+        const story = result.free
+          ? { free: true, outcome: result.text, chronicle: world.chronicle ?? [], recent: this.recentStory(world, job.actor) } : {}
         this.store.outcome(code, id, text, !!result.announce, { ...narrationContext, ...story, input: job.text, question }, narrate)
       })
       if (!narrate) return

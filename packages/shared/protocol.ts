@@ -67,6 +67,7 @@ export type AiStatus = {
   errorCategory?: AiErrorCategory
 }
 
+export const freeDifficulties = ['easy', 'normal', 'hard', 'extreme'] as const
 export const intentSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('move'), to: z.enum(locationIds), talkTo: z.enum(npcIds).optional() }),
   z.strictObject({ kind: z.literal('guide') }),
@@ -94,7 +95,13 @@ export const intentSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('equip'), weapon: z.enum(weapons) }),
   z.strictObject({ kind: z.literal('reload') }),
   z.strictObject({ kind: z.literal('social') }),
-  z.strictObject({ kind: z.literal('free') }),
+  z.strictObject({
+    kind: z.literal('free'),
+    /** Present when the outcome is uncertain: the rules roll D20 + attribute + skill against the difficulty. */
+    check: z.strictObject({ attr: z.enum(attributes), skill: z.enum(skills).optional(), difficulty: z.enum(freeDifficulties) }).optional(),
+    /** The NPC on the scene the action is aimed at, whose knowledge records the outcome. */
+    npc: z.enum(npcIds).optional(),
+  }),
   z.strictObject({ kind: z.literal('unsupported') }),
 ])
 export type Intent = z.infer<typeof intentSchema>

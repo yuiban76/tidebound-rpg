@@ -270,6 +270,36 @@ test('規則沒有對應的行動交給 AI 自由寫劇情，並帶上最近的�
   assert.equal(game.room(code).combat, undefined)
 })
 
+test('有風險的自由行動由規則擲骰，成敗寫進世界紀錄與對象 NPC 的已知事實，可偏離主線', async t => {
+  const { game, ai, code, ids } = await withGame(t)
+  ready(game, code, ids)
+  await game.start(code)
+  await act(game, code, ids[0], '前往派對酒吧')
+  const roller = game.store.roller
+  t.after(() => { game.store.roller = roller })
+  const check = { attr: 'STR', skill: '格鬥', difficulty: 'hard' } as const
+
+  game.store.roller = () => () => 20
+  ai.next({ kind: 'free', check, npc: 'keeper' })
+  const success = await act(game, code, ids[0], '把吧台整個抬起來')
+  assert.match(success, /自由行動判定（力量・格鬥）D20 20，合計 \d+／16，成功/)
+  const world = game.room(code)
+  assert.match(world.chronicle!.at(-1)!, /嘗試「把吧台整個抬起來」，成功了/)
+  assert.match(world.npcFacts!.keeper!, /最近：.*成功了/)
+  const prompt = JSON.parse(ai.seen.filter(call => call.kind === 'narrative').at(-1)!.content)
+  assert.match(prompt.outcome, /成功/)
+  assert.deepEqual(prompt.chronicle, world.chronicle)
+
+  game.store.roller = () => () => 1
+  ai.next({ kind: 'free', check: { attr: 'AGI', difficulty: 'easy' } })
+  assert.match(await act(game, code, ids[0], '從窗戶翻出去'), /D20 1，合計 \d+／8，失敗/)
+  assert.match(game.room(code).chronicle!.at(-1)!, /失敗了/)
+  // The next classifier call sees the chronicle, so later actions build on what happened.
+  await act(game, code, ids[0], '環顧四周')
+  const intent = JSON.parse(ai.seen.filter(call => call.kind === 'intent').at(-1)!.content)
+  assert.equal(intent.context.chronicle.length, 2)
+})
+
 test('分隔符號前後的移動與交談依序結算，模型收到抵達後的 NPC 情境', async t => {
   const { game, ai, code, ids } = await withGame(t)
   ready(game, code, ids)

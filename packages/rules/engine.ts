@@ -16,6 +16,28 @@ export type Result = {
   free?: boolean,
 }
 const freeAction = (): Result => ({ text: '自由行動。', minutes: 10, free: true })
+const freeDc = { easy: 8, normal: 12, hard: 16, extreme: 20 } as const
+
+/** A free action with an uncertain outcome: the dice decide, and the result is written into the world. */
+function checkedFreeAction(world: World, c: Character, intent: Extract<Intent, { kind: 'free' }>, raw: string, roll: Roll): Result {
+  if (!intent.check) return freeAction()
+  const { attr, skill, difficulty } = intent.check
+  const dc = freeDc[difficulty]
+  const natural = roll(20)
+  const total = natural + c.stats[attr] + (skill ? c.skillRanks[skill] ?? 0 : 0)
+  const success = natural === 20 || (natural !== 1 && total >= dc)
+  const label = attributeLabels[attr] + (skill ? '・' + skill : '')
+  const record = c.name + '在' + locations[c.place] + '嘗試「' + raw.trim().slice(0, 60) + '」，' + (success ? '成功' : '失敗') + '了。'
+  world.chronicle = [...(world.chronicle ?? []), record].slice(-12)
+  if (intent.npc && npcPlace(world, intent.npc) === c.place) {
+    const [known, ...recent] = npcFacts(world, intent.npc).split(' 最近：')
+    ;(world.npcFacts ??= {})[intent.npc] = [known, ...recent.slice(-2), record].join(' 最近：')
+  }
+  return {
+    text: '自由行動判定（' + label + '）D20 ' + natural + '，合計 ' + total + '／' + dc + '，' + (success ? '成功' : '失敗') + '。',
+    minutes: 10, free: true,
+  }
+}
 const reject = (text: string): Result => ({ text, rejected: true })
 
 export const maxHP = (c: Character) => 20 + 5 * c.stats.CON + 2 * (c.level - 1)
@@ -405,6 +427,7 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
       return withXp({ text: target.name + '接受包紮，目前 HP ' + target.hp + '。', minutes: 5 }, grantXp(c, 5, 'aid'))
     }
     case 'social': return { ...freeAction(), minutes: 3 }
+    case 'free': return checkedFreeAction(world, c, intent, raw, roll)
     default:
       if (/離開(?:這座島|風車村|黎明島)|出海|別的島|跨島|下一座島/.test(raw))
         return reject('跨島請使用航海面板，和全隊共同出航。' + (!world.ship ? shipPurchaseInfo : ''))

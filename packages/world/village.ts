@@ -144,6 +144,8 @@ export type World = {
   npcFacts?: Partial<Record<NpcId, string>>
   /** Timeline events that already fired, and whether players changed the outcome. */
   timeline?: Record<string, 'canon' | 'changed'>
+  /** Dice-checked free actions, newest last. Every AI prompt sees them so the story can leave canon. */
+  chronicle?: string[]
 }
 
 export function npcPlace(world: Pick<World, 'npcPlaces'>, npc: NpcId): LocationId | null {
