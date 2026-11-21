@@ -1,6 +1,7 @@
 import type { NpcId } from '../shared/protocol.ts'
-import { canonTimeline, minuteOf } from './canon.ts'
+import { canonTimeline, luffyRoute, minuteOf } from './canon.ts'
 import type { WorldEffect } from './canon.ts'
+import { locations, npcs } from '../shared/protocol.ts'
 import { islandAt, islands } from './sea.ts'
 import { party } from './village.ts'
 import type { World } from './village.ts'
@@ -35,5 +36,16 @@ export function advanceTimeline(world: World) {
       text: (witnessed ? '【目擊】' : '【報紙】') + islands[event.island].name + '・' + event.title + '：' + (change?.text ?? event.text),
     })
   }
-  return news
+  // Luffy moves on his own schedule. Players only hear about it when they are there to see him arrive.
+  for (const stop of luffyRoute) {
+    const at = minuteOf(stop.at)
+    const key = 'luffy@' + stop.at.join('-')
+    if (at > world.minute || world.timeline?.[key]) continue
+    ;(world.timeline ??= {})[key] = 'canon'
+    if (stop.unless && world.islandTasks?.[stop.unless]?.stage === 'done') continue
+    applyEffect(world, { move: { luffy: stop.place }, ...(stop.facts && { facts: { luffy: stop.facts } }) })
+    if (stop.place && party(world).some(member => islandAt(member.character!.place) === islandAt(stop.place!)))
+      news.push({ minute: at, text: '【目擊】戴草帽的少年' + npcs.luffy + '出現在' + locations[stop.place] + '。' })
+  }
+  return news.sort((a, b) => a.minute - b.minute)
 }

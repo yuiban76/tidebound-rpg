@@ -141,6 +141,8 @@ export const canonPeople: Record<keyof typeof canonNpcs, { place: LocationId | n
   ace: { place: null, role: '白鬍子海賊團第二隊隊長', known: '火拳艾斯正在追捕叛徒黑鬍子。' },
   sengoku: { place: 'hqFortress', role: '海軍元帥', known: '海軍的最高指揮官，被稱為「佛之戰國」。' },
   whitebeard: { place: null, role: '四皇', known: '把船員都當作自己兒子的大海賊，白鬍子海賊團的船長。' },
+  // Luffy is not the player. He sails his own canon route (luffyRoute) and the party may cross paths with him.
+  luffy: { place: null, role: '戴草帽的少年', known: '吃了橡膠果實、身體能像橡膠一樣伸縮的少年。他說要成為海賊王，正在找夥伴。' },
 }
 
 // East Blue lanes are open water. Grand Line lanes need a Log Pose and mostly run one way.
@@ -325,6 +327,65 @@ export const canonStories: Record<CanonIslandId, IslandStory> = {
 }
 
 // Canon events on the in-game calendar (Day 1 08:00 is the morning Luffy leaves Foosha Village).
+/** One step of Luffy's own voyage: where he is from that moment (null: at sea), and what he can tell people. */
+export type RouteStop = { at: [number, number], place: LocationId | null, facts?: string, unless?: IslandId }
+
+// Luffy follows the canon route on the same calendar as the timeline, independent of the players.
+// `unless` skips a stop when the players' finished quest has removed his reason to be there.
+export const luffyRoute: RouteStop[] = [
+  { at: [2, 8], place: 'shellsTown' },
+  { at: [2, 16], place: null, facts: '剛讓劍士索隆成為夥伴，兩個人乘著小船繼續找夥伴。' },
+  { at: [3, 10], place: 'orangeStreet' },
+  { at: [3, 18], place: null, facts: '航海士娜美暫時跟他們同行，她說只是合作關係。' },
+  { at: [3, 22], place: 'syrupVillage' },
+  { at: [4, 12], place: null, facts: '騙人布加入了，他們還得到一艘叫前進梅利號的船。' },
+  { at: [5, 20], place: 'baratieHall' },
+  { at: [6, 18], place: null, facts: '在海上餐廳找到了廚師香吉士，一夥人正追著娜美出海。' },
+  { at: [7, 14], place: 'cocoyasiVillage' },
+  { at: [8, 20], place: null, facts: '草帽一夥的旗子豎起來了：劍士、航海士、狙擊手、廚師都到齊了。' },
+  { at: [9, 12], place: 'logueSquare' },
+  { at: [9, 20], place: null, facts: '草帽一夥正朝偉大航路前進。' },
+  { at: [10, 12], place: 'capeLighthouse' },
+  { at: [11, 6], place: null },
+  { at: [11, 20], place: 'whiskyTown' },
+  { at: [12, 4], place: null, facts: '答應護送阿拉巴斯坦的公主薇薇回國。' },
+  { at: [13, 12], place: 'giantsArena' },
+  { at: [14, 16], place: null },
+  { at: [16, 10], place: 'bighorn' },
+  { at: [17, 8], place: 'drumCastle' },
+  { at: [18, 14], place: null, facts: '船上多了一隻會說話的馴鹿醫生喬巴。' },
+  { at: [21, 10], place: 'nanohana' },
+  { at: [23, 10], place: 'rainbase' },
+  { at: [25, 10], place: 'alubarna' },
+  { at: [27, 8], place: null, facts: '在阿拉巴斯坦和薇薇道別後，考古學家妮可・羅賓上了他們的船。' },
+  { at: [28, 12], place: 'mockTown' },
+  { at: [29, 6], place: 'cricketHouse' },
+  { at: [29, 12], place: null },
+  { at: [30, 10], place: 'angelBeach' },
+  { at: [33, 12], place: 'godShrine' },
+  { at: [34, 8], place: null, facts: '從空島回來了，說天上真的有黃金。' },
+  { at: [40, 10], place: 'water7Port' },
+  { at: [44, 10], place: 'galleyLa' },
+  { at: [46, 12], place: null, facts: '羅賓被帶走了，他正追著海列車去司法島。' },
+  { at: [48, 8], place: 'justiceTower' },
+  { at: [48, 14], place: null },
+  { at: [49, 8], place: 'water7Port', facts: '從司法島救回羅賓。佛朗基替他們造了新船千陽號，也成了船匠夥伴。' },
+  { at: [53, 8], place: null },
+  { at: [55, 10], place: 'thrillerDock' },
+  { at: [56, 4], place: 'moriaMansion' },
+  { at: [56, 12], place: null, facts: '骷髏音樂家布魯克加入了，草帽一夥共有九個人。' },
+  { at: [57, 10], place: 'sabaodyGrove' },
+  { at: [58, 12], place: 'auctionHouse' },
+  { at: [59, 12], place: null, facts: '在夏波帝被巴索羅繆・大熊打散，下落不明。' },
+  { at: [61, 10], place: 'kujaCastle', facts: '被大熊打飛到女兒島，聽說哥哥艾斯要被處刑，急著去救他。' },
+  { at: [63, 8], place: null },
+  { at: [64, 10], place: 'impelGate', unless: 'impelDown' },
+  { at: [66, 8], place: 'impelLevel5', unless: 'impelDown' },
+  { at: [70, 6], place: null },
+  { at: [72, 12], place: 'scaffold', unless: 'impelDown' },
+  { at: [72, 20], place: null, facts: '頂上戰爭結束後，他的消息暫時斷了。' },
+]
+
 export const canonTimeline: CanonEvent[] = [
   { id: 'shells', at: [2, 12], island: 'shells', title: '謝爾茲鎮的海軍上校倒下',
     text: '戴草帽的少年在謝爾茲鎮擊敗了海軍上校蒙卡，被綁在基地廣場的劍士索隆成為他的第一個夥伴。',

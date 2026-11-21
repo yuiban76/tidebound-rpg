@@ -48,4 +48,5 @@ export const canonNpcs = {
   hancock: '波雅・漢考克', nyon: '尼歐魯皇太后',
   magellan: '麥哲倫', ivankov: '伊娃可夫', ace: '艾斯',
   sengoku: '戰國', whitebeard: '白鬍子',
+  luffy: '魯夫',
 } as const
