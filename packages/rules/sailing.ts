@@ -4,6 +4,8 @@ import { ballotCount, boatYard, islandAt, islands, islandStories, paceNames, rou
 import type { RouteChoice } from '../world/sea.ts'
 import { party } from '../world/village.ts'
 import type { Member, World } from '../world/village.ts'
+import { minuteOf } from '../world/canon.ts'
+import { applyEffect } from '../world/timeline.ts'
 import { grantXp } from './engine.ts'
 import type { Result, Roll } from './engine.ts'
 
@@ -118,6 +120,11 @@ export function resolveSailing(world: World, actor: Member, intent: SeaIntent, r
     return stop('航線已通過。每位玩家都需要點「我準備出航」或輸入「準備出航」。')
   const route = options.find(link => link.to === option.to)
   if (!route) return stop('這條航線無法由現在的港口起航。')
+  // Spec §9: the Grand Line follows the Log Pose, not a free menu of islands.
+  if (route.logPose && !party(world).some(m => m.character!.inventory['記錄指針']))
+    return stop('偉大航路的磁場會讓普通羅盤失靈，隊伍裡必須有人帶著記錄指針才能出航。羅格鎮的一本松武器店有賣。')
+  if (route.needsTask && world.islandTasks?.[route.needsTask]?.stage !== 'done')
+    return stop('這條航線要先完成「' + islandStories[route.needsTask]?.title + '」才能出發。')
 
   const navigator = Math.max(...party(world).map(m => m.character!.stats.INT + (m.character!.skillRanks['航海'] ?? 0)))
   const natural = roll(20)
@@ -125,7 +132,7 @@ export function resolveSailing(world: World, actor: Member, intent: SeaIntent, r
   const base = Math.ceil(route.miles * 60 / boatYard.speed)
   const fast = option.pace === 'fast'
   const minutes = Math.max(20, (fast ? Math.ceil(base * .82) : base + 16) + (score < 9 ? 24 : score >= 18 ? -12 : 0))
-  const damage = fast ? (score < 9 ? 22 : score < 15 ? 8 : 2) : (score < 9 ? 4 : 0)
+  const damage = (fast ? (score < 9 ? 22 : score < 15 ? 8 : 2) : (score < 9 ? 4 : 0)) + (route.hazard?.damage ?? 0)
   const before = ship.hull
   ship.hull = Math.max(1, ship.hull - damage)
   ship.port = islands[option.to].port
@@ -135,16 +142,17 @@ export function resolveSailing(world: World, actor: Member, intent: SeaIntent, r
     member.character!.place = ship.port
     member.character!.conversingWith = null
     // Reaching a new island is meaningful exploration; the home island pays nothing.
-    if (option.to !== 'wind') discoveries.push(grantXp(member.character!, 20, 'island:' + option.to))
+    if (option.to !== 'wind') discoveries.push(grantXp(member.character!, route.logPose ? 50 : 20, 'island:' + option.to))
   }
   delete world.sailing
   const weather = score < 9 ? '遇見逆風與碎浪' : score >= 18 ? '順著有利的海流' : '越過平穩海面'
   return {
     text: '迎潮號從' + islands[from].name + '出航，以' + paceNames[option.pace] + '航行 ' + route.miles +
       ' 海里。航海 D20 ' + natural + '＋' + navigator + '＝' + score + '，' + weather +
-      '，耗時 ' + minutes + ' 分鐘。\n全隊抵達' + islands[option.to].name + '的' + locations[ship.port] +
+      (route.hazard ? '，' + route.hazard.name : '') +
+      '，耗時 ' + duration(minutes) + '。\n全隊抵達' + islands[option.to].name + '的' + locations[ship.port] +
       '。船體 ' + before + ' → ' + ship.hull + '／100。' +
-      (islandStories[option.to] && world.islandTasks?.[option.to]?.stage !== 'done'
+      (islandStories[option.to] && !['done', 'closed'].includes(world.islandTasks?.[option.to]?.stage ?? '')
         ? '\n島上消息：' + islandStories[option.to]!.title + '。可找' + npcs[islandStories[option.to]!.guide] + '。' : '') +
       discoveries.filter(Boolean).map(text => '\n' + text).join(''),
     minutes, announce: true,
@@ -158,29 +166,53 @@ export function resolveIslandTask(world: World, actor: Member, intent: TaskInten
   if (!story) return stop('此處可在碼頭找提奧打聽潮汐簿。')
   const task = world.islandTasks?.[island]
   if (task?.stage === 'done') return stop('這項島上事件已處理完畢。')
+  if (task?.stage === 'closed') return stop('「' + story.title + '」已經落幕，這件事由別人了結了。')
+  if (story.blockedBy && world.islandTasks?.[story.blockedBy]?.stage === 'done')
+    return stop('情勢已經改變，「' + story.title + '」不會再發生了。')
   if (intent.step === 'accept') {
     if (c.place !== story.meeting) return stop('請先到' + locations[story.meeting] + '接委託。')
     if (task) return stop('隊伍已接下這項委託。')
+    if (story.availableFrom && world.minute < minuteOf(story.availableFrom)) return stop('這裡目前還沒有相關的動靜。')
+    const level = Math.max(...party(world).map(m => m.character!.level))
+    if (story.minLevel && level < story.minLevel)
+      return stop('這裡的局勢遠超你們目前的實力，貿然插手只會送命（建議等級 ' + story.minLevel + '，隊伍最高等級 ' + level + '）。')
     world.islandTasks ??= {}
     world.islandTasks[island] = { stage: 'active' }
     return { text: story.lead, minutes: 3 }
   }
   if (!task) return stop('請先接下「' + story.title + '」。')
   if (intent.step === 'search') {
-    if (c.place !== story.search) return stop('要在' + locations[story.search] + '調查。')
-    if (task.stage === 'found') return stop('搜索已完成。回' + locations[story.meeting] + '交付。')
+    if (c.place !== story.search) return stop('要在' + locations[story.search] + '行動。')
+    if (task.stage === 'found') return stop('這一步已完成。回' + locations[story.meeting] + '交付。')
+    const { attr, skill } = story.check ?? { attr: 'PER', skill: '觀察' }
+    const dc = story.dc ?? 11
+    const minutes = story.searchMinutes ?? 10
     const die = roll(20)
-    const check = die + c.stats.PER + (c.skillRanks['觀察'] ?? 0) + (task.attempts ?? 0) * 3
-    if (check >= 11) {
+    const check = die + c.stats[attr] + (c.skillRanks[skill] ?? 0) + (task.attempts ?? 0) * (story.retry ?? 3)
+    const line = '判定 D20 ' + die + '，合計 ' + check + '／' + dc + '。'
+    if (check >= dc) {
       task.stage = 'found'
-      return { text: '搜索 D20 ' + die + '，合計 ' + check + '／11。' + story.find + '回' + locations[story.meeting] + '交付。', minutes: 10, announce: true }
+      return { text: line + story.find + '回' + locations[story.meeting] + '交付。', minutes, announce: true }
     }
     task.attempts = (task.attempts ?? 0) + 1
-    return { text: '搜索 D20 ' + die + '，合計 ' + check + '／11。' + (story.miss ?? '你錯過了痕跡，但已排除一段岸線。再搜索會比較容易。'), minutes: 10 }
+    return { text: line + (story.miss ?? '你錯過了痕跡，但已排除一段岸線。再搜索會比較容易。'), minutes }
   }
-  if (task.stage !== 'found' || c.place !== story.meeting) return stop('先完成搜索，再回' + locations[story.meeting] + '交付。')
+  if (task.stage !== 'found' || c.place !== story.meeting) return stop('先完成上一步，再回' + locations[story.meeting] + '交付。')
   task.stage = 'done'
   c.money += story.reward
   if (world.ship) world.ship.wood += 2
-  return { text: story.close + c.name + '取得 ' + story.reward + ' 貝里。船上補充兩份木料。\n' + grantXp(c, 60), minutes: 5, announce: true }
+  applyEffect(world, story.onDone)
+  // Everyone on the island shares the experience of a finished island quest.
+  const rewards = party(world).filter(m => islandAt(m.character!.place) === island)
+    .map(m => grantXp(m.character!, story.xp ?? 60)).filter(Boolean)
+  return {
+    text: story.close + (story.reward ? c.name + '取得 ' + story.reward + ' 貝里。' : '') + '船上補充兩份木料。\n' + rewards.join('\n'),
+    minutes: 5, announce: true,
+  }
+}
+
+function duration(minutes: number) {
+  const days = Math.floor(minutes / 1440)
+  const hours = Math.floor(minutes % 1440 / 60)
+  return minutes < 120 ? minutes + ' 分鐘' : (days ? days + ' 天' : '') + (hours ? hours + ' 小時' : '')
 }

@@ -1,6 +1,13 @@
 import type { CharacterInput, Intent, IslandId, LocationId, NpcId, Weapon } from '../shared/protocol.ts'
 import { npcs } from '../shared/protocol.ts'
 import type { Ship, SailingPlan, IslandTask } from './sea.ts'
+import { canonIslands, canonPeople } from './canon.ts'
+
+/** Canon islands are laid out as port ↔ second place ↔ third place. */
+const canonPaths = Object.fromEntries(Object.values(canonIslands).flatMap(({ places: [[a], [b], [c]] }) =>
+  [[a, [b]], [b, [a, c]], [c, [b]]])) as Record<string, LocationId[]>
+const canonLandmarks = Object.fromEntries(Object.values(canonIslands).flatMap(island =>
+  island.places.map(([id, , landmark]) => [id, landmark]))) as Record<string, string>
 
 // Canon start snapshot (spec §1.2): the morning Luffy leaves Foosha Village on Dawn Island, before he meets Zoro.
 // Named canon people only appear through facts stated here; the 潮汐簿 side quest and its cast are original.
@@ -8,19 +15,22 @@ export const opening = '今天清晨，魯夫乘著一艘小船離開了黎明�
   '你們是相識多年的朋友，此刻在風車村廣場碰頭。你們還沒有海賊團、船長或共同的船；派對酒吧飄來瑪琪諾烤麵包的香氣。' +
   '往哪裡去、要成為什麼樣的人，由你們自己決定。'
 export const tideEvent = { minute: 8 * 60 + 30, text: '風車村港口響起漲潮鐘。提奧在木樁上劃下今天的第一道水位記號。' }
-export const paths: Record<LocationId, LocationId[]> = {
+export const paths = {
   square: ['tavern', 'dock', 'road'], tavern: ['square'],
   dock: ['square', 'road'], road: ['square', 'dock', 'hill', 'goa'], hill: ['road'], goa: ['road'],
   lanternPort: ['lighthouse'], lighthouse: ['lanternPort', 'tideCave'], tideCave: ['lighthouse'],
   mistPort: ['netSlope'], netSlope: ['mistPort', 'whiteBay'], whiteBay: ['netSlope'],
   shellsPort: ['shellsTown'], shellsTown: ['shellsPort', 'marineBase'], marineBase: ['shellsTown'],
   orangePort: ['orangeStreet'], orangeStreet: ['orangePort', 'petShop'], petShop: ['orangeStreet'],
-}
+  ...canonPaths,
+} as Record<LocationId, LocationId[]>
 /** Game minutes to walk one path segment. The Goa Kingdom lies beyond the forest road. */
 export function walkMinutes(from: LocationId, to: LocationId) {
   return from === 'goa' || to === 'goa' ? 40 : 6
 }
-export const people: Record<NpcId, { place: LocationId, role: string, known: string }> = {
+/** Starting place (null: away at sea), role and Day-1 knowledge. The timeline can change both via World. */
+export const people: Record<NpcId, { place: LocationId | null, role: string, known: string }> = {
+  ...canonPeople,
   keeper: { place: 'tavern', role: '派對酒吧老闆娘', known: '魯夫今天清晨乘小船出海了，說要成為海賊王。港口的提奧正在尋找遺失的潮汐簿。' },
   clerk: { place: 'dock', role: '港務記錄員', known: '港務的潮汐簿失蹤了。昨夜的搬運工曾往科爾波山山道去。' },
   watch: { place: 'road', role: '巡守', known: '昨晚有人抱著包裹往山坡走，可在山道注意鞋印。科爾波山深處是山賊的地盤，別走太深。' },
@@ -40,7 +50,7 @@ export const boatCrewReplies: Partial<Record<NpcId, string>> = {
   clerk: '那艘小艇是魯夫的，他沒來登記就出港了，船上只有他一個人。',
   mayor: '那是魯夫的小船！那小子終於出海了，真是不讓人省心。',
 }
-export const landmarks: Record<LocationId, string> = {
+export const landmarks = {
   square: '村子的集合點，村長常在這裡',
   tavern: '找瑪琪諾聊天或點餐',
   dock: '找提奧問潮汐簿，補給鋪與船塢也在這裡',
@@ -59,18 +69,20 @@ export const landmarks: Record<LocationId, string> = {
   orangePort: '停泊或搭船離開橘子鎮',
   orangeStreet: '找布德鎮長，街上空無一人',
   petShop: '小狗修修守著的店',
-}
+  ...canonLandmarks,
+} as Record<LocationId, string>
 export const meals = {
   bread: { name: '烤麵包', price: 15 },
   rice: { name: '燉肉飯', price: 35 },
 }
 
-export const shops: Partial<Record<LocationId, string>> = { dock: '港口補給鋪', goa: '城下町武器鋪' }
+export const shops: Partial<Record<LocationId, string>> = { dock: '港口補給鋪', goa: '城下町武器鋪', logueShop: '一本松武器店' }
 export const goods = {
   spear: { label: '普通長槍', price: 500, initial: 1, shop: 'dock' },
   bandage: { label: '繃帶', price: 80, initial: 4, shop: 'dock' },
   bullets: { label: '火槍彈藥', price: 30, initial: 12, shop: 'dock' },
   sword: { label: '普通武士刀', price: 600, initial: 2, shop: 'goa' },
+  logPose: { label: '記錄指針', price: 1000, initial: 4, shop: 'logueShop' },
 } as const satisfies Record<string, { label: string, price: number, initial: number, shop: LocationId }>
 export type Good = keyof typeof goods
 /** Inventory item that lets a character wield each weapon. Bare hands need nothing. */
@@ -126,6 +138,23 @@ export type World = {
   ship?: Ship
   sailing?: SailingPlan
   islandTasks?: Partial<Record<IslandId, IslandTask>>
+  /** NPC places changed by the timeline or quests; null means gone. Overrides people[npc].place. */
+  npcPlaces?: Partial<Record<NpcId, LocationId | null>>
+  /** NPC knowledge changed by the timeline or quests. Overrides people[npc].known. */
+  npcFacts?: Partial<Record<NpcId, string>>
+  /** Timeline events that already fired, and whether players changed the outcome. */
+  timeline?: Record<string, 'canon' | 'changed'>
+}
+
+export function npcPlace(world: Pick<World, 'npcPlaces'>, npc: NpcId): LocationId | null {
+  const moved = world.npcPlaces?.[npc]
+  return moved !== undefined ? moved : people[npc].place
+}
+export function npcFacts(world: Pick<World, 'npcFacts'>, npc: NpcId) {
+  return world.npcFacts?.[npc] ?? people[npc].known
+}
+export function npcsAt(world: Pick<World, 'npcPlaces'>, place: LocationId) {
+  return (Object.keys(people) as NpcId[]).filter(npc => npcPlace(world, npc) === place)
 }
 
 /** The N of spec §1.3: joined players who hold an admitted character. Disconnected members still count. */

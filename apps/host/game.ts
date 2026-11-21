@@ -4,7 +4,8 @@ import { aiInput, locations, npcs } from '../../packages/shared/protocol.ts'
 import type { Intent, Message, NpcId } from '../../packages/shared/protocol.ts'
 import { allocatePoint, guideFor, makeCharacter, needsReview, resolve, voteThreshold } from '../../packages/rules/engine.ts'
 import { asksAboutShipPurchase, dialogueQuestion, familiarIntent, sceneQuestion } from '../../packages/world/explore.ts'
-import { opening, party, paths, people, tideEvent } from '../../packages/world/village.ts'
+import { npcFacts, npcPlace, npcsAt, opening, party, paths, people, tideEvent } from '../../packages/world/village.ts'
+import { advanceTimeline } from '../../packages/world/timeline.ts'
 import { islandAt, islands, routesFrom, shipPurchaseInfo } from '../../packages/world/sea.ts'
 import { sellMainShip, shipSaleBlock } from '../../packages/rules/sailing.ts'
 import type { Member, World } from '../../packages/world/village.ts'
@@ -354,17 +355,16 @@ export class Game {
       ? this.store.lastConversation(world.code, actor.id, locations[c.place])
       : c.conversingWith
     const npc = candidate as NpcId | null | undefined
-    if (npc && Object.hasOwn(people, npc) && people[npc].place === c.place) return npc
+    if (npc && Object.hasOwn(people, npc) && npcPlace(world, npc) === c.place) return npc
   }
 
   private context(world: World, actor: Member, intent?: Intent) {
     const c = actor.character!
-    const local = Object.entries(people).filter(([, person]) => person.place === c.place).map(([id, person]) => {
-      const key = id as keyof typeof people
-      return { id: key, name: npcs[key], role: person.role,
+    const local = npcsAt(world, c.place).map(key => {
+      return { id: key, name: npcs[key], role: people[key].role,
         ...(intent?.kind === 'talk' && intent.npc === key
           ? {
-              facts: key === 'clerk' && world.quest === 'done' ? '潮汐簿已歸還。' : person.known,
+              facts: key === 'clerk' && world.quest === 'done' ? '潮汐簿已歸還。' : npcFacts(world, key),
               memory: (world.memories[key] ?? []).slice(-3),
             }
           : {}),
@@ -419,9 +419,9 @@ export class Game {
             finishWithoutAction(world, shipPurchaseInfo)
             return
           }
-          const here = Object.entries(people).find(([, person]) => person.place === actor.character!.place)
+          const [here] = npcsAt(world, actor.character!.place)
           finishWithoutAction(world, here
-            ? '你目前沒有交談對象。可以用「問' + npcs[here[0] as NpcId] + '……」指定要問的人。'
+            ? '你目前沒有交談對象。可以用「問' + npcs[here] + '……」指定要問的人。'
             : '這裡沒有可以回答你的人。先找到要詢問的角色，再提出問題。')
           return
         }
@@ -451,7 +451,7 @@ export class Game {
       }
       const before = this.context(world, actorAt(world), intent)
       const result = resolve(world, actorAt(world), intent, job.text, this.store.roller(code, id), this.connected(world))
-      const narrate = !result.rejected && !result.directReply && !['sail', 'islandTask', 'give', 'equip'].includes(intent.kind) &&
+      const narrate = !result.rejected && !result.directReply && !['sail', 'islandTask', 'give', 'equip', 'wait'].includes(intent.kind) &&
         (!!result.spokeWith || !['move', 'meal', 'crew'].includes(shortcut?.kind ?? ''))
       const narrationContext = intent.kind === 'move' && result.spokeWith
         ? this.context(world, actorAt(world), { kind: 'talk', npc: result.spokeWith }) : before
@@ -463,9 +463,12 @@ export class Game {
           const previousMinute = world.minute
           world.version++
           world.minute += result.minutes ?? 0
+          // Canon events due by the new time fire inside the same transaction as the action.
+          const news = advanceTimeline(world)
           this.store.save(world)
           if (previousMinute < tideEvent.minute && world.minute >= tideEvent.minute)
             this.store.entry({ ...world, minute: tideEvent.minute }, null, 'world', tideEvent.text, id)
+          for (const item of news) this.store.entry({ ...world, minute: item.minute }, null, 'world', item.text)
         }
         this.store.entry(world, result.announce ? null : job.actor, 'result', text, id)
         this.store.outcome(code, id, text, !!result.announce, { ...narrationContext, input: job.text, question }, narrate)

@@ -142,7 +142,7 @@ export class AiProvider {
       'move {to:context.destinations 裡的地點代號}，若到達後要和指定 NPC 說話，可另外填 talkTo。talk {npc:context.people 裡的代號}，check {method:observe|climb|search|sneak}。',
       'guide 只用於玩家明確詢問可去的地點或附近能做的事；只問自己在哪時用 location。meal {dish:bread|rice} 用於在酒館點餐，crew 用於提出成立船團的投票。',
       'attack {npc:courier,power:boolean}，negotiate {npc:courier}，guard，flee，quest {step:accept|deliver|abandon}。',
-      'rest {sleep:boolean}，aid {patient:角色名}，buy {item:spear|bandage|bullets|sword}，reload。',
+      'rest {sleep:boolean}，aid {patient:角色名}，buy {item:spear|bandage|bullets|sword|logPose}（logPose 是記錄指針），reload。wait {hours:1-240} 用於原地等待或消磨時間。',
       'give {to:context.party 裡的角色名, item?:context.items 裡的物品名, count?:數量, money?:貝里}，item 與 money 只填一項。equip {weapon:fist|sword|spear|musket} 用於改用自己背包裡的武器。',
       'sail {order:buy|borrow|materials|repair|vote|ready|unready|depart, destination?:wind|lantern|mist, pace?:steady|fast}。islandTask {step:accept|search|deliver}。',
       '看懂玩家的口語、省略與別名。酒館、酒吧或瑪琪諾的店指 tavern，港口或碼頭指 dock，科爾波山指 hill，哥亞王國指 goa，問路或「我能去哪」用 guide，找提奧問事情用 talk 且 npc 是 clerk，找村長用 mayor。',

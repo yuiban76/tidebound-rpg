@@ -1,6 +1,6 @@
 import { useId } from 'react'
 import { locations, npcs } from '../../packages/shared/protocol.ts'
-import { ballotCount, boatYard, islandAt, islands, islandStories, paceNames, routesFrom, selectedRoute } from '../../packages/world/sea.ts'
+import { ballotCount, boatYard, islandAt, islands, islandStories, paceNames, routeNeeds, routesFrom, selectedRoute } from '../../packages/world/sea.ts'
 import { party } from '../../packages/world/village.ts'
 import type { View } from './network.ts'
 
@@ -42,9 +42,9 @@ export function VoyagePanel({ world, player, suggest }: Props) {
     <h2 id={title}>航海</h2>
     <p><strong>迎潮號</strong>{ship.borrowed ? '（租借）' : ''}停在{locations[ship.port]} · 船體 {ship.hull}／100 · 木料 {ship.wood}</p>
     <ul className="voyage-courses" aria-label="可選航線">
-      {routesFrom(from).map(({ to, miles }) => <li key={to}>
+      {routesFrom(from).map(route => { const { to, miles } = route; const needs = routeNeeds(route); return <li key={to}>
         <strong>{islands[to].name}</strong>
-        <span>{miles} 海里 · {islands[to].about}</span>
+        <span>{miles} 海里 · {islands[to].about}{needs.length ? ' · ' + needs.join('、') : ''}</span>
         <div className="button-row">
           {(['steady', 'fast'] as const).map(pace => <button key={pace} type="button" className="light"
             aria-label={islands[to].name + '，' + paceNames[pace]} aria-pressed={sailing?.ballots[player]?.to === to && sailing?.ballots[player]?.pace === pace}
@@ -52,7 +52,7 @@ export function VoyagePanel({ world, player, suggest }: Props) {
             {paceNames[pace]}{team && ' · ' + ballotCount(sailing, { to, pace }) + ' 票'}
           </button>)}
         </div>
-      </li>)}
+      </li> })}
     </ul>
     <p className="hint">快航會縮短航程，也可能增加船體損耗。</p>
     {team && <ul className="voyage-team" aria-label="隊員出航狀態">
@@ -82,14 +82,16 @@ export function IslandAdventure({ world, player, suggest }: Props) {
   if (!story) return null
   const stage = world.islandTasks?.[island]?.stage
   const step = stage === 'active' ? 1 : stage === 'found' ? 2 : 0
+  const settled = stage === 'done' || stage === 'closed'
   const destination = step === 1 ? story.search : story.meeting
   const command = current === destination ? story.samples[step] : '前往' + locations[destination]
   const detail = stage === 'done' ? story.close
+    : stage === 'closed' ? '這件事已經落幕，由別人了結了。'
     : stage === 'found' ? '搜索完成。回' + locations[story.meeting] + '找' + npcs[story.guide] + '。'
     : stage === 'active' ? story.lead : '可以到' + locations[story.meeting] + '找' + npcs[story.guide] + '接委託。'
   return <section className="panel sea-panel" aria-labelledby={title}>
     <h2 id={title}>{story.title}</h2>
     <p>{detail}</p>
-    {stage !== 'done' && <button type="button" className="light" onClick={() => suggest(command)}>{command}</button>}
+    {!settled && <button type="button" className="light" onClick={() => suggest(command)}>{command}</button>}
   </section>
 }

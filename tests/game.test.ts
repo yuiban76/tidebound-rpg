@@ -835,3 +835,125 @@ test('謝爾茲鎮與橘子鎮：航行抵達、與索隆交談、完成兩地�
   assert.match(await play('返航'), /無法由現在的港口起航/)
   assert.equal(world().ship?.port, 'orangePort')
 })
+
+test('世界資料完整：每個地點都有路徑、地標與所屬島嶼，委託、航線與時間線都指向有效資料', async () => {
+  const { locations, npcs, islandIds } = await import('../packages/shared/protocol.ts')
+  const { paths, landmarks, people } = await import('../packages/world/village.ts')
+  const { islands, islandAt, islandStories, seaLanes } = await import('../packages/world/sea.ts')
+  const { canonTimeline, minuteOf } = await import('../packages/world/canon.ts')
+  for (const id of Object.keys(locations) as (keyof typeof locations)[]) {
+    assert.ok(paths[id]?.length, id + ' 缺路徑')
+    assert.ok(landmarks[id], id + ' 缺地標')
+    assert.equal(islandIds.filter(island => islands[island].places.includes(id)).length, 1, id + ' 須屬於恰好一座島')
+    for (const next of paths[id]) assert.equal(islandAt(next), islandAt(id), id + ' 的步行路徑不可跨島')
+  }
+  for (const id of Object.keys(npcs) as (keyof typeof npcs)[]) assert.ok(people[id], id + ' 缺 NPC 資料')
+  for (const [island, story] of Object.entries(islandStories)) {
+    assert.equal(islandAt(story!.meeting), island)
+    assert.equal(islandAt(story!.search), island)
+    assert.ok(people[story!.guide])
+  }
+  for (const lane of seaLanes) for (const end of lane.ends) assert.ok(islands[end])
+  const times = canonTimeline.map(event => minuteOf(event.at))
+  assert.deepEqual(times, [...times].sort((a, b) => a - b), '時間線須依時間排序')
+  assert.equal(new Set(canonTimeline.map(event => event.id)).size, canonTimeline.length)
+})
+
+test('時間線：等待讓原作事件依日期發生，NPC 移動並改變說法；已先完成的委託會改寫結果', async t => {
+  const { game, code, ids } = await withGame(t)
+  ready(game, code, ids)
+  await game.start(code)
+  const [player] = ids
+  const play = (text: string) => act(game, code, player, text)
+  assert.match(await play('等待 30 小時'), /你在風車村廣場等待了 30 小時/)
+  let world = game.room(code)
+  assert.equal(world.timeline?.shells, 'canon')
+  assert.equal(world.timeline?.orange, undefined)
+  assert.equal(world.npcPlaces?.zoro, null)
+  assert.match(world.npcFacts?.rika ?? '', /蒙卡上校被打倒了/)
+  assert.equal(world.islandTasks?.shells?.stage, 'closed')
+  assert.ok(game.store.entries(code).some(entry => entry.actor === null && entry.text.startsWith('【報紙】謝爾茲鎮・')))
+
+  world.islandTasks = { ...world.islandTasks, syrup: { stage: 'done' } }
+  game.store.save(world)
+  await play('等待 4 天')
+  world = game.room(code)
+  assert.equal(world.timeline?.syrup, 'changed')
+  assert.equal(world.npcPlaces?.klahadore, null)
+  assert.equal(world.npcPlaces?.usopp, undefined)
+  assert.equal(world.timeline?.baratie, 'canon')
+  assert.ok(game.store.entries(code).some(entry => /西羅布村・西羅布村的黎明：黑貓海賊團還沒登陸就被識破/.test(entry.text)))
+})
+
+test('偉大航路：需記錄指針、單向航線、衝天海流要先抓南方鳥，危險海域加重船損', async t => {
+  const { game, code, ids } = await withGame(t)
+  ready(game, code, ids)
+  await game.start(code)
+  const [player] = ids
+  const play = (text: string) => act(game, code, player, text)
+  const world = game.room(code)
+  world.ship = { owner: player, port: 'loguePort', hull: 100, wood: 2, trips: 0 }
+  world.members[0].character!.place = 'loguePort'
+  game.store.save(world)
+  assert.match(await play('出海前往雙子岬'), /必須有人帶著記錄指針/)
+  await play('前往一本松武器店')
+  assert.match(await play('買記錄指針'), /購入記錄指針，支出 1000 貝里/)
+  assert.match(await play('去港口'), /抵達羅格鎮港/)
+  assert.match(await play('出海前往雙子岬'), /翻越顛倒山[\s\S]*全隊抵達雙子岬的雙子岬港灣/)
+  assert.ok(game.room(code).ship!.hull <= 90)
+  assert.match(await play('出海前往羅格鎮'), /無法由現在的港口起航/)
+
+  const jaya = game.room(code)
+  jaya.ship!.port = 'mockPort'
+  jaya.members[0].character!.place = 'mockPort'
+  game.store.save(jaya)
+  assert.match(await play('出海前往空島'), /要先完成「南方鳥」/)
+})
+
+test('高難度委託有等級與日期門檻；推進城救出艾斯後，頂上戰爭改寫且馬林福特委託不再發生', async t => {
+  const { game, code, ids } = await withGame(t)
+  ready(game, code, ids)
+  await game.start(code)
+  const [player] = ids
+  const play = (text: string) => act(game, code, player, text)
+  const setUp = (change: (world: ReturnType<typeof game.room>) => void) => {
+    const world = game.room(code)
+    change(world)
+    game.store.save(world)
+  }
+  setUp(world => { world.members[0].character!.place = 'impelLevel5' })
+  assert.match(await play('接下伊娃可夫的計畫'), /還沒有相關的動靜/)
+  setUp(world => { world.minute = (53 - 1) * 1440 + 8 * 60 })
+  assert.match(await play('接下伊娃可夫的計畫'), /建議等級 7，隊伍最高等級 1/)
+  setUp(world => { world.members[0].character!.level = 7 })
+  assert.match(await play('接下伊娃可夫的計畫'), /無限地獄/)
+  // Rejected actions never move the clock; the accepted one fires every event due by Day 53.
+  assert.equal(game.room(code).npcPlaces?.ace, 'impelLevel6')
+  await play('前往推進城第六層')
+  for (let i = 0; i < 10 && game.room(code).islandTasks?.impelDown?.stage !== 'found'; i++) await play('闖入無限地獄')
+  assert.equal(game.room(code).islandTasks?.impelDown?.stage, 'found')
+  await play('前往推進城第五層')
+  assert.match(await play('和艾斯一起逃出'), /艾斯重獲自由[\s\S]*獲得 600 XP/)
+  assert.equal(game.room(code).npcPlaces?.ace, null)
+
+  await play('等待 10 天')
+  await play('等待 10 天')
+  const world = game.room(code)
+  for (const id of ['execution', 'aceTransfer', 'warBegins', 'warEnds']) assert.equal(world.timeline?.[id], 'changed', id)
+  assert.equal(world.npcPlaces?.ace, null)
+  assert.notEqual(world.npcPlaces?.whitebeard, 'marinefordBay')
+  setUp(world => { world.members[0].character!.place = 'marinefordBay'; world.members[0].character!.level = 9 })
+  assert.match(await play('加入白鬍子的救援'), /不會再發生/)
+})
+
+test('多人時只有全隊在線且同地才能一起等待', async t => {
+  const { game, code, ids } = await withGame(t, 2)
+  ready(game, code, ids)
+  await game.start(code)
+  await act(game, code, ids[1], '去碼頭')
+  assert.match(await act(game, code, ids[0], '等待 5 小時'), /全隊都要在線並在同一地點/)
+  await act(game, code, ids[1], '回廣場')
+  const before = game.room(code).minute
+  assert.match(await act(game, code, ids[0], '等待 5 小時'), /全隊在風車村廣場等待了 5 小時/)
+  assert.equal(game.room(code).minute, before + 300)
+})

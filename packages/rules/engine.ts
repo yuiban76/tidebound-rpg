@@ -1,8 +1,8 @@
 import { attributeLabels, locations, npcs } from '../shared/protocol.ts'
 import type { CharacterInput, Intent, NpcId } from '../shared/protocol.ts'
 import { asksAboutBoatCrew, asksAboutShipPurchase, dialogueQuestion, directions, routeBetween } from '../world/explore.ts'
-import { boatCrewReplies, goods, meals, party, people, shops, walkMinutes, weaponItems, weaponNames } from '../world/village.ts'
-import { islandAt, shipPurchaseInfo } from '../world/sea.ts'
+import { boatCrewReplies, goods, meals, npcFacts, npcPlace, npcsAt, party, shops, walkMinutes, weaponItems, weaponNames } from '../world/village.ts'
+import { islandAt, islands, shipPurchaseInfo } from '../world/sea.ts'
 import { resolveIslandTask, resolveSailing } from './sailing.ts'
 import type { Character, CombatChoice, Member, World } from '../world/village.ts'
 
@@ -210,12 +210,14 @@ function round(world: World, actor: Member, intent: CombatChoice, roll: Roll, co
 }
 
 function converse(world: World, c: Character, npc: NpcId, raw: string, minute = world.minute): Result {
-  const person = people[npc]
-  if (person.place !== c.place)
-    return reject(npcs[npc] + '在' + locations[person.place] + '。可以先輸入「前往' + locations[person.place] + '」。')
+  const place = npcPlace(world, npc)
+  if (!place) return reject(npcs[npc] + '目前不在你能找到的地方。')
+  if (place !== c.place) return islandAt(place) === islandAt(c.place)
+    ? reject(npcs[npc] + '在' + locations[place] + '。可以先輸入「前往' + locations[place] + '」。')
+    : reject(npcs[npc] + '在' + islands[islandAt(place)].name + '，要航行過去才能見到。')
   if (npc === 'courier' && world.courierHP === 0) return reject('岬恩目前失去意識。')
   if (npc === 'clerk' && world.quest === 'unoffered') world.quest = 'offered'
-  const facts = npc === 'clerk' && world.quest === 'done' ? '潮汐簿已歸還。' : person.known
+  const facts = npc === 'clerk' && world.quest === 'done' ? '潮汐簿已歸還。' : npcFacts(world, npc)
   c.conversingWith = npc
   ;(world.memories[npc] ??= []).push(c.name + '在第 ' + minute + ' 分鐘交談：' + raw)
   const answer = asksAboutShipPurchase(raw) ? shipPurchaseInfo :
@@ -364,6 +366,25 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
       c.inventory['火槍彈藥']--
       c.loaded = true
       return { text: '已裝填火槍。', minutes: 1 }
+    case 'wait': {
+      if (c.place === 'hill') return reject('山道不適合停留等待。')
+      // Spec §6.1: one player must not fast-forward teammates who are busy elsewhere.
+      const crew = party(world)
+      if (crew.some(m => m.id !== actor.id && (m.character!.place !== c.place || !connected.has(m.id))))
+        return reject('多人遊玩時，全隊都要在線並在同一地點，才能一起等待。')
+      const nights = Math.floor(intent.hours / 8)
+      for (const member of crew) {
+        const x = member.character!
+        if (!nights) continue
+        x.sta = maxSTA(x)
+        if (x.hp > 0) x.hp = Math.min(maxHP(x), x.hp + nights * Math.ceil(maxHP(x) / 4))
+      }
+      return {
+        text: (crew.length > 1 ? '全隊' : '你') + '在' + locations[c.place] + '等待了 ' + intent.hours + ' 小時。' +
+          (nights ? '休息讓 HP／STA 恢復了。' : ''),
+        minutes: intent.hours * 60, announce: crew.length > 1,
+      }
+    }
     case 'rest':
       if (c.place === 'hill') return reject('山徑不適合安全休息。')
       c.sta = intent.sleep ? maxSTA(c) : Math.min(maxSTA(c), c.sta + Math.ceil(maxSTA(c) / 4))
@@ -385,13 +406,14 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
   }
 }
 
-export function guideFor(world: Pick<World, 'quest' | 'logHolder'> & { combat?: Pick<NonNullable<World['combat']>, 'participants'> }, actor: Member) {
+export function guideFor(world: Pick<World, 'quest' | 'logHolder' | 'npcPlaces'> & { combat?: Pick<NonNullable<World['combat']>, 'participants'> }, actor: Member) {
   const character = actor.character!
   const inCombat = world.combat?.participants.includes(actor.id)
   const guide = directions(character.place, {
     hillClosed: !!world.combat,
     inCombat,
     down: character.hp <= 0,
+    present: npcsAt(world, character.place),
   })
   if (character.hp <= 0 || inCombat) return guide
   if (character.place === 'dock' && world.quest === 'offered') {

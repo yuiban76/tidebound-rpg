@@ -20,6 +20,9 @@ const portOf = Object.fromEntries(Object.entries(islands).map(([id, island]) => 
 const localAliases: Record<string, Partial<Record<IslandId, LocationId>>> = {
   港口: portOf, 碼頭: portOf, 港邊: portOf, 船邊: portOf,
   大街: { shells: 'shellsTown', orange: 'orangeStreet' }, 鎮上: { shells: 'shellsTown', orange: 'orangeStreet' },
+  處刑台: { loguetown: 'logueSquare', marineford: 'scaffold' },
+  第五層: { impelDown: 'impelLevel5' }, 第六層: { impelDown: 'impelLevel6' },
+  海灘: { skypiea: 'angelBeach' }, 森林: { amazonLily: 'amazonForest' }, 墓園: { thrillerBark: 'graveyard' },
 }
 const weaponWords: Record<string, Weapon> = {
   普通武士刀: 'sword', 武士刀: 'sword', 刀: 'sword', 普通長槍: 'spear', 長槍: 'spear', 普通火槍: 'musket', 火槍: 'musket',
@@ -65,9 +68,9 @@ export function routeBetween(from: LocationId, to: LocationId, hillClosed = fals
   return []
 }
 
-export function directions(place: LocationId, { hillClosed = false, inCombat = false, down = false } = {}) {
+export function directions(place: LocationId, { hillClosed = false, inCombat = false, down = false, present = undefined as NpcId[] | undefined } = {}) {
   const nearby = paths[place].filter(id => !hillClosed || id !== 'hill')
-  const local = Object.keys(people).filter(id => people[id as NpcId].place === place) as NpcId[]
+  const local = present ?? Object.keys(people).filter(id => people[id as NpcId].place === place) as NpcId[]
   if (down) return { text: '你倒在' + locations[place] + '。請同伴帶繃帶前來包紮。', suggestions: [] }
   if (inCombat) return {
     text: '你在' + locations[place] + '的戰鬥中。可以防守、撤回村道，或和岬恩交涉。',
@@ -148,6 +151,9 @@ export function familiarIntent(input: string, here?: LocationId): Intent | undef
   if (/^(?:和|跟|找)?岬恩(?:交涉|談(?:工錢|潮汐簿))$/.test(text)) return { kind: 'negotiate', npc: 'courier' }
   if (/^(?:查看|觀察|調查)(?:山徑|山道|山路)上的(?:痕跡|鞋印)$/.test(text)) return { kind: 'check', method: 'observe' }
   if (/^(?:買|購買)(?:一把)?(?:普通)?武士刀$/.test(text)) return { kind: 'buy', item: 'sword' }
+  if (/^(?:買|購買)(?:一個)?(?:記錄指針|永久指針|指針)$/.test(text)) return { kind: 'buy', item: 'logPose' }
+  const wait = /^(?:等待|等|待|休息|原地等待)\s*(\d+)\s*(?:個)?(小時|天)$/.exec(text)
+  if (wait) return { kind: 'wait', hours: Math.min(240, Math.max(1, Number(wait[1]) * (wait[2] === '天' ? 24 : 1))) }
   const equip = /^(?:裝備|改用|換成|換上|拿起|使用)\s*(\S+)$/.exec(text)
   if (equip && Object.hasOwn(weaponWords, equip[1])) return { kind: 'equip', weapon: weaponWords[equip[1]] }
   if (/^收起武器$/.test(text)) return { kind: 'equip', weapon: 'fist' }

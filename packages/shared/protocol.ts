@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { canonIslandIds, canonLocations, canonNpcs } from './atlas.ts'
 
 export const attributes = ['STR', 'AGI', 'CON', 'PER', 'INT', 'WIL'] as const
 export const attributeLabels = { STR: '力量', AGI: '敏捷', CON: '體魄', PER: '感知', INT: '智識', WIL: '意志' }
@@ -11,14 +12,15 @@ export const locations = {
   mistPort: '霧灣泊位', netSlope: '曬網坡', whiteBay: '白灘灣',
   shellsPort: '謝爾茲鎮港口', shellsTown: '謝爾茲鎮大街', marineBase: '海軍第153分部',
   orangePort: '橘子鎮港口', orangeStreet: '橘子鎮大街', petShop: '寵物店',
+  ...canonLocations,
 }
 export const npcs = { keeper: '瑪琪諾', clerk: '提奧', watch: '蘇芮', courier: '岬恩', lamplighter: '蕊卡', sounder: '洛汀', mayor: '村長',
-  rika: '莉卡', zoro: '索隆', boodle: '布德鎮長', chouchou: '修修' }
+  rika: '莉卡', zoro: '索隆', boodle: '布德鎮長', chouchou: '修修', ...canonNpcs }
 export const weapons = ['fist', 'sword', 'spear', 'musket'] as const
 export type Weapon = (typeof weapons)[number]
 const locationIds = Object.keys(locations) as (keyof typeof locations)[]
 const npcIds = Object.keys(npcs) as (keyof typeof npcs)[]
-export const islandIds = ['wind', 'lantern', 'mist', 'shells', 'orange'] as const
+export const islandIds = ['wind', 'lantern', 'mist', 'shells', 'orange', ...canonIslandIds] as const
 export type IslandId = (typeof islandIds)[number]
 export const sailingPaces = ['steady', 'fast'] as const
 export type SailingPace = (typeof sailingPaces)[number]
@@ -82,7 +84,8 @@ export const intentSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('quest'), step: z.enum(['accept', 'deliver', 'abandon']) }),
   z.strictObject({ kind: z.literal('rest'), sleep: z.boolean() }),
   z.strictObject({ kind: z.literal('aid'), patient: z.string().min(1).max(24) }),
-  z.strictObject({ kind: z.literal('buy'), item: z.enum(['spear', 'bandage', 'bullets', 'sword']) }),
+  z.strictObject({ kind: z.literal('buy'), item: z.enum(['spear', 'bandage', 'bullets', 'sword', 'logPose']) }),
+  z.strictObject({ kind: z.literal('wait'), hours: z.number().int().min(1).max(240) }),
   z.strictObject({
     kind: z.literal('give'), to: z.string().trim().min(1).max(24),
     item: z.string().trim().min(1).max(24).optional(), count: z.number().int().min(1).max(99).optional(),

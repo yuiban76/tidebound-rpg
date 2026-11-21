@@ -5,7 +5,7 @@ import type { Message } from '../../packages/shared/protocol.ts'
 import { guideFor, maxHP, maxSTA, voteThreshold, xpToNext } from '../../packages/rules/engine.ts'
 import { sceneQuestion } from '../../packages/world/explore.ts'
 import { islandAt, islands } from '../../packages/world/sea.ts'
-import { goods, party, people, shops, weaponItems, weaponNames } from '../../packages/world/village.ts'
+import { goods, npcsAt, party, people, shops, weaponItems, weaponNames } from '../../packages/world/village.ts'
 import type { Good } from '../../packages/world/village.ts'
 import type { View } from './network.ts'
 import type { Entry } from '../host/store.ts'
@@ -60,7 +60,7 @@ export function Story({ view, send, history, connected, gap, review }: {
   const entries = [...new Map([...past, ...view.entries].map(row => [row.seq, row])).values()].sort((a, b) => a.seq - b.seq)
   const post = (msg: Message) => { void send(msg).catch(() => {}) }
   const location = locations[character.place]
-  const visibleNpcs = Object.entries(people).filter(([, person]) => person.place === character.place)
+  const visibleNpcs = npcsAt(world, character.place)
   const combat = world.combat?.participants.includes(player) ? world.combat : undefined
   const askedForDirections = entries.findLast(entry => entry.actor === player)?.type === 'guide'
   const suggestions = askedForDirections ? guideFor(world, me).suggestions : []
@@ -179,7 +179,7 @@ export function Story({ view, send, history, connected, gap, review }: {
             <p className="hint">同地的隊友可以轉交物品或貝里，例如「把繃帶交給隊友名字」或「給隊友名字 100 貝里」。</p>}
         </details>
         <section className="subsection"><h3>目前地點</h3><p>{location}</p>
-          {visibleNpcs.length > 0 && <p>{visibleNpcs.map(([id, person]) => npcs[id as keyof typeof npcs] + '（' + person.role + '）').join('、')}</p>}
+          {visibleNpcs.length > 0 && <p>{visibleNpcs.map(id => npcs[id] + '（' + people[id].role + '）').join('、')}</p>}
           {shops[character.place] && <details><summary>{shops[character.place]}</summary><ul>{(Object.keys(goods) as Good[])
             .filter(id => goods[id].shop === character.place).map(id =>
               <li key={id}>{goods[id].label} · {goods[id].price} 貝里 · 剩 {world.stock[id]}</li>)}</ul></details>}

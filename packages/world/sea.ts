@@ -1,5 +1,8 @@
 import { locations } from '../shared/protocol.ts'
-import type { IslandId, LocationId, NpcId, SailingPace } from '../shared/protocol.ts'
+import type { IslandId, LocationId, SailingPace } from '../shared/protocol.ts'
+import { canonIslands, canonLanes, canonStories } from './canon.ts'
+import type { canonIslandIds as canonIslandIdList } from '../shared/atlas.ts'
+import type { IslandStory, SeaLane } from './canon.ts'
 
 // 黎明島 is the canon start; 潮燈島 and 霧灣島 are original East Blue islets (spec §6.3 allows original side content).
 export const islands: Record<IslandId, {
@@ -10,25 +13,40 @@ export const islands: Record<IslandId, {
   mist: { name: '霧灣島', port: 'mistPort', places: ['mistPort', 'netSlope', 'whiteBay'], about: '東海小島：在潮水上來前救出失聯的探潮人' },
   shells: { name: '謝爾茲鎮', port: 'shellsPort', places: ['shellsPort', 'shellsTown', 'marineBase'], about: '東海：海軍第153分部所在，基地廣場綁著劍士索隆' },
   orange: { name: '橘子鎮', port: 'orangePort', places: ['orangePort', 'orangeStreet', 'petShop'], about: '東海：被小丑巴其海賊團佔據的小鎮' },
+  ...Object.fromEntries(Object.entries(canonIslands).map(([id, island]) => [id, {
+    name: island.name, about: island.about, port: island.places[0][0], places: island.places.map(([place]) => place),
+  }])) as Record<(typeof canonIslandIdList)[number], { name: string, port: LocationId, places: LocationId[], about: string }>,
 }
 
 // New lanes are appended so existing first-route defaults (wind → lantern) stay stable.
-export const seaLanes = [
+export const seaLanes: readonly SeaLane[] = [
   { ends: ['wind', 'lantern'], miles: 8 },
   { ends: ['wind', 'mist'], miles: 12 },
   { ends: ['lantern', 'mist'], miles: 7 },
   { ends: ['wind', 'shells'], miles: 15 },
   { ends: ['shells', 'orange'], miles: 12 },
   { ends: ['mist', 'orange'], miles: 18 },
-] as const satisfies readonly { ends: readonly [IslandId, IslandId], miles: number }[]
+  ...canonLanes,
+]
 
 export function islandAt(place: LocationId) {
   return (Object.keys(islands) as IslandId[]).find(id => islands[id].places.includes(place))!
 }
 
-export function routesFrom(from: IslandId) {
-  return seaLanes.flatMap<{ to: IslandId, miles: number }>(({ ends: [a, b], miles }) =>
-    a === from ? [{ to: b, miles }] : b === from ? [{ to: a, miles }] : [])
+export type Route = Omit<SeaLane, 'ends'> & { to: IslandId }
+/** Lanes leaving an island. One-way Grand Line lanes only run ends[0] → ends[1]. */
+export function routesFrom(from: IslandId): Route[] {
+  return seaLanes.flatMap(({ ends: [a, b], ...lane }) =>
+    a === from ? [{ ...lane, to: b }] : b === from && !lane.oneWay ? [{ ...lane, to: a }] : [])
+}
+/** What a lane needs before departure, for display. */
+export function routeNeeds(route: Route) {
+  return [
+    route.logPose && '需記錄指針',
+    route.needsTask && '需先完成「' + islandStories[route.needsTask]?.title + '」',
+    route.hazard?.name,
+    route.oneWay && '單向航線',
+  ].filter(Boolean) as string[]
 }
 
 export const boatYard = { name: '迎潮號', price: 650, speed: 7, seats: 4, sale: 480, woodPrice: 50, repairGain: 25 }
@@ -37,7 +55,8 @@ export const paceNames: Record<SailingPace, string> = { steady: '穩健', fast: 
 export type Ship = { owner: string, port: LocationId, hull: number, wood: number, trips: number, borrowed?: boolean }
 export type RouteChoice = { to: IslandId, pace: SailingPace }
 export type SailingPlan = { from: IslandId, ballots: Record<string, RouteChoice>, ready: string[] }
-export type IslandTask = { stage: 'active' | 'found' | 'done', attempts?: number }
+/** closed: the matter was settled by the timeline before the players finished it. */
+export type IslandTask = { stage: 'active' | 'found' | 'done' | 'closed', attempts?: number }
 
 export function sameRoute(a: RouteChoice | undefined, b: RouteChoice | undefined) {
   return a?.to === b?.to && a?.pace === b?.pace
@@ -49,12 +68,8 @@ export function selectedRoute(plan: SailingPlan | undefined, members: number) {
   return Object.values(plan?.ballots ?? {}).find(ballot => ballotCount(plan, ballot) > members / 2)
 }
 
-export const islandStories: Partial<Record<IslandId, {
-  title: string, guide: NpcId, meeting: LocationId, search: LocationId,
-  lead: string, find: string, close: string, reward: number, samples: [string, string, string],
-  /** Shown after a failed search; later attempts get +3 each. */
-  miss?: string,
-}>> = {
+export const islandStories: Partial<Record<IslandId, IslandStory>> = {
+  ...canonStories,
   lantern: {
     title: '潮燈塔熄滅事件', guide: 'lamplighter', meeting: 'lighthouse', search: 'tideCave',
     lead: '蕊卡請你前往海蝕洞，找回沖進洞裡的備用透鏡。',
