@@ -238,8 +238,11 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
     return reject('你已倒下，需就地等待救援，或在安全地點完成睡眠。')
   if (world.combat?.participants.includes(actor.id) && !isCombat(intent))
     return reject('戰鬥進行中。請描述攻擊、防守、撤退、交涉或裝填。')
-  if (isCombat(intent) && !(intent.kind === 'reload' && !world.combat))
+  if (isCombat(intent) && !(intent.kind === 'reload' && !world.combat)) {
+    // Combat rules only exist for the hill encounter; a scuffle anywhere else is the narrator's to tell.
+    if (c.place !== 'hill' || (!world.combat && world.settled)) return freeAction()
     return round(world, actor, intent, roll, connected)
+  }
 
   switch (intent.kind) {
     case 'sail': return resolveSailing(world, actor, intent, roll, connected)
@@ -401,7 +404,7 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
       target.hp = Math.min(maxHP(target), target.hp + 4 + (c.skillRanks['醫術'] ?? 0))
       return withXp({ text: target.name + '接受包紮，目前 HP ' + target.hp + '。', minutes: 5 }, grantXp(c, 5, 'aid'))
     }
-    case 'social': return { text: '你進行了交流。沒有額外規則效果。', minutes: 1 }
+    case 'social': return { ...freeAction(), minutes: 3 }
     default:
       if (/離開(?:這座島|風車村|黎明島)|出海|別的島|跨島|下一座島/.test(raw))
         return reject('跨島請使用航海面板，和全隊共同出航。' + (!world.ship ? shipPurchaseInfo : ''))

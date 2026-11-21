@@ -255,6 +255,19 @@ test('規則沒有對應的行動交給 AI 自由寫劇情，並帶上最近的�
   ai.next({ kind: 'unsupported' })
   assert.match(await act(game, code, ids[0], '我從口袋掏出一顆惡魔果實'), /自由行動/)
   assert.deepEqual(game.room(code).members[0].character?.inventory, before.members[0].character?.inventory)
+
+  // Rule kinds that don't fit the scene still go to the free narrator instead of a rejection.
+  const freeNarrations = () => ai.seen.filter(call => call.kind === 'narrative' && 'recent' in JSON.parse(call.content)).length
+  for (const [intent, text] of [[{ kind: 'attack', npc: 'courier', power: false }, '拿起鞭子抽路邊的木樁'], [{ kind: 'social' }, '跟路人自我介紹']] as const) {
+    const count = freeNarrations()
+    ai.next(intent)
+    const reply = await act(game, code, ids[0], text)
+    assert.match(reply, /自由行動/)
+    assert.doesNotMatch(reply, /沒有可進行該行動的遭遇/)
+    assert.equal(freeNarrations(), count + 1)
+  }
+  assert.deepEqual(game.room(code).members[0].character, before.members[0].character)
+  assert.equal(game.room(code).combat, undefined)
 })
 
 test('分隔符號前後的移動與交談依序結算，模型收到抵達後的 NPC 情境', async t => {
