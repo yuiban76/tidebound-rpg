@@ -94,6 +94,7 @@ export const intentSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('equip'), weapon: z.enum(weapons) }),
   z.strictObject({ kind: z.literal('reload') }),
   z.strictObject({ kind: z.literal('social') }),
+  z.strictObject({ kind: z.literal('free') }),
   z.strictObject({ kind: z.literal('unsupported') }),
 ])
 export type Intent = z.infer<typeof intentSchema>

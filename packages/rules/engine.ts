@@ -12,7 +12,10 @@ export type Roll = (sides: number) => number
 export type Result = {
   text: string, announce?: boolean, rejected?: boolean, minutes?: number,
   proposeCrew?: boolean, spokeWith?: NpcId, directReply?: boolean,
+  /** A free action: the rules change nothing and the narrator writes what happens. */
+  free?: boolean,
 }
+const freeAction = (): Result => ({ text: '自由行動。', minutes: 10, free: true })
 const reject = (text: string): Result => ({ text, rejected: true })
 
 export const maxHP = (c: Character) => 20 + 5 * c.stats.CON + 2 * (c.level - 1)
@@ -402,7 +405,7 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
     default:
       if (/離開(?:這座島|風車村|黎明島)|出海|別的島|跨島|下一座島/.test(raw))
         return reject('跨島請使用航海面板，和全隊共同出航。' + (!world.ship ? shipPurchaseInfo : ''))
-      return reject('這句目前無法對應到已開放的行動。')
+      return freeAction()
   }
 }
 

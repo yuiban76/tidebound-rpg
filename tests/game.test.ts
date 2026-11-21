@@ -212,23 +212,49 @@ test('Qwen 使用結構化回覆，能辨識包裝或巢狀 JSON，也相容不�
   assert.deepEqual(ai.seen.slice(-2).map(call => call.format), ['json_schema', undefined])
 })
 
-test('格式錯誤會重試一次；仍無效就保留世界狀態、讓下一筆行動繼續', async t => {
+test('格式錯誤會重試一次；仍無效就當成自由行動交給旁白，且不改變角色狀態', async t => {
   const { game, ai, code, ids } = await withGame(t)
   ready(game, code, ids)
   await game.start(code)
-  const before = game.room(code)
+  const before = game.room(code).members[0].character
   ai.rawIntents(
     '{"kind":"buy","item":"不存在的果實"}',
     '{"kind":"move","to":"hill"} 或 {"kind":"attack","npc":"courier","power":true}',
   )
+  ai.narrateWith('你的新花樣引來一陣笑聲。')
   const note = await act(game, code, ids[0], '我想做個新花樣')
-  assert.match(note, /沒有辨識出有效行動/)
-  assert.deepEqual(game.room(code), before)
+  assert.match(note, /自由行動/)
+  await until(() => game.store.entries(code).some(row => row.type === 'narrative' && row.text === '你的新花樣引來一陣笑聲。'))
+  assert.deepEqual(game.room(code).members[0].character, before)
   assert.equal(game.ai.status.state, 'passed')
   assert.equal(ai.seen.filter(call => call.kind === 'intent').length, 2)
 
   ai.rawIntents('請再說一次', '{"kind":"check","method":"observe"}')
   assert.match(await act(game, code, ids[0], '我仔細看四周的風吹草動'), /觀察 D20/)
+})
+
+test('規則沒有對應的行動交給 AI 自由寫劇情，並帶上最近的劇情脈絡', async t => {
+  const { game, ai, code, ids } = await withGame(t)
+  ready(game, code, ids)
+  await game.start(code)
+  const before = game.room(code)
+  ai.next({ kind: 'free' })
+  ai.narrateWith('你在廣場翻了三個筋斗，一個賣魚的老人拍手叫好，還低聲說港口昨晚來了陌生船。')
+  const result = await act(game, code, ids[0], '我在廣場表演翻筋斗')
+  assert.match(result, /自由行動/)
+  assert.doesNotMatch(result, /無法對應/)
+  const story = game.store.entries(code).filter(row => row.type === 'narrative').at(-1)!
+  assert.match(story.text, /陌生船/)
+  const prompt = JSON.parse(ai.seen.filter(call => call.kind === 'narrative').at(-1)!.content)
+  assert.equal(prompt.input, '我在廣場表演翻筋斗')
+  assert.ok(prompt.recent.includes('玩家：我在廣場表演翻筋斗'))
+  const after = game.room(code)
+  assert.deepEqual(after.members[0].character, before.members[0].character)
+  assert.ok(after.minute > before.minute)
+
+  ai.next({ kind: 'unsupported' })
+  assert.match(await act(game, code, ids[0], '我從口袋掏出一顆惡魔果實'), /自由行動/)
+  assert.deepEqual(game.room(code).members[0].character?.inventory, before.members[0].character?.inventory)
 })
 
 test('分隔符號前後的移動與交談依序結算，模型收到抵達後的 NPC 情境', async t => {

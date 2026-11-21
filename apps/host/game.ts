@@ -349,6 +349,13 @@ export class Game {
     return '你在' + locations[actor.character!.place] + '。'
   }
 
+  /** What this player has seen lately, so free-form scenes can build on earlier ones. */
+  private recentStory(world: World, actor: string) {
+    return this.store.entries(world.code)
+      .filter(e => (e.actor === null || e.actor === actor) && ['narrative', 'world', 'input'].includes(e.type))
+      .slice(-8).map(e => (e.type === 'input' ? '玩家：' : '') + e.text)
+  }
+
   private interlocutor(world: World, actor: Member) {
     const c = actor.character!
     const candidate = c.conversingWith === undefined
@@ -432,11 +439,8 @@ export class Game {
         intent = shortcut ?? await this.ai.interpret(this.context(world, actorAt(world)), job.text, signal)
       } catch (error) {
         if (!(error instanceof IntentFormatFault)) throw error
-        if (signal.aborted) return
-        world = this.room(code)
-        if (!allowed(world)) return
-        finishWithoutAction(world, error.message)
-        return
+        // An action the classifier cannot name is still something the player wants to try.
+        intent = { kind: 'free' }
       }
       if (signal.aborted) return
       world = this.room(code)
@@ -471,16 +475,18 @@ export class Game {
           for (const item of news) this.store.entry({ ...world, minute: item.minute }, null, 'world', item.text)
         }
         this.store.entry(world, result.announce ? null : job.actor, 'result', text, id)
-        this.store.outcome(code, id, text, !!result.announce, { ...narrationContext, input: job.text, question }, narrate)
+        const story = result.free ? { free: true, recent: this.recentStory(world, job.actor) } : {}
+        this.store.outcome(code, id, text, !!result.announce, { ...narrationContext, ...story, input: job.text, question }, narrate)
       })
       if (!narrate) return
       job = this.store.pending(code, id)!
     }
     demand(job.result && job.context, '待處理敘事缺少正式結果。')
     const context = JSON.parse(job.context)
-    const narrative = context.question && typeof context.speaker === 'string'
-      ? await this.ai.answerNpc(context, context.speaker, signal)
-      : await this.ai.narrate(context, job.result, !!job.announce, signal)
+    const narrative = context.free ? await this.ai.narrateFree(context, signal)
+      : context.question && typeof context.speaker === 'string'
+        ? await this.ai.answerNpc(context, context.speaker, signal)
+        : await this.ai.narrate(context, job.result, !!job.announce, signal)
     if (signal.aborted) return
     world = this.room(code)
     if (!allowed(world)) return
