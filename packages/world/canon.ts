@@ -52,8 +52,22 @@ export type SeaLane = {
 export type CanonEvent = {
   id: string, at: [number, number], island: IslandId, title: string
   text: string, effect?: WorldEffect
-  /** First matching entry replaces the canon outcome when that island's quest was already done. */
-  changed?: { by: IslandId, text: string, effect?: WorldEffect }[]
+  /** First matching entry replaces the canon outcome: that island's quest was done, or the players beat that NPC. */
+  changed?: { by?: IslandId, defeated?: NpcId, text: string, effect?: WorldEffect }[]
+}
+
+/** What happens to the world right away when the players beat a canon villain in a fight. */
+export const bossDefeats: Partial<Record<NpcId, { text: string, effect: WorldEffect }>> = {
+  klahadore: { text: '管家克拉哈德的真面目——海賊「百計的克洛」——被打倒了，他再也無法威脅西羅布村。',
+    effect: { move: { klahadore: null }, facts: { kaya: '原來克拉哈德是海賊……謝謝你們保護了這個村子。' } } },
+  arlong: { text: '惡龍倒下了！可可亞西村的人們不敢相信八年的統治就這樣結束。',
+    effect: { move: { arlong: null }, facts: { genzo: '惡龍被你們打倒了，村子自由了！', nojiko: '娜美終於不用再替惡龍做事了。' } } },
+  bellamy: { text: '「鬣狗」貝拉米被打得爬不起來，莫克鎮的海賊們一哄而散。', effect: { facts: { cricket: '你們把貝拉米那小子揍趴了？痛快！' } } },
+  crocodile: { text: '七武海克洛克達爾敗了！他的陰謀隨之瓦解，海軍很快就會趕到雨地。',
+    effect: { move: { crocodile: null }, facts: { pell: '克洛克達爾被打倒了，真相終於能讓國民知道。' } } },
+  enel: { text: '自稱為神的艾涅爾倒下了，空島的人們終於從恐懼中解放。', effect: { move: { enel: null } } },
+  lucci: { text: 'CP9 最強的羅布・路基被打倒了，司法島陷入一片混亂。', effect: { move: { lucci: null } } },
+  moria: { text: '七武海月光・摩利亞倒下了，被奪走的影子紛紛回到主人身上。', effect: { move: { moria: null }, facts: { brook: '我的影子……回來了！喲吼吼吼！' } } },
 }
 
 export const minuteOf = ([day, hour]: [number, number]) => (day - 1) * 1440 + hour * 60
@@ -396,7 +410,8 @@ export const canonTimeline: CanonEvent[] = [
   { id: 'syrup', at: [4, 6], island: 'syrup', title: '西羅布村的黎明',
     text: '黑貓海賊團在黎明時分襲擊西羅布村，被騙人布與草帽一夥擊退；管家克拉哈德的真面目是海賊克洛。騙人布隨後出海。',
     effect: { move: { usopp: null, klahadore: null }, facts: { kaya: '騙人布出海了。我要好好學醫，等他回來。' }, close: ['syrup'] },
-    changed: [{ by: 'syrup', text: '黑貓海賊團還沒登陸就被識破。克洛的陰謀敗露後倉皇逃走，西羅布村毫髮無傷。',
+    changed: [{ defeated: 'klahadore', text: '海賊克洛早已被一群旅人打倒，黑貓海賊團群龍無首，沒敢登陸西羅布村。' },
+      { by: 'syrup', text: '黑貓海賊團還沒登陸就被識破。克洛的陰謀敗露後倉皇逃走，西羅布村毫髮無傷。',
       effect: { move: { klahadore: null }, facts: { kaya: '我差點被最信任的人騙了……謝謝你們相信騙人布。' } } }] },
   { id: 'baratie', at: [6, 14], island: 'baratie', title: '海上餐廳之戰',
     text: '首領・克利克海賊團襲擊海上餐廳巴拉蒂後被擊退；副料理長香吉士告別哲夫，跟著草帽一夥出海。',
@@ -404,7 +419,8 @@ export const canonTimeline: CanonEvent[] = [
   { id: 'arlong', at: [8, 16], island: 'cocoyasi', title: '惡龍樂園倒塌',
     text: '惡龍樂園倒塌，魚人惡龍被打倒，可可亞西村重獲自由；航海士娜美加入了草帽一夥。',
     effect: { move: { arlong: null }, facts: { genzo: '村子自由了！娜美跟著那個草帽小子出海了。', nojiko: '娜美終於能為自己而活了。' }, close: ['cocoyasi'] },
-    changed: [{ by: 'cocoyasi', text: '海軍總部收到惡龍與第16分部勾結的帳冊，派兵查辦；惡龍樂園應聲倒塌，可可亞西村重獲自由。',
+    changed: [{ defeated: 'arlong', text: '惡龍早已被一群旅人打倒，惡龍樂園群龍無首，可可亞西村提前重獲自由。' },
+      { by: 'cocoyasi', text: '海軍總部收到惡龍與第16分部勾結的帳冊，派兵查辦；惡龍樂園應聲倒塌，可可亞西村重獲自由。',
       effect: { move: { arlong: null }, facts: { genzo: '多虧你們找到的帳冊，村子自由了！' } } }] },
   { id: 'loguetown', at: [9, 18], island: 'loguetown', title: '處刑台上的雷光',
     text: '草帽少年在羅格鎮處刑台險些被巴其斬首，一道落雷救了他。斯摩格上校隨即追向偉大航路。',
@@ -423,28 +439,33 @@ export const canonTimeline: CanonEvent[] = [
   { id: 'alabasta', at: [25, 16], island: 'alabasta', title: '阿拉巴斯坦的雨',
     text: '克洛克達爾在阿爾巴那被草帽少年擊敗，久違的雨水落在阿拉巴斯坦，內戰終於結束。',
     effect: { move: { crocodile: null }, facts: { pell: '雨下了，內戰結束了。草帽一夥送薇薇公主回到了王宮。', cobra: '是那群海賊救了這個國家。' }, close: ['alabasta'] },
-    changed: [{ by: 'alabasta', text: '王國提前公開了舞粉的真相，內戰沒有爆發。克洛克達爾的陰謀敗露，在雨地被海軍逮捕。',
+    changed: [{ defeated: 'crocodile', text: '克洛克達爾已被一群旅人擊敗，陰謀敗露，內戰在爆發前就平息了。' },
+      { by: 'alabasta', text: '王國提前公開了舞粉的真相，內戰沒有爆發。克洛克達爾的陰謀敗露，在雨地被海軍逮捕。',
       effect: { move: { crocodile: null }, facts: { pell: '多虧你們的帳本，國民沒有互相殘殺。', cobra: '這個國家欠你們一份恩情。' } } }] },
   { id: 'jaya', at: [29, 12], island: 'jaya', title: '衝天海流',
     text: '一艘海賊船在加亞島外海乘著衝天海流飛上了天空。',
     effect: { facts: { cricket: '那群小鬼真的飛上天了！我就知道空島是存在的！' } } },
   { id: 'skypiea', at: [33, 20], island: 'skypiea', title: '黃金鐘響',
     text: '空島之神艾涅爾被打倒，黃金鐘的聲音響徹空島，也傳到了地上的加亞島。',
-    effect: { move: { enel: null }, facts: { ganfall: '鐘聲響了，空島的人們終於能放下四百年的仇恨。' }, close: ['skypiea'] } },
+    effect: { move: { enel: null }, facts: { ganfall: '鐘聲響了，空島的人們終於能放下四百年的仇恨。' }, close: ['skypiea'] },
+    changed: [{ defeated: 'enel', text: '艾涅爾早已被一群地上來的旅人打倒，黃金鐘的聲音響徹空島。', effect: { close: ['skypiea'] } }] },
   { id: 'water7', at: [46, 10], island: 'water7', title: '海列車的乘客',
     text: 'CP9 在七水之都襲擊市長冰山後，押著考古學家妮可・羅賓搭上海列車前往司法島。',
     effect: { move: { robin: 'justiceTower' }, facts: { iceburg: '兇手是我的秘書和船匠……他們是 CP9。羅賓被押往司法島了。' }, close: ['water7'] } },
   { id: 'enies', at: [48, 12], island: 'eniesLobby', title: '向世界政府宣戰',
     text: '草帽一夥向世界政府宣戰，在正義之門前救出妮可・羅賓；司法島在屠魔令下化為廢墟。',
     effect: { move: { robin: null, lucci: null, spandam: null }, close: ['eniesLobby'] },
-    changed: [{ by: 'eniesLobby', text: '妮可・羅賓在被押進正義之門前就獲救了。屠魔令依然落下，司法島化為廢墟。',
+    changed: [{ defeated: 'lucci', text: '路基早已被打倒，CP9 押送失手，妮可・羅賓獲救；屠魔令依然落下，司法島化為廢墟。',
+      effect: { move: { robin: null, spandam: null } } },
+      { by: 'eniesLobby', text: '妮可・羅賓在被押進正義之門前就獲救了。屠魔令依然落下，司法島化為廢墟。',
       effect: { move: { lucci: null, spandam: null } } }] },
   { id: 'aceCaptured', at: [52, 8], island: 'impelDown', title: '火拳艾斯被捕',
     text: '白鬍子海賊團第二隊隊長火拳艾斯被黑鬍子擊敗，押進了推進城。',
     effect: { move: { ace: 'impelLevel6' }, facts: { ace: '他被黑鬍子擊敗後關進推進城的最下層，仍然不肯低頭。' } } },
   { id: 'thriller', at: [56, 6], island: 'thrillerBark', title: '影子回到主人身上',
     text: '王下七武海月光・摩利亞被擊敗，被奪走的影子回到主人身上；音樂家布魯克加入草帽一夥。',
-    effect: { move: { brook: null }, close: ['thrillerBark'] } },
+    effect: { move: { brook: null }, close: ['thrillerBark'] },
+    changed: [{ defeated: 'moria', text: '摩利亞早已被一群旅人打倒，影子都回來了；布魯克隨草帽一夥出海。', effect: { move: { brook: null } } }] },
   { id: 'sabaody', at: [58, 15], island: 'sabaody', title: '天龍人被揍了',
     text: '草帽少年在夏波帝的人口拍賣所毆打了天龍人，海軍大將黃猿率兵前來鎮壓。',
     effect: { facts: { shakky: '那小子竟然揍了天龍人！整座群島都翻天了。' }, close: ['sabaody'] },

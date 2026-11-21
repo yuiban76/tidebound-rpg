@@ -193,7 +193,10 @@ export class Game {
         ...publicWorld,
         members: members.map(m => ({ ...m, connected: connected.has(m.id) })),
         combat: combat && {
-          round: combat.round, participants: combat.participants, locked: Object.keys(combat.choices),
+          round: combat.round, place: combat.place, participants: combat.participants, locked: Object.keys(combat.choices),
+          atSea: !!combat.sea,
+          foes: combat.foes.map(({ id, name, npc, tier, faction, hp, maxHp, logia, bounty, down, surrendered }) =>
+            ({ id, name, npc, tier, faction, hp, maxHp, logia, bounty, down, surrendered })),
           waitingForConnection: combat.participants.some(id => !connected.has(id)),
         },
       },
@@ -250,6 +253,20 @@ export class Game {
         world.version++
         this.store.save(world)
         this.store.entry(world, id, 'result', result.text)
+      })
+      return this.view(code, id)
+    }
+    if (msg.kind === 'technique') {
+      // Spec §7.6: a self-made move becomes a rules card with a name and a cost tier; the name adds no power.
+      const c = actor.character
+      demand(c.techniques.length < 6, '最多建立 6 個招式。')
+      demand(!c.techniques.some(move => move.name === msg.name), '已經有同名的招式。')
+      c.techniques.push({ name: msg.name, style: msg.style })
+      const tier = { special: '基礎特殊招式（3 STA）', advanced: '進階招式（5 STA）', flurry: '高強度連續攻擊（7 STA）' }[msg.style]
+      this.store.transaction(() => {
+        world.version++
+        this.store.save(world)
+        this.store.entry(world, id, 'result', c.name + '練成了招式「' + msg.name + '」：' + tier + '。戰鬥中輸入「用「' + msg.name + '」攻擊 對手」。')
       })
       return this.view(code, id)
     }
@@ -381,7 +398,9 @@ export class Game {
       actor: c.name, place: locations[c.place], adjacent: Object.fromEntries(paths[c.place].map(id => [id, locations[id]])),
       destinations: Object.fromEntries(islands[islandAt(c.place)].places.map(id => [id, locations[id]])),
       people: npcs, routes: routesFrom(islandAt(c.place)), ship: world.ship,
-      local, quest: world.quest, combat: !!world.combat,
+      local, quest: world.quest,
+      combat: world.combat && { foes: world.combat.foes.map(foe => ({ name: foe.name, hp: foe.hp, maxHp: foe.maxHp, down: !!foe.down })), atSea: !!world.combat.sea },
+      techniques: c.techniques.map(move => move.name),
       speaker: intent?.kind === 'talk' ? npcs[intent.npc] : undefined,
       party: party(world).map(m => m.character!.name),
       partyHere: party(world).filter(m => m.character!.place === c.place).map(m => m.character!.name),

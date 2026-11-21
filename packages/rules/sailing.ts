@@ -3,7 +3,9 @@ import type { Intent } from '../shared/protocol.ts'
 import { ballotCount, boatYard, islandAt, islands, islandStories, paceNames, routesFrom, sameRoute, selectedRoute, shipPurchaseInfo } from '../world/sea.ts'
 import type { RouteChoice } from '../world/sea.ts'
 import { party } from '../world/village.ts'
-import type { Member, World } from '../world/village.ts'
+import type { Member, PendingVoyage, World } from '../world/village.ts'
+import { rollSeaEncounter, tierNames } from '../world/foes.ts'
+import { startSeaFight } from './combat.ts'
 import { minuteOf } from '../world/canon.ts'
 import { applyEffect } from '../world/timeline.ts'
 import { grantXp } from './engine.ts'
@@ -133,29 +135,49 @@ export function resolveSailing(world: World, actor: Member, intent: SeaIntent, r
   const fast = option.pace === 'fast'
   const minutes = Math.max(20, (fast ? Math.ceil(base * .82) : base + 16) + (score < 9 ? 24 : score >= 18 ? -12 : 0))
   const damage = (fast ? (score < 9 ? 22 : score < 15 ? 8 : 2) : (score < 9 ? 4 : 0)) + (route.hazard?.damage ?? 0)
+  const weather = score < 9 ? '遇見逆風與碎浪' : score >= 18 ? '順著有利的海流' : '越過平穩海面'
+  const voyage: PendingVoyage = {
+    from, to: option.to, pace: option.pace, miles: route.miles, minutes, damage, landfallXp: route.logPose ? 50 : 20,
+    text: '迎潮號從' + islands[from].name + '出航，以' + paceNames[option.pace] + '航行 ' + route.miles +
+      ' 海里。航海 D20 ' + natural + '＋' + navigator + '＝' + score + '，' + weather +
+      (route.hazard ? '，' + route.hazard.name : '') + '，耗時 ' + duration(minutes) + '。',
+  }
+  delete world.sailing
+  // Spec §9: sea events include pirates, Marines and Sea Kings. The fight interrupts the voyage until it ends.
+  const encounter = world.calmSeas ? undefined : rollSeaEncounter(roll, route)
+  if (encounter) {
+    startSeaFight(world, encounter.foes, voyage)
+    return {
+      text: '迎潮號從' + islands[from].name + '出航，駛向' + islands[option.to].name + '。\n航行途中：' + encounter.text +
+        '\n對手：' + encounter.foes.map(foe => foe.name + '（' + tierNames[foe.tier] + '）').join('、') +
+        '。全隊可以攻擊、防守、使用繃帶，或輸入「撤退」由航海士嘗試甩開。',
+      minutes: Math.ceil(minutes / 2), announce: true,
+    }
+  }
+  return { ...finishVoyage(world, voyage), announce: true }
+}
+
+/** Lands the party at the destination: moves the ship and everyone aboard, applies hull wear and landfall XP. */
+export function finishVoyage(world: World, voyage: PendingVoyage): { text: string, minutes: number } {
+  const ship = world.ship!
   const before = ship.hull
-  ship.hull = Math.max(1, ship.hull - damage)
-  ship.port = islands[option.to].port
+  ship.hull = Math.max(1, ship.hull - voyage.damage)
+  ship.port = islands[voyage.to].port
   ship.trips++
   const discoveries: string[] = []
   for (const member of party(world)) {
     member.character!.place = ship.port
     member.character!.conversingWith = null
     // Reaching a new island is meaningful exploration; the home island pays nothing.
-    if (option.to !== 'wind') discoveries.push(grantXp(member.character!, route.logPose ? 50 : 20, 'island:' + option.to))
+    if (voyage.to !== 'wind') discoveries.push(grantXp(member.character!, voyage.landfallXp, 'island:' + voyage.to))
   }
-  delete world.sailing
-  const weather = score < 9 ? '遇見逆風與碎浪' : score >= 18 ? '順著有利的海流' : '越過平穩海面'
   return {
-    text: '迎潮號從' + islands[from].name + '出航，以' + paceNames[option.pace] + '航行 ' + route.miles +
-      ' 海里。航海 D20 ' + natural + '＋' + navigator + '＝' + score + '，' + weather +
-      (route.hazard ? '，' + route.hazard.name : '') +
-      '，耗時 ' + duration(minutes) + '。\n全隊抵達' + islands[option.to].name + '的' + locations[ship.port] +
+    text: voyage.text + '\n全隊抵達' + islands[voyage.to].name + '的' + locations[ship.port] +
       '。船體 ' + before + ' → ' + ship.hull + '／100。' +
-      (islandStories[option.to] && !['done', 'closed'].includes(world.islandTasks?.[option.to]?.stage ?? '')
-        ? '\n島上消息：' + islandStories[option.to]!.title + '。可找' + npcs[islandStories[option.to]!.guide] + '。' : '') +
+      (islandStories[voyage.to] && !['done', 'closed'].includes(world.islandTasks?.[voyage.to]?.stage ?? '')
+        ? '\n島上消息：' + islandStories[voyage.to]!.title + '。可找' + npcs[islandStories[voyage.to]!.guide] + '。' : '') +
       discoveries.filter(Boolean).map(text => '\n' + text).join(''),
-    minutes, announce: true,
+    minutes: voyage.minutes,
   }
 }
 

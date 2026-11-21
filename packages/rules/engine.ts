@@ -4,6 +4,7 @@ import { asksAboutBoatCrew, asksAboutShipPurchase, dialogueQuestion, directions,
 import { boatCrewReplies, goods, meals, npcFacts, npcPlace, npcsAt, party, shops, walkMinutes, weaponItems, weaponNames } from '../world/village.ts'
 import { islandAt, islands, shipPurchaseInfo } from '../world/sea.ts'
 import { resolveIslandTask, resolveSailing } from './sailing.ts'
+import { isDown, resolveCombatAction } from './combat.ts'
 import type { Character, CombatChoice, Member, World } from '../world/village.ts'
 
 export type Attribute = keyof Character['stats']
@@ -53,7 +54,7 @@ export function makeCharacter(input: CharacterInput): Character {
   const kit = input.major === '醫術' ? { 繃帶: 2, 醫療工具: 1 } : {}
   const equipment = { fist: '基礎工具組', sword: '普通武士刀', spear: '普通長槍', musket: '普通火槍' }[weapon]
   const c: Character = {
-    ...input, place: 'square', conversingWith: null, money: 2000, level: 1, xp: 0, unspent: 0, xpLog: {}, hp: 0, sta: 0, weapon,
+    ...input, place: 'square', conversingWith: null, money: 2000, level: 1, xp: 0, unspent: 0, xpLog: {}, bounty: 0, techniques: [], hp: 0, sta: 0, weapon,
     loaded: weapon === 'musket', inventory: { 普通衣物: 1, [equipment]: 1 },
     skillRanks: { [input.major]: 2, [input.basics[0]]: 1, [input.basics[1]]: 1, [input.life]: 1 },
   }
@@ -130,109 +131,8 @@ export function attackCheck(roll: Roll, stats: { attr: number, skill: number, de
   return { natural, total, hit, damage, dice }
 }
 
-function recoverLog(world: World, c: Character, id: string) {
-  world.settled = true
-  world.quest = 'recovered'
-  world.logHolder = id
-  c.inventory['潮汐簿'] = 1
-  delete world.combat
-}
-
 const isCombat = (intent: Intent): intent is CombatChoice =>
-  ['attack', 'guard', 'flee', 'negotiate', 'reload'].includes(intent.kind)
-
-function round(world: World, actor: Member, intent: CombatChoice, roll: Roll, connected: Set<string>): Result {
-  const c = actor.character!
-  if (c.place !== 'hill' || world.settled) return reject('這裡沒有可進行該行動的遭遇。')
-  if (intent.kind === 'attack' && intent.power && c.sta < 2) return reject('強力攻擊需要 2 STA。')
-  if (intent.kind === 'attack' && c.weapon === 'musket' && !c.loaded) return reject('火槍需要先裝填。')
-  if (intent.kind === 'reload' && (c.weapon !== 'musket' || c.loaded || !c.inventory['火槍彈藥']))
-    return reject('目前沒有可裝填的火槍或彈藥。')
-  if (!world.combat && intent.kind === 'negotiate') {
-    const natural = roll(20)
-    const total = natural + c.stats.WIL + (c.skillRanks['說服'] ?? 0) + (world.clue ? 4 : 0)
-    if (total >= 13) {
-      recoverLog(world, c, actor.id)
-      return withXp({ text: '說服 D20 ' + natural + '，合計 ' + total + '／13。岬恩交還潮汐簿，請你代為轉達漏記的工錢。', minutes: 5, announce: true },
-        grantXp(c, 30))
-    }
-    return { text: '說服 D20 ' + natural + '，合計 ' + total + '／13。岬恩仍握著潮汐簿，你可以調查線索或再交涉。', minutes: 4 }
-  }
-  if (!world.combat && intent.kind !== 'attack') return reject('目前沒有進行中的戰鬥。')
-  const participants = world.combat?.participants ?? party(world).filter(m => m.character!.place === 'hill' && m.character!.hp > 0).map(m => m.id)
-  if (!participants.includes(actor.id)) return reject('你沒有參與當前戰鬥。')
-  if (participants.some(id => !connected.has(id))) return reject('有參戰角色離線，戰鬥等待重連。')
-  const combat = world.combat ??= { round: 1, participants, choices: {} }
-  if (combat.choices[actor.id]) return reject('你已提交這一回合的行動。')
-  combat.choices[actor.id] = intent
-  if (participants.some(id => !combat.choices[id]))
-    return { text: '已鎖定第 ' + combat.round + ' 回合指令。等待其他參戰者。' }
-
-  const lines = ['第 ' + combat.round + ' 回合']
-  const fighters = world.members.filter(m => participants.includes(m.id)).sort((a, b) => b.character!.stats.AGI - a.character!.stats.AGI)
-  const cover = new Set<string>()
-  for (const member of fighters) {
-    const fighter = member.character!
-    const choice = combat.choices[member.id]
-    if (choice.kind === 'flee') {
-      fighter.place = 'road'
-      fighter.conversingWith = null
-      lines.push(fighter.name + '撤回' + locations.road + '。')
-    }
-    if (choice.kind === 'guard') cover.add(member.id)
-    if (choice.kind === 'reload') {
-      fighter.inventory['火槍彈藥']--
-      fighter.loaded = true
-      lines.push(fighter.name + '裝填火槍。')
-    }
-  }
-  for (const member of fighters) {
-    if (world.settled) break
-    const fighter = member.character!
-    const choice = combat.choices[member.id]
-    if (choice.kind === 'negotiate') {
-      const natural = roll(20)
-      const total = natural + fighter.stats.WIL + (fighter.skillRanks['說服'] ?? 0) + (world.clue ? 4 : 0)
-      lines.push(fighter.name + '交涉 D20 ' + natural + '，合計 ' + total + '／15。')
-      if (total >= 15) recoverLog(world, fighter, member.id)
-    }
-    if (choice.kind !== 'attack') continue
-    const weapons = {
-      fist: [4, '格鬥', fighter.stats.STR], sword: [6, '劍術', fighter.stats.STR],
-      spear: [8, '長兵器', fighter.stats.STR], musket: [8, '射擊', fighter.stats.PER],
-    } as const
-    const [die, skill, attr] = weapons[fighter.weapon]
-    if (choice.power) fighter.sta -= 2
-    if (fighter.weapon === 'musket') fighter.loaded = false
-    const hit = attackCheck(roll, { attr, skill: fighter.skillRanks[skill] ?? 0, def: defense(2, 1), die, bonus: choice.power ? 2 : 0 })
-    world.courierHP = Math.max(0, world.courierHP - hit.damage)
-    lines.push(fighter.name + '攻擊 D20 ' + hit.natural + '，合計 ' + hit.total + '／15' +
-      (hit.hit ? '，傷害 ' + hit.damage + '（武器骰 ' + hit.dice.join('+') + '）。' : '，未命中。'))
-    if (world.courierHP === 0) recoverLog(world, fighter, member.id)
-  }
-  if (world.settled) {
-    const rewards = fighters.filter(m => m.character!.place === 'hill').map(m => grantXp(m.character!, 30)).filter(Boolean)
-    return { text: [...lines, '衝突結束，潮汐簿已取回。', ...rewards].join('\n'), announce: true, minutes: 1 }
-  }
-  const target = fighters.find(m => m.character!.place === 'hill')
-  if (target) {
-    const victim = target.character!
-    const def = defense(victim.stats.AGI, victim.skillRanks['閃避'], cover.has(target.id) ? 2 : 0)
-    const hit = attackCheck(roll, { attr: 2, skill: 1, def, die: 4 })
-    victim.hp = Math.max(0, victim.hp - hit.damage)
-    lines.push('岬恩反擊 ' + victim.name + '，D20 ' + hit.natural + '，合計 ' + hit.total + '／' + def +
-      (hit.hit ? '，傷害 ' + hit.damage + '。' : '，未命中。'))
-    if (!victim.hp) lines.push(victim.name + '倒下，仍可接受救援。')
-  }
-  combat.participants = participants.filter(id => {
-    const fighter = world.members.find(m => m.id === id)!.character!
-    return fighter.hp > 0 && fighter.place === 'hill'
-  })
-  combat.choices = {}
-  combat.round++
-  if (!combat.participants.length) delete world.combat
-  return { text: lines.join('\n'), announce: true, minutes: 1 }
-}
+  ['attack', 'guard', 'flee', 'negotiate', 'reload', 'useItem'].includes(intent.kind)
 
 function converse(world: World, c: Character, npc: NpcId, raw: string, minute = world.minute): Result {
   const place = npcPlace(world, npc)
@@ -240,7 +140,7 @@ function converse(world: World, c: Character, npc: NpcId, raw: string, minute = 
   if (place !== c.place) return islandAt(place) === islandAt(c.place)
     ? reject(npcs[npc] + '在' + locations[place] + '。可以先輸入「前往' + locations[place] + '」。')
     : reject(npcs[npc] + '在' + islands[islandAt(place)].name + '，要航行過去才能見到。')
-  if (npc === 'courier' && world.courierHP === 0) return reject('岬恩目前失去意識。')
+  if (isDown(world, npc)) return reject(npcs[npc] + '被打倒了，暫時無法交談。')
   if (npc === 'clerk' && world.quest === 'unoffered') world.quest = 'offered'
   const facts = npc === 'clerk' && world.quest === 'done' ? '潮汐簿已歸還。' : npcFacts(world, npc)
   c.conversingWith = npc
@@ -259,12 +159,9 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
   if (c.hp <= 0 && !(intent.kind === 'rest' && intent.sleep))
     return reject('你已倒下，需就地等待救援，或在安全地點完成睡眠。')
   if (world.combat?.participants.includes(actor.id) && !isCombat(intent))
-    return reject('戰鬥進行中。請描述攻擊、防守、撤退、交涉或裝填。')
-  if (isCombat(intent) && !(intent.kind === 'reload' && !world.combat)) {
-    // Combat rules only exist for the hill encounter; a scuffle anywhere else is the narrator's to tell.
-    if (c.place !== 'hill' || (!world.combat && world.settled)) return freeAction()
-    return round(world, actor, intent, roll, connected)
-  }
+    return reject('戰鬥進行中。請描述攻擊、招式、防守、撤退、交涉、使用繃帶或裝填。')
+  if (isCombat(intent) && !(intent.kind === 'reload' && !world.combat))
+    return resolveCombatAction(world, actor, intent, roll, connected)
 
   switch (intent.kind) {
     case 'sail': return resolveSailing(world, actor, intent, roll, connected)
@@ -272,8 +169,8 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
     case 'move': {
       if (c.place === intent.to)
         return intent.talkTo ? converse(world, c, intent.talkTo, raw) : reject('你已經在' + locations[c.place] + '。')
-      if (intent.to === 'hill' && world.combat) return reject('山徑有正在結算的遭遇。')
-      const route = routeBetween(c.place, intent.to, !!world.combat)
+      if (intent.to === 'hill' && world.combat?.place === 'hill') return reject('山徑有正在結算的遭遇。')
+      const route = routeBetween(c.place, intent.to, world.combat?.place === 'hill')
       if (!route.length) return reject(islandAt(c.place) !== islandAt(intent.to)
         ? '跨島不能自行步行。請到停泊港和全隊共同出航。' : '目前沒有通往' + locations[intent.to] + '的路。')
       c.place = intent.to
@@ -435,11 +332,18 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
   }
 }
 
-export function guideFor(world: Pick<World, 'quest' | 'logHolder' | 'npcPlaces'> & { combat?: Pick<NonNullable<World['combat']>, 'participants'> }, actor: Member) {
+export function guideFor(world: Pick<World, 'quest' | 'logHolder' | 'npcPlaces'> & { combat?: Pick<NonNullable<World['combat']>, 'participants' | 'place'> & { foes?: { name: string, hp: number, maxHp: number, down?: boolean, surrendered?: boolean }[] } }, actor: Member) {
   const character = actor.character!
   const inCombat = world.combat?.participants.includes(actor.id)
+  if (inCombat && world.combat?.foes && character.hp > 0) {
+    const foes = world.combat.foes.filter(foe => !foe.down && !foe.surrendered)
+    return {
+      text: '你在戰鬥中。對手：' + foes.map(foe => foe.name + ' HP ' + foe.hp + '／' + foe.maxHp).join('、') + '。可以攻擊、使用招式、防守、撤退、交涉或使用繃帶。',
+      suggestions: [...foes.map(foe => '攻擊' + foe.name), '防守', '撤退', '使用繃帶'],
+    }
+  }
   const guide = directions(character.place, {
-    hillClosed: !!world.combat,
+    hillClosed: world.combat?.place === 'hill',
     inCombat,
     down: character.hp <= 0,
     present: npcsAt(world, character.place),

@@ -26,6 +26,10 @@ async function withGame(t: TestContext, count = 1, open = true) {
   await game.configure(config)
   const view = game.create()
   const code = view.world.code
+  // Sea encounters are random; tests that are not about them sail on calm seas.
+  const calm = game.room(code)
+  calm.calmSeas = true
+  game.store.save(calm)
   const ids = [view.player]
   const tokens: string[] = []
   for (let index = 1; index < count; index++) {
@@ -632,7 +636,7 @@ test('P0-12／14 有效自然 20、自然 1、武器骰、失能與回復', () =
   c.place = 'hill'
   c.hp = 1
   const rolls = [1, 20, 1, 1]
-  const report = resolveAction(world, member, { kind: 'attack', npc: 'courier', power: true }, '攻擊', () => rolls.shift()!, new Set(['host']))
+  const report = resolveAction(world, member, { kind: 'attack', target: '岬恩', style: 'power' }, '攻擊', () => rolls.shift()!, new Set(['host']))
   assert.match(report.text, /倒下/)
   assert.equal(c.hp, 0)
   assert.equal(c.sta, maxSTA(c) - 2)
@@ -651,7 +655,7 @@ test('同步戰鬥等所有參戰者鎖定，離線不代操，非戰鬥可完�
   two.character.place = 'hill'
   world.members.push(two)
   const connected = new Set(['host', 'guest'])
-  const attack = { kind: 'attack', npc: 'courier', power: false } as const
+  const attack = { kind: 'attack', target: '岬恩' } as const
   const next = (sides: number) => Math.min(12, sides)
   assert.match(resolveAction(world, one, attack, '攻擊', next, connected).text, /鎖定/)
   assert.equal(world.courierHP, 20)
@@ -661,7 +665,7 @@ test('同步戰鬥等所有參戰者鎖定，離線不代操，非戰鬥可完�
   assert.equal(world.combat?.round, 2)
   delete world.combat
   world.quest = 'active'
-  assert.match(resolveAction(world, one, { kind: 'negotiate', npc: 'courier' }, '交涉', () => 20, connected).text, /交還/)
+  assert.match(resolveAction(world, one, { kind: 'negotiate', target: '岬恩' }, '交涉', () => 20, connected).text, /交還/)
   one.character.place = 'dock'
   assert.match(resolveAction(world, one, { kind: 'quest', step: 'deliver' }, '交還', next, connected).text, /350/)
   assert.equal(world.quest, 'done')

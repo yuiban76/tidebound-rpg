@@ -128,3 +128,9 @@ legend { padding: 0 .3rem; font-weight: 700; }
 @media (max-width: 390px) {
   .form-grid { grid-template-columns: 1fr; }
 }
+
+.combat-panel { border-color: #b4532a; }
+.foe-list { list-style: none; padding: 0; margin: .5rem 0; display: grid; gap: .5rem; }
+.foe-list li { display: grid; grid-template-columns: 1fr auto; gap: .15rem .75rem; align-items: center; }
+.foe-list li[data-down="true"] { opacity: .55; }
+.foe-list meter { grid-column: 1 / -1; width: 100%; height: .6rem; }

@@ -1,7 +1,9 @@
 import type { CharacterInput, Intent, IslandId, LocationId, NpcId, Weapon } from '../shared/protocol.ts'
 import { npcs } from '../shared/protocol.ts'
-import type { Ship, SailingPlan, IslandTask } from './sea.ts'
+import type { Ship, SailingPlan, IslandTask, RouteChoice } from './sea.ts'
+import type { Foe } from './foes.ts'
 import { canonIslands, canonPeople } from './canon.ts'
+import { npcFoe } from './foes.ts'
 
 /** Canon islands are laid out as port ↔ second place ↔ third place. */
 const canonPaths = Object.fromEntries(Object.values(canonIslands).flatMap(({ places: [[a], [b], [c]] }) =>
@@ -105,8 +107,24 @@ export type Character = CharacterInput & {
   /** Times each repeatable activity has paid XP, for diminishing returns. */
   xpLog: Record<string, number>
   skillRanks: Record<string, number>
+  /** Bounty the Marines have put on this character's head. */
+  bounty: number
+  /** Self-made techniques (spec §7.6): a name and a cost tier only; flashy names add no damage. */
+  techniques: Technique[]
 }
-export type CombatChoice = Extract<Intent, { kind: 'attack' | 'guard' | 'flee' | 'negotiate' | 'reload' }>
+export type Technique = { name: string, style: 'special' | 'advanced' | 'flurry' }
+export type CombatChoice = Extract<Intent, { kind: 'attack' | 'guard' | 'flee' | 'negotiate' | 'reload' | 'useItem' }>
+/** A voyage interrupted by a sea encounter; it resumes once the fight is over. */
+export type PendingVoyage = RouteChoice & { from: IslandId, miles: number, minutes: number, damage: number, text: string, landfallXp: number }
+export type Combat = {
+  round: number
+  /** Where the fight happens; at sea it is the port the ship left from. */
+  place: LocationId
+  participants: string[]
+  foes: Foe[]
+  choices: Record<string, CombatChoice>
+  sea?: PendingVoyage
+}
 export type Member = {
   id: string, host: boolean, ready: boolean, agree: boolean, approved: boolean, character?: Character
   /** Joined after the story started; not part of N until admitted at a safe port. */
@@ -132,7 +150,7 @@ export type World = {
   logHolder?: string
   stock: Record<Good, number>
   memories: Record<NpcId, string[]>
-  combat?: { round: number, participants: string[], choices: Record<string, CombatChoice> }
+  combat?: Combat
   proposals: Proposal[]
   crew: boolean
   ship?: Ship
@@ -146,6 +164,14 @@ export type World = {
   timeline?: Record<string, 'canon' | 'changed'>
   /** Dice-checked free actions, newest last. Every AI prompt sees them so the story can leave canon. */
   chronicle?: string[]
+  /** Named NPCs knocked out until this minute; they cannot talk or fight before then. */
+  npcDown?: Partial<Record<NpcId, number>>
+  /** Named NPCs the players have beaten at least once (the timeline reacts to some of them). */
+  defeated?: NpcId[]
+  /** Separate reputations (spec §9): Marine attention and how each island sees the party. */
+  renown?: { marineHeat: number, islandRep: Partial<Record<IslandId, number>> }
+  /** Turns off random sea encounters (quiet story stretches or tests). */
+  calmSeas?: boolean
 }
 
 export function npcPlace(world: Pick<World, 'npcPlaces'>, npc: NpcId): LocationId | null {
@@ -186,6 +212,14 @@ export function normalizeWorld(world: World): World {
     if (!c) continue
     c.unspent ??= 0
     c.xpLog ??= {}
+    c.bounty ??= 0
+    c.techniques ??= []
+  }
+  // Saves from before the general combat system only had the hill fight against the courier.
+  const legacy = world.combat as (Combat & { foes?: Foe[] }) | undefined
+  if (legacy && !legacy.foes) {
+    legacy.place = 'hill'
+    legacy.foes = [{ ...npcFoe('courier', world.minute), hp: world.courierHP }]
   }
   return world
 }

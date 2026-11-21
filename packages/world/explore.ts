@@ -148,7 +148,23 @@ export function familiarIntent(input: string, here?: LocationId): Intent | undef
   if (/^(?:吃|點|買|來一份|來份)(?:一碗|一份)?(?:爌肉飯|控肉飯|燉肉飯|滷肉飯)$/.test(text)) return { kind: 'meal', dish: 'rice' }
   if (/^(?:接受|接下|接)(?:潮汐簿)?(?:的)?委託$/.test(text)) return { kind: 'quest', step: 'accept' }
   if (/^(?:交還|還回|歸還)潮汐簿$/.test(text)) return { kind: 'quest', step: 'deliver' }
-  if (/^(?:和|跟|找)?岬恩(?:交涉|談(?:工錢|潮汐簿))$/.test(text)) return { kind: 'negotiate', npc: 'courier' }
+  if (/^(?:和|跟|找)?岬恩(?:交涉|談(?:工錢|潮汐簿))$/.test(text)) return { kind: 'negotiate', target: '岬恩' }
+  const parley = /^(?:和|跟|向)(.+?)(?:交涉|談判|講和)$/.exec(text)
+  if (parley) return { kind: 'negotiate', target: parley[1].trim() }
+  const technique = /^(?:用|使出|施展)(?:招式)?「(.+?)」(?:攻擊)?\s*(.*)$/.exec(text)
+  if (technique) return { kind: 'attack', technique: technique[1], ...(technique[2].trim() && { target: technique[2].trim() }) }
+  const styled = /^(強力攻擊|特殊招式|進階招式|連續攻擊|連擊)\s*(.*)$/.exec(text)
+  if (styled) {
+    const style = ({ 強力攻擊: 'power', 特殊招式: 'special', 進階招式: 'advanced', 連續攻擊: 'flurry', 連擊: 'flurry' } as const)[styled[1] as '強力攻擊']
+    return { kind: 'attack', style, ...(styled[2].trim() && { target: styled[2].trim() }) }
+  }
+  const strike = /^(?:攻擊|揍|砍|踢|射擊|開槍打|偷襲|出手打)\s*(.+)$/.exec(text)
+  if (strike) return { kind: 'attack', target: strike[1].trim() }
+  if (/^(?:攻擊|出手)$/.test(text)) return { kind: 'attack' }
+  if (/^(?:逃跑|逃走|撤離)$/.test(text)) return { kind: 'flee' }
+  if (/^(?:裝填|裝彈|裝填火槍)$/.test(text)) return { kind: 'reload' }
+  const bandage = /^(?:使用|用)繃帶(?:給|替|幫)?\s*(.*)$/.exec(text)
+  if (bandage) return { kind: 'useItem', item: '繃帶', ...(bandage[1].trim() && { target: bandage[1].trim() }) }
   if (/^(?:查看|觀察|調查)(?:山徑|山道|山路)上的(?:痕跡|鞋印)$/.test(text)) return { kind: 'check', method: 'observe' }
   if (/^(?:買|購買)(?:一把)?(?:普通)?武士刀$/.test(text)) return { kind: 'buy', item: 'sword' }
   if (/^(?:買|購買)(?:一個)?(?:記錄指針|永久指針|指針)$/.test(text)) return { kind: 'buy', item: 'logPose' }

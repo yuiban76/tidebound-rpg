@@ -11,6 +11,7 @@ import type { View } from './network.ts'
 import type { Entry } from '../host/store.ts'
 import { Field } from './lobby.tsx'
 import { WorldMap } from './world-map.tsx'
+import { CombatPanel, Techniques } from './combat.tsx'
 import { IslandAdventure, VoyagePanel } from './voyage.tsx'
 
 const phaseText = { queued: '排隊中', interpret: 'AI 理解與規則驗證', narrate: '正式結果已存檔，旁白生成中' }
@@ -96,8 +97,7 @@ export function Story({ view, send, history, connected, gap, review }: {
       <ul>{view.entries.slice(-gap).filter(entry => ['world', 'result'].includes(entry.type)).slice(-3).map(entry =>
         <li key={entry.seq}>{entry.text}</li>)}</ul>
     </section>}
-    {combat && <p className="notice warning">戰鬥第 {combat.round} 回合 · {combat.locked.length}／{combat.participants.length} 已鎖定
-      {combat.waitingForConnection ? ' · 等待離線參戰者' : ' · 可以描述攻擊、防守、撤退或交涉'}</p>}
+    {combat && <CombatPanel combat={combat} character={character} player={player} suggest={suggest}/>}
     <nav className="mobile-tabs" aria-label="切換紀錄">
       {[['world', '地圖與公告'], ...crew.map(m => [m.id, m.character?.name ?? '玩家']), ['status', '狀態']].map(([id, label]) =>
         <button key={id} type="button" className="light" aria-pressed={tab === id} onClick={() => setTab(id)}>{label}</button>)}
@@ -166,6 +166,12 @@ export function Story({ view, send, history, connected, gap, review }: {
         </section>}
         <details><summary>屬性與技能</summary><p>{attributes.map(k => attributeLabels[k] + ' ' + character.stats[k]).join(' · ')}</p>
           <p>{Object.entries(character.skillRanks).map(([skill, value]) => skill + ' ' + value).join(' · ')}</p></details>
+        <dl className="values">
+          <div><dt>懸賞金</dt><dd>{character.bounty.toLocaleString('en-US')}</dd></div>
+          <div><dt>海軍注意度</dt><dd>{world.renown?.marineHeat ?? 0}／100</dd></div>
+          <div><dt>本島聲望</dt><dd>{world.renown?.islandRep[islandAt(character.place)] ?? 0}</dd></div>
+        </dl>
+        <Techniques character={character} post={post} disabled={paused}/>
         <details open><summary>背包與裝備</summary>
           <p>目前武器：{weaponNames[character.weapon]}</p>
           <ul>{Object.entries(character.inventory).filter(([, count]) => count > 0).map(([item, count]) =>

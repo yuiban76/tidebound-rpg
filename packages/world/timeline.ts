@@ -27,7 +27,8 @@ export function advanceTimeline(world: World) {
   for (const event of canonTimeline) {
     const at = minuteOf(event.at)
     if (at > world.minute || world.timeline?.[event.id]) continue
-    const change = event.changed?.find(option => world.islandTasks?.[option.by]?.stage === 'done')
+    const change = event.changed?.find(option =>
+      (option.by && world.islandTasks?.[option.by]?.stage === 'done') || (option.defeated && world.defeated?.includes(option.defeated)))
     ;(world.timeline ??= {})[event.id] = change ? 'changed' : 'canon'
     applyEffect(world, change ? change.effect : event.effect)
     const witnessed = party(world).some(member => islandAt(member.character!.place) === event.island)

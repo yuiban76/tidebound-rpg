@@ -17,6 +17,8 @@ export const locations = {
 export const npcs = { keeper: '瑪琪諾', clerk: '提奧', watch: '蘇芮', courier: '岬恩', lamplighter: '蕊卡', sounder: '洛汀', mayor: '村長',
   rika: '莉卡', zoro: '索隆', boodle: '布德鎮長', chouchou: '修修', ...canonNpcs }
 export const weapons = ['fist', 'sword', 'spear', 'musket'] as const
+export const attackStyles = ['normal', 'power', 'special', 'advanced', 'flurry'] as const
+export type AttackStyle = (typeof attackStyles)[number]
 export type Weapon = (typeof weapons)[number]
 const locationIds = Object.keys(locations) as (keyof typeof locations)[]
 const npcIds = Object.keys(npcs) as (keyof typeof npcs)[]
@@ -78,8 +80,13 @@ export const intentSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('sail'), order: z.enum(['buy', 'borrow', 'materials', 'repair', 'vote', 'ready', 'unready', 'depart']), destination: z.enum(islandIds).optional(), pace: z.enum(sailingPaces).optional() }),
   z.strictObject({ kind: z.literal('islandTask'), step: z.enum(['accept', 'search', 'deliver']) }),
   z.strictObject({ kind: z.literal('check'), method: z.enum(['observe', 'climb', 'search', 'sneak']) }),
-  z.strictObject({ kind: z.literal('attack'), npc: z.literal('courier'), power: z.boolean() }),
-  z.strictObject({ kind: z.literal('negotiate'), npc: z.literal('courier') }),
+  // style: normal 0 STA, power 2, special 3, advanced 5, flurry 7 (spec §7.4). technique names a self-made move.
+  z.strictObject({
+    kind: z.literal('attack'), target: z.string().trim().min(1).max(24).optional(),
+    style: z.enum(attackStyles).optional(), technique: z.string().trim().min(1).max(12).optional(),
+  }),
+  z.strictObject({ kind: z.literal('negotiate'), target: z.string().trim().min(1).max(24).optional() }),
+  z.strictObject({ kind: z.literal('useItem'), item: z.string().trim().min(1).max(24), target: z.string().trim().min(1).max(24).optional() }),
   z.strictObject({ kind: z.literal('guard') }),
   z.strictObject({ kind: z.literal('flee') }),
   z.strictObject({ kind: z.literal('quest'), step: z.enum(['accept', 'deliver', 'abandon']) }),
@@ -117,6 +124,7 @@ export const messageSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('propose'), type: z.enum(proposals), title: text(60) }),
   z.strictObject({ kind: z.literal('vote'), id: identifier, yes: z.boolean() }),
   z.strictObject({ kind: z.literal('allocate'), attr: z.enum(attributes) }),
+  z.strictObject({ kind: z.literal('technique'), name: text(12), style: z.enum(['special', 'advanced', 'flurry']) }),
 ])
 export type Message = z.infer<typeof messageSchema>
 export const peerRequest = z.strictObject({

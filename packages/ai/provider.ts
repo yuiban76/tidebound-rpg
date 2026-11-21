@@ -141,7 +141,7 @@ export class AiProvider {
       '只回傳一個 JSON 物件，包含 kind 與對應欄位。不要添加解說或其他欄位。',
       'move {to:context.destinations 裡的地點代號}，若到達後要和指定 NPC 說話，可另外填 talkTo。talk {npc:context.people 裡的代號}，check {method:observe|climb|search|sneak}。',
       'guide 只用於玩家明確詢問可去的地點或附近能做的事；只問自己在哪時用 location。meal {dish:bread|rice} 用於在酒館點餐，crew 用於提出成立船團的投票。',
-      'attack {npc:courier,power:boolean}，negotiate {npc:courier}，guard，flee，quest {step:accept|deliver|abandon}。',
+      '戰鬥：attack {target?:對手或在場 NPC 的名字, style?:normal|power|special|advanced|flurry, technique?:context.techniques 裡的自創招式名}，任何在場的人都能被攻擊。華麗描述不會變強：一般出手用 normal，明說強力一擊用 power，特殊招式 special，進階招式 advanced，連續猛攻 flurry。negotiate {target?}，guard，flee，useItem {item:繃帶, target?:隊友名}。quest {step:accept|deliver|abandon}。',
       'rest {sleep:boolean}，aid {patient:角色名}，buy {item:spear|bandage|bullets|sword|logPose}（logPose 是記錄指針），reload。wait {hours:1-240} 用於原地等待或消磨時間。',
       'give {to:context.party 裡的角色名, item?:context.items 裡的物品名, count?:數量, money?:貝里}，item 與 money 只填一項。equip {weapon:fist|sword|spear|musket} 用於改用自己背包裡的武器。',
       'sail {order:buy|borrow|materials|repair|vote|ready|unready|depart, destination?:wind|lantern|mist, pace?:steady|fast}。islandTask {step:accept|search|deliver}。',

@@ -32,13 +32,13 @@ export async function compatibilityFixture() {
     ['找提奧聊聊', { kind: 'talk', npc: 'clerk' }],
     ['檢查地上的鞋印', { kind: 'check', method: 'observe' }],
     ['買一把普通長槍', { kind: 'buy', item: 'spear' }],
-    ['攻擊岬恩', { kind: 'attack', npc: 'courier', power: false }],
+    ['攻擊岬恩', { kind: 'attack', target: '岬恩' }],
     ['防守', { kind: 'guard' }],
     ['撤退', { kind: 'flee' }],
     ['我要離開這座島', { kind: 'unsupported' }],
     ['接受委託', { kind: 'quest', step: 'accept' }],
     ['交還潮汐簿', { kind: 'quest', step: 'deliver' }],
-    ['和岬恩談工錢', { kind: 'negotiate', npc: 'courier' }],
+    ['和岬恩談工錢', { kind: 'negotiate', target: '岬恩' }],
   ])
   const server = createServer(async (request, response) => {
     const accepted = (kind: string, content: string, model?: string, maxTokens?: number) => {

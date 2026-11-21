@@ -82,7 +82,7 @@ export function WorldMap({ world, player, hideOnMobile, onTravel, onCourse }: {
   const teammates = party(world).filter(member => member.id !== player)
   const fighting = world.combat?.participants.includes(player)
   const moving = character.hp > 0 && !fighting
-  const hillClosed = !!world.combat
+  const hillClosed = world.combat?.place === 'hill'
 
   return <section className={'panel world-map' + (hideOnMobile ? ' mobile-hide' : '')} aria-labelledby={title}>
     <header className="map-heading">

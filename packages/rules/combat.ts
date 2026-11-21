@@ -1,0 +1,366 @@
+// General synchronous-round combat (spec §7): every NPC can be fought, sea encounters use the same rules.
+// The rules core rolls every die; the narrator only describes the committed result.
+import { locations, npcs } from '../shared/protocol.ts'
+import type { AttackStyle, NpcId } from '../shared/protocol.ts'
+import { npcFoe, tierNames, tierXp } from '../world/foes.ts'
+import type { Foe } from '../world/foes.ts'
+import { islandAt } from '../world/sea.ts'
+import { npcFacts, npcPlace, npcsAt, party, paths } from '../world/village.ts'
+import type { Character, Combat, CombatChoice, Member, World } from '../world/village.ts'
+import { bossDefeats } from '../world/canon.ts'
+import { applyEffect } from '../world/timeline.ts'
+import { attackCheck, defense, grantXp, maxHP } from './engine.ts'
+import type { Result, Roll } from './engine.ts'
+import { finishVoyage } from './sailing.ts'
+
+const stop = (text: string): Result => ({ text, rejected: true })
+
+/** STA cost and bonuses of each attack style (spec §7.4). Flurry is two blows at −2 each. */
+export const styles: Record<AttackStyle, { label: string, sta: number, hit: number, damage: number }> = {
+  normal: { label: '普通攻擊', sta: 0, hit: 0, damage: 0 },
+  power: { label: '強力攻擊', sta: 2, hit: 0, damage: 2 },
+  special: { label: '基礎特殊招式', sta: 3, hit: 1, damage: 3 },
+  advanced: { label: '進階招式', sta: 5, hit: 2, damage: 5 },
+  flurry: { label: '高強度連續攻擊', sta: 7, hit: -2, damage: 0 },
+}
+
+function weaponOf(c: Character) {
+  const table = {
+    fist: [4, '格鬥', c.stats.STR], sword: [6, '劍術', c.stats.STR],
+    spear: [8, '長兵器', c.stats.STR], musket: [8, '射擊', c.stats.PER],
+  } as const
+  return table[c.weapon]
+}
+
+/** Resolves a self-made technique to its cost tier; an unknown name is not usable. */
+function styleOf(c: Character, choice: Extract<CombatChoice, { kind: 'attack' }>): AttackStyle | undefined {
+  if (choice.technique) return c.techniques.find(move => move.name === choice.technique)?.style
+  return choice.style ?? 'normal'
+}
+
+const standing = (combat: Combat) => combat.foes.filter(foe => !foe.down && !foe.surrendered)
+
+function findFoe(combat: Combat, target?: string) {
+  const alive = standing(combat)
+  if (!target) return alive[0]
+  return alive.find(foe => foe.name === target) ?? alive.find(foe => foe.name.includes(target) || target.includes(foe.name))
+}
+
+/** A named NPC on the actor's spot who can be attacked right now. */
+function npcTarget(world: World, c: Character, target?: string): NpcId | string {
+  const here = npcsAt(world, c.place).filter(npc => !isDown(world, npc))
+  if (!here.length) return '這裡沒有可以攻擊的對象。'
+  if (!target) return here.length === 1 ? here[0] : '請說明要攻擊誰：' + here.map(npc => npcs[npc]).join('、') + '。'
+  const found = here.find(npc => npcs[npc] === target) ?? here.find(npc => npcs[npc].includes(target) || target.includes(npcs[npc]))
+  if (found) return found
+  const elsewhere = (Object.keys(npcs) as NpcId[]).find(npc => npcs[npc] === target)
+  return elsewhere && npcPlace(world, elsewhere) ? npcs[elsewhere] + '不在這裡。' : '這裡沒有叫「' + target + '」的人。'
+}
+
+export const isDown = (world: Pick<World, 'npcDown' | 'minute'>, npc: NpcId) => (world.npcDown?.[npc] ?? 0) > world.minute
+
+/** The original hill quest: getting the tide log from the courier by any means settles it. */
+function recoverLog(world: World, c: Character, id: string) {
+  if (world.settled) return
+  world.settled = true
+  world.quest = 'recovered'
+  world.logHolder = id
+  c.inventory['潮汐簿'] = 1
+}
+
+/** Out-of-combat negotiation only exists for the courier's tide log; other talks are ordinary conversation. */
+function negotiateCourier(world: World, actor: Member, roll: Roll, dc: number) {
+  const c = actor.character!
+  const natural = roll(20)
+  const total = natural + c.stats.WIL + (c.skillRanks['說服'] ?? 0) + (world.clue ? 4 : 0)
+  return { natural, total, success: total >= dc }
+}
+
+function useBandage(world: World, actor: Member, target?: string) {
+  const c = actor.character!
+  const patient = target ? party(world).find(m => m.character!.name === target)?.character : c
+  if (!patient || patient.place !== c.place) return '找不到在你身邊、名叫「' + target + '」的隊友。'
+  if (!c.inventory['繃帶']) return '你的背包裡沒有繃帶。'
+  if (patient.hp === maxHP(patient)) return patient.name + '沒有受傷。'
+  c.inventory['繃帶']--
+  if (!c.inventory['繃帶']) delete c.inventory['繃帶']
+  patient.hp = Math.min(maxHP(patient), patient.hp + 4 + (c.skillRanks['醫術'] ?? 0))
+  return { text: (patient === c ? c.name + '替自己包紮' : c.name + '替' + patient.name + '包紮') + '，目前 HP ' + patient.hp + '。' }
+}
+
+/** Starts a land fight against one named NPC; every standing party member on the spot joins. */
+function startFight(world: World, place: Character['place'], foes: Foe[]): Combat {
+  const participants = party(world).filter(m => m.character!.place === place && m.character!.hp > 0).map(m => m.id)
+  return world.combat = { round: 1, place, participants, foes, choices: {} }
+}
+
+/** Creates a sea fight that interrupts a voyage; the whole party is aboard. */
+export function startSeaFight(world: World, foes: Foe[], sea: NonNullable<Combat['sea']>) {
+  const place = world.ship!.port
+  world.combat = { round: 1, place, participants: party(world).filter(m => m.character!.hp > 0).map(m => m.id), foes, choices: {}, sea }
+}
+
+export function resolveCombatAction(world: World, actor: Member, choice: CombatChoice, roll: Roll, connected: Set<string>): Result {
+  const c = actor.character!
+  let combat = world.combat
+  let started = false
+  if (!combat) {
+    if (choice.kind === 'useItem') {
+      if (!/繃帶/.test(choice.item)) return stop('目前只有繃帶能在這裡使用。')
+      const used = useBandage(world, actor, choice.target)
+      return typeof used === 'string' ? stop(used) : { text: used.text, minutes: 5 }
+    }
+    if (choice.kind === 'negotiate') {
+      const courierHere = c.place === 'hill' && !world.settled && npcPlace(world, 'courier') === 'hill' && !isDown(world, 'courier')
+      if (!courierHere || (choice.target && !/岬恩/.test(choice.target))) return stop('目前沒有需要交涉的衝突。想和人談，可以直接找對方聊天。')
+      const { natural, total, success } = negotiateCourier(world, actor, roll, 13)
+      if (!success) return { text: '說服 D20 ' + natural + '，合計 ' + total + '／13。岬恩仍握著潮汐簿，你可以調查線索或再交涉。', minutes: 4 }
+      recoverLog(world, c, actor.id)
+      const xp = grantXp(c, 30)
+      return { text: '說服 D20 ' + natural + '，合計 ' + total + '／13。岬恩交還潮汐簿，請你代為轉達漏記的工錢。' + (xp ? '\n' + xp : ''), minutes: 5, announce: true }
+    }
+    if (choice.kind !== 'attack') return stop('目前沒有進行中的戰鬥。')
+    const target = npcTarget(world, c, choice.target)
+    if (!(target in npcs)) return stop(target)
+    const foe = npcFoe(target as NpcId, world.minute)
+    if (target === 'courier') foe.hp = world.courierHP || foe.maxHp
+    combat = startFight(world, c.place, [foe])
+    started = true
+  }
+  if (!combat.participants.includes(actor.id)) {
+    if (c.place !== combat.place || c.hp <= 0) return stop('你沒有參與當前戰鬥。')
+    combat.participants.push(actor.id)
+  }
+  if (combat.participants.some(id => !connected.has(id))) return stop('有參戰角色離線，戰鬥等待重連。')
+  if (combat.choices[actor.id]) return stop('你已提交這一回合的行動。')
+
+  const invalid = validate(combat, c, choice)
+  if (invalid) {
+    // An invalid opening move never starts the fight.
+    if (started) delete world.combat
+    return stop(invalid)
+  }
+  combat.choices[actor.id] = choice
+  const opening = combat.round === 1 && Object.keys(combat.choices).length === 1 && combat.foes.length === 1 && combat.foes[0].npc
+    ? c.name + '向' + combat.foes[0].name + '（' + tierNames[combat.foes[0].tier] + '）出手了！\n' : ''
+  if (combat.participants.some(id => !combat.choices[id]))
+    return { text: opening + '已鎖定第 ' + combat.round + ' 回合指令。等待其他參戰者。', announce: !!opening }
+  return resolveRound(world, combat, roll, opening)
+}
+
+function validate(combat: Combat, c: Character, choice: CombatChoice) {
+  if (choice.kind === 'attack') {
+    const style = styleOf(c, choice)
+    if (!style) return '你還沒有名為「' + choice.technique + '」的招式。可以在狀態欄的「招式」建立。'
+    if (c.sta < styles[style].sta) return styles[style].label + '需要 ' + styles[style].sta + ' STA，你目前只有 ' + c.sta + '。'
+    if (c.weapon === 'musket' && !c.loaded) return '火槍需要先裝填。'
+    if (!findFoe(combat, choice.target)) return '找不到名叫「' + choice.target + '」的對手。'
+  }
+  if (choice.kind === 'reload' && (c.weapon !== 'musket' || c.loaded || !c.inventory['火槍彈藥'])) return '目前沒有可裝填的火槍或彈藥。'
+  if (choice.kind === 'useItem' && (!/繃帶/.test(choice.item) || !c.inventory['繃帶'])) return '戰鬥中目前只能使用背包裡的繃帶。'
+  if (choice.kind === 'negotiate' && !findFoe(combat, choice.target)) return '找不到可以交涉的對手。'
+}
+
+function resolveRound(world: World, combat: Combat, roll: Roll, opening: string): Result {
+  const lines = [opening + '第 ' + combat.round + ' 回合']
+  const fighters = world.members.filter(m => combat.participants.includes(m.id))
+    .sort((a, b) => b.character!.stats.AGI - a.character!.stats.AGI)
+  const guarding = new Set<string>()
+  const lastHit = new Map<string, Member>()
+  let escaped = false
+
+  // Movement and support first; then attacks in speed order (spec §7.5).
+  for (const member of fighters) {
+    const fighter = member.character!
+    const choice = combat.choices[member.id]
+    if (choice.kind === 'guard') { guarding.add(member.id); lines.push(fighter.name + '擺出防守架勢。') }
+    if (choice.kind === 'reload') {
+      fighter.inventory['火槍彈藥']--
+      fighter.loaded = true
+      lines.push(fighter.name + '裝填火槍。')
+    }
+    if (choice.kind === 'useItem') {
+      const used = useBandage(world, member, choice.target)
+      lines.push(typeof used === 'string' ? fighter.name + '想用繃帶，但' + used : used.text)
+    }
+    if (choice.kind === 'flee') {
+      if (combat.sea) {
+        const navigator = Math.max(...party(world).map(m => m.character!.stats.INT + (m.character!.skillRanks['航海'] ?? 0)))
+        const dc = 12 + Math.max(...standing(combat).map(foe => foe.tier))
+        const natural = roll(20)
+        escaped = natural + navigator >= dc
+        lines.push('全速甩開對手：航海 D20 ' + natural + '＋' + navigator + '＝' + (natural + navigator) + '／' + dc + '，' + (escaped ? '成功脫離！' : '沒能甩開。'))
+        if (escaped) break
+      } else {
+        const exit = paths[combat.place][0]
+        fighter.place = exit
+        fighter.conversingWith = null
+        lines.push(fighter.name + '撤到' + locations[exit] + '。')
+      }
+    }
+  }
+  if (escaped) {
+    delete world.combat
+    const voyage = finishVoyage(world, combat.sea!)
+    return { text: [...lines, voyage.text].join('\n'), minutes: 1 + voyage.minutes, announce: true }
+  }
+
+  for (const member of fighters) {
+    const fighter = member.character!
+    const choice = combat.choices[member.id]
+    if (fighter.place !== combat.place || fighter.hp <= 0) continue
+    if (choice.kind === 'negotiate') {
+      const foe = findFoe(combat, choice.target)
+      if (!foe) continue
+      if (foe.npc === 'courier' && !world.settled) {
+        const { natural, total, success } = negotiateCourier(world, member, roll, 15)
+        lines.push(fighter.name + '交涉 D20 ' + natural + '，合計 ' + total + '／15。')
+        if (success) { recoverLog(world, fighter, member.id); foe.surrendered = true; lines.push('岬恩交出潮汐簿，不再抵抗。') }
+        continue
+      }
+      if (foe.tier >= 4) { lines.push(foe.name + '對' + fighter.name + '的勸說不為所動。'); continue }
+      const dc = 10 + foe.tier * 3
+      const natural = roll(20)
+      const total = natural + fighter.stats.WIL + (fighter.skillRanks['說服'] ?? 0)
+      const success = natural !== 1 && total >= dc
+      lines.push(fighter.name + '勸' + foe.name + '住手：說服 D20 ' + natural + '，合計 ' + total + '／' + dc + '，' + (success ? foe.name + '收手了。' : '對方不肯罷休。'))
+      if (success) foe.surrendered = true
+      continue
+    }
+    if (choice.kind !== 'attack') continue
+    const style = styleOf(fighter, choice)!
+    const spec = styles[style]
+    fighter.sta -= spec.sta
+    if (fighter.weapon === 'musket') fighter.loaded = false
+    const [die, skill, attr] = weaponOf(fighter)
+    const move = choice.technique ? '「' + choice.technique + '」' : spec.label === '普通攻擊' ? '攻擊' : spec.label
+    for (let blow = 0; blow < (style === 'flurry' ? 2 : 1); blow++) {
+      const foe = findFoe(combat, choice.target) ?? standing(combat)[0]
+      if (!foe) break
+      if (foe.logia) {
+        lines.push(fighter.name + '的' + move + '穿過了' + foe.name + '的身體，自然系的能力讓攻擊沒有效果。')
+        continue
+      }
+      const hit = attackCheck(roll, { attr, skill: (fighter.skillRanks[skill] ?? 0) + spec.hit, def: foe.def, die, bonus: spec.damage, armor: foe.armor })
+      foe.hp = Math.max(0, foe.hp - hit.damage)
+      lines.push(fighter.name + '對' + foe.name + '使出' + move + '，D20 ' + hit.natural + '，合計 ' + hit.total + '／' + foe.def +
+        (hit.hit ? '，傷害 ' + hit.damage + '（武器骰 ' + hit.dice.join('+') + '）。' + foe.name + ' HP ' + foe.hp + '／' + foe.maxHp + '。' : '，未命中。'))
+      if (!foe.hp) {
+        foe.down = true
+        lastHit.set(foe.id, member)
+        lines.push(foe.name + '倒下了。')
+      }
+    }
+  }
+  syncCourier(world, combat)
+  if (!standing(combat).length) return victory(world, combat, lines, lastHit)
+
+  // NPC turn: every foe still standing strikes a random fighter on the spot.
+  for (const foe of standing(combat)) {
+    const targets = fighters.filter(m => m.character!.place === combat.place && m.character!.hp > 0)
+    if (!targets.length) break
+    const target = targets.length === 1 ? targets[0] : targets[roll(targets.length) - 1]
+    const victim = target.character!
+    const def = defense(victim.stats.AGI, victim.skillRanks['閃避'] ?? 0, guarding.has(target.id) ? 2 : 0)
+    const natural = roll(20)
+    const total = natural + foe.attack
+    const hit = natural !== 1 && total >= def
+    const dice = hit ? [roll(foe.die)] : []
+    if (hit && natural === 20) dice.push(roll(foe.die))
+    const damage = hit ? Math.max(0, dice.reduce((a, b) => a + b, 0) + foe.bonus) : 0
+    victim.hp = Math.max(0, victim.hp - damage)
+    lines.push(foe.name + '反擊' + victim.name + '，D20 ' + natural + '，合計 ' + total + '／' + def + (hit ? '，傷害 ' + damage + '。' : '，未命中。'))
+    if (!victim.hp) lines.push(victim.name + '倒下，仍可接受救援。')
+  }
+
+  combat.participants = combat.participants.filter(id => {
+    const fighter = world.members.find(m => m.id === id)!.character!
+    return fighter.hp > 0 && fighter.place === combat.place
+  })
+  combat.choices = {}
+  combat.round++
+  if (!combat.participants.length) return defeat(world, combat, lines)
+  return { text: lines.join('\n'), announce: true, minutes: 1 }
+}
+
+function syncCourier(world: World, combat: Combat) {
+  const courier = combat.foes.find(foe => foe.npc === 'courier')
+  if (courier) world.courierHP = courier.hp
+}
+
+/** Loot, bounty, XP and reputation once every foe is down or has given up (spec §9: reputations stay separate). */
+function victory(world: World, combat: Combat, lines: string[], lastHit: Map<string, Member>): Result {
+  delete world.combat
+  const winners = world.members.filter(m => combat.participants.includes(m.id) && m.character!.place === combat.place && m.character!.hp > 0)
+  const share = (total: number) => winners.length ? Math.floor(total / winners.length) : 0
+  const beaten = combat.foes.filter(foe => foe.down)
+  const island = islandAt(combat.place)
+  const renown = world.renown ??= { marineHeat: 0, islandRep: {} }
+  lines.push('戰鬥結束。')
+
+  const loot = beaten.reduce((sum, foe) => sum + foe.loot, 0)
+  const reward = beaten.filter(foe => ['pirate', 'bandit', 'tyrant'].includes(foe.faction)).reduce((sum, foe) => sum + (foe.bounty ?? 0), 0)
+  if (loot + reward && winners.length) {
+    for (const m of winners) m.character!.money += share(loot + reward)
+    lines.push('戰利品' + (reward ? '與賞金' : '') + '共 ' + (loot + reward).toLocaleString('en-US') + ' 貝里，每人分得 ' + share(loot + reward).toLocaleString('en-US') + '。')
+  }
+  for (const foe of combat.foes) {
+    if (['marine', 'government'].includes(foe.faction) && (foe.down || foe.surrendered)) {
+      renown.marineHeat = Math.min(100, renown.marineHeat + 5 * (foe.tier + 1))
+      for (const m of winners) m.character!.bounty += (foe.tier + 1) ** 2 * 1_000_000
+    }
+    if (foe.faction === 'civilian') renown.islandRep[island] = (renown.islandRep[island] ?? 0) - 10
+    if (['pirate', 'bandit', 'tyrant'].includes(foe.faction) && foe.down) renown.islandRep[island] = (renown.islandRep[island] ?? 0) + 5
+  }
+  if (combat.foes.some(foe => ['marine', 'government'].includes(foe.faction)))
+    lines.push('你們對海軍／世界政府動了手：海軍注意度 ' + renown.marineHeat + '／100，懸賞金提高了。')
+  if (combat.foes.some(foe => foe.faction === 'civilian'))
+    lines.push('欺負平民的事傳開了，' + locations[combat.place] + '一帶的人對你們的評價變差。')
+
+  for (const foe of combat.foes) {
+    if (!foe.down && !foe.surrendered) continue
+    for (const m of winners) {
+      const xp = grantXp(m.character!, foe.surrendered ? Math.floor(tierXp[foe.tier] / 2) : tierXp[foe.tier], 'defeat:' + (foe.npc ?? foe.name))
+      if (xp) lines.push(xp)
+    }
+    if (!foe.npc) continue
+    const npc = foe.npc
+    const by = lastHit.get(foe.id) ?? winners[0]
+    if (foe.down) {
+      ;(world.npcDown ??= {})[npc] = world.minute + 480
+      if (!(world.defeated ??= []).includes(npc)) world.defeated.push(npc)
+      const [known, ...recent] = npcFacts(world, npc).split(' 最近：')
+      ;(world.npcFacts ??= {})[npc] = [known, ...recent.slice(-2), '被' + (by?.character!.name ?? '旅人') + '一行人打倒過'].join(' 最近：')
+    }
+    if (npc === 'courier' && by) recoverLog(world, by.character!, by.id)
+    const boss = foe.down ? bossDefeats[npc] : undefined
+    if (boss) {
+      applyEffect(world, boss.effect)
+      lines.push(boss.text)
+    }
+  }
+  if (combat.sea) {
+    const voyage = finishVoyage(world, combat.sea)
+    return { text: [...lines, voyage.text].join('\n'), announce: true, minutes: 1 + voyage.minutes }
+  }
+  return { text: lines.join('\n'), announce: true, minutes: 1 }
+}
+
+/** Everyone on the party side is down or gone. HP 0 is never death (spec §7.3). */
+function defeat(world: World, combat: Combat, lines: string[]): Result {
+  delete world.combat
+  const robbers = combat.foes.some(foe => ['pirate', 'bandit'].includes(foe.faction) && !foe.down && !foe.surrendered)
+  if (robbers) {
+    for (const m of party(world).filter(m => m.character!.place === combat.place)) {
+      const taken = Math.floor(m.character!.money * .3)
+      m.character!.money -= taken
+    }
+    lines.push('對手搶走了你們身上三成的貝里後揚長而去。')
+  } else lines.push('對手沒有追擊，留下倒地的你們離開了。')
+  if (combat.sea) {
+    const voyage = finishVoyage(world, combat.sea)
+    lines.push('迎潮號在海上漂流，最後還是到了目的地。', voyage.text)
+    return { text: lines.join('\n'), announce: true, minutes: 1 + voyage.minutes }
+  }
+  return { text: lines.join('\n'), announce: true, minutes: 1 }
+}

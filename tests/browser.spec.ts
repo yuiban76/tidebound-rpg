@@ -8,10 +8,11 @@ import { compatibilityFixture } from './fixtures.ts'
 let root: string
 let fixture: Awaited<ReturnType<typeof compatibilityFixture>>
 let shutdown: () => Promise<void>
+let hostRef: ReturnType<typeof makeHost>
 
 test.beforeEach(async () => {
   fixture = await compatibilityFixture()
-  const host = makeHost(':memory:', 'dist', 'test-results')
+  const host = hostRef = makeHost(':memory:', 'dist', 'test-results')
   await new Promise<void>(ok => host.server.listen(0, '127.0.0.1', ok))
   const signal = await new Promise<Parameters<NonNullable<Parameters<typeof PeerServer>[1]>>[0]>(ok => {
     PeerServer({ host: '127.0.0.1', port: 0, path: '/signal' }, ok)
@@ -173,7 +174,11 @@ test('去哥亞王國買刀，背包顯示目前武器並可帶入換武器指�
 })
 
 test('從船塢購船，出海後地圖更新並顯示登島委託，返航後回原港', async ({ page }) => {
-  await create(page)
+  const code = await create(page)
+  // Random sea encounters are tested elsewhere; this voyage should land directly.
+  const calm = hostRef.game.room(code)
+  calm.calmSeas = true
+  hostRef.store.save(calm)
   await ready(page, '燈火')
   await page.getByRole('button', { name: '開始遊戲' }).click()
   const map = page.getByRole('region', { name: '世界地圖' })
@@ -249,4 +254,13 @@ for (const count of [2, 3, 4]) test(count + ' 個瀏覽器用 WebRTC 開局與�
   } finally {
     await Promise.all(contexts.map(context => context.close()))
   }
+})
+
+test('對村長出手會開打並結算，狀態欄顯示懸賞金與招式欄', async ({ page }) => {
+  await create(page)
+  await ready(page, '莽夫')
+  await page.getByRole('button', { name: '開始遊戲' }).click()
+  await expect(page.getByText('懸賞金', { exact: true })).toBeVisible()
+  await expect(page.getByText('招式（0／6）')).toBeVisible()
+  await action(page, '攻擊村長', '莽夫向村長（平民）出手了')
 })
