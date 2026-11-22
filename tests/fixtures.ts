@@ -12,8 +12,10 @@ export const character = (name: string): CharacterInput => ({
 export async function compatibilityFixture() {
   const seen: {
     kind: string; authorization?: string; content: string; maxTokens?: number
-    format?: string; thinking?: boolean
+    format?: string; thinking?: boolean; stream?: boolean
   }[] = []
+  // A strict server answers 400 to fields it does not know (chat_template_kwargs, stream), like the official OpenAI API.
+  let strict = false
   let fault: 'auth' | 'model' | 'blank' | 'malformed' | 'unavailable' | 'output-limit' | 'hang' | undefined
   let only: string | undefined
   let modelRoute = true
@@ -71,13 +73,17 @@ export async function compatibilityFixture() {
       if (!accepted('probe-empty', body).rejected) response.writeHead(422).end()
       return
     }
-    const { model, messages, max_tokens, response_format, chat_template_kwargs } = JSON.parse(body)
+    const { model, messages, max_tokens, response_format, chat_template_kwargs, stream } = JSON.parse(body)
     const [system, user] = messages.map((message: { content: string }) => message.content)
     const kind = system.includes('連線測試') ? 'probe' : system.includes('意圖分類器') ? 'intent' : system.includes('NPC 台詞') ? 'dialogue'
       : system.includes('旁白') ? 'narrative' : 'unexpected-generation'
     const { rejected, problem } = accepted(kind, user, model, max_tokens)
     if (rejected) return
-    Object.assign(seen.at(-1)!, { format: response_format?.type, thinking: chat_template_kwargs?.enable_thinking })
+    Object.assign(seen.at(-1)!, { format: response_format?.type, thinking: chat_template_kwargs?.enable_thinking, stream: !!stream })
+    if (strict && (chat_template_kwargs || stream)) {
+      response.writeHead(400).end()
+      return
+    }
     if (response_format && !structuredMode) {
       response.writeHead(400).end()
       return
@@ -90,6 +96,17 @@ export async function compatibilityFixture() {
     if (kind === 'probe') content = 'OK'
     if (kind === 'narrative') content = narration
     if (kind === 'dialogue') content = '提奧正在找潮汐簿。'
+    if (stream && !problem) {
+      // Server-sent events like OpenAI-compatible servers: the reply arrives in pieces.
+      response.writeHead(200, { 'Content-Type': 'text/event-stream' })
+      const pieces = [content.slice(0, Math.ceil(content.length / 2)), content.slice(Math.ceil(content.length / 2))]
+      for (const piece of pieces) {
+        response.write('data: ' + JSON.stringify({ choices: [{ delta: { content: piece } }] }) + '\n\n')
+        await new Promise(resolve => setTimeout(resolve, 5))
+      }
+      response.end('data: ' + JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }] }) + '\n\ndata: [DONE]\n\n')
+      return
+    }
     response.setHeader('Content-Type', 'application/json')
     if (problem === 'output-limit') {
       response.end(JSON.stringify({ choices: [{ finish_reason: 'length', message: { content: null, reasoning_content: '思考中' } }] }))
@@ -111,6 +128,7 @@ export async function compatibilityFixture() {
     rawIntents: (...values: string[]) => { rawIntentReplies = values },
     structured: (enabled: boolean) => { structuredMode = enabled },
     narrateWith: (value: string) => { narration = value },
+    strictFields: (enabled: boolean) => { strict = enabled },
     close: () => new Promise<void>((resolve, reject) => { server.close(e => e ? reject(e) : resolve()); server.closeAllConnections() }),
   }
 }

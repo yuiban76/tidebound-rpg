@@ -26,6 +26,8 @@ export class Game {
   #running = true
   #room?: string
   #monitor?: ReturnType<typeof setInterval>
+  /** Partial narration per pending action id while the model streams it. */
+  #drafts = new Map<string, string>()
 
   constructor(store: Store) {
     this.store = store
@@ -201,7 +203,8 @@ export class Game {
           waitingForConnection: combat.participants.some(id => !connected.has(id)),
         },
       },
-      pending: this.store.active(code), entries,
+      // Narration still being written, so players can read it as it streams in.
+      pending: this.store.active(code).map(job => ({ ...job, draft: this.#drafts.get(job.id) })), entries,
       cursor: entries.at(-1)?.seq ?? 0,
       unread: after ? this.store.unseen(code, after) : 0,
     }
@@ -383,7 +386,11 @@ export class Game {
     if (npc && Object.hasOwn(people, npc) && npcPlace(world, npc) === c.place) return npc
   }
 
-  private context(world: World, actor: Member, intent?: Intent) {
+  /**
+   * What the model needs about the scene. Prompt size is most of a local model's wait, so the intent classifier gets
+   * the island's NPCs and places, and narration (forNarration) gets only the scene itself.
+   */
+  private context(world: World, actor: Member, intent?: Intent, forNarration = false) {
     const c = actor.character!
     const local = npcsAt(world, c.place).map(key => {
       return { id: key, name: npcs[key], role: people[key].role,
@@ -396,13 +403,18 @@ export class Game {
           : {}),
       }
     })
+    const island = islands[islandAt(c.place)].places
+    const navigation = forNarration ? {} : {
+      adjacent: Object.fromEntries(paths[c.place].map(id => [id, locations[id]])),
+      destinations: Object.fromEntries(island.map(id => [id, locations[id]])),
+      people: Object.fromEntries(island.flatMap(place => npcsAt(world, place)).map(id => [id, npcs[id]])),
+      routes: routesFrom(islandAt(c.place)), ship: world.ship, items: c.inventory,
+      techniques: c.techniques.map(move => move.name),
+    }
     return {
-      actor: c.name, place: locations[c.place], adjacent: Object.fromEntries(paths[c.place].map(id => [id, locations[id]])),
-      destinations: Object.fromEntries(islands[islandAt(c.place)].places.map(id => [id, locations[id]])),
-      people: npcs, routes: routesFrom(islandAt(c.place)), ship: world.ship,
+      actor: c.name, place: locations[c.place], ...navigation,
       local, quest: world.quest,
       combat: world.combat && { foes: world.combat.foes.map(foe => ({ name: foe.name, hp: foe.hp, maxHp: foe.maxHp, down: !!foe.down })), atSea: !!world.combat.sea },
-      techniques: c.techniques.map(move => move.name),
       speaker: intent?.kind === 'talk' ? npcs[intent.npc] : undefined,
       party: party(world).map(m => m.character!.name),
       partyHere: party(world).filter(m => m.character!.place === c.place).map(m => m.character!.name),
@@ -411,7 +423,6 @@ export class Game {
         id: npc, name: npcs[npc], trait: recruitable[npc]?.trait, hp: world.companions![npc]!.hp, maxHp: companionMaxHp(world, npc),
         here: npcPlace(world, npc) === c.place,
       })),
-      items: c.inventory,
       // Rumors and warnings the party has heard about this island that have not happened yet; locals can mention them.
       rumors: (world.news ?? []).filter(item => (item.kind === 'rumor' || item.kind === 'warning') && item.island === islandAt(c.place) && item.event && !world.timeline?.[item.event])
         .slice(-3).map(item => item.text),
@@ -483,12 +494,16 @@ export class Game {
         })
         return
       }
-      const before = this.context(world, actorAt(world), intent)
+      const before = this.context(world, actorAt(world), intent, true)
       const result = resolve(world, actorAt(world), intent, job.text, this.store.roller(code, id), this.connected(world))
-      const narrate = !result.rejected && !result.directReply && !['sail', 'islandTask', 'give', 'equip', 'wait', 'recruit', 'dismiss', 'handover', 'fruit', 'buyFruit', 'upgrade', 'use'].includes(intent.kind) &&
+      // Each AI call is a full wait on a local model, so the rules' own text stands alone for routine upkeep,
+      // and a fight gets one narration when it ends instead of one per round.
+      const fightGoesOn = ['attack', 'guard', 'flee', 'negotiate', 'reload', 'useItem'].includes(intent.kind) && !!world.combat
+      const narrate = !result.rejected && !result.directReply && !fightGoesOn &&
+        !['sail', 'islandTask', 'give', 'equip', 'wait', 'recruit', 'dismiss', 'handover', 'fruit', 'buyFruit', 'upgrade', 'use', 'rest', 'meal', 'reload', 'useItem'].includes(intent.kind) &&
         (!!result.spokeWith || !['move', 'meal', 'crew'].includes(shortcut?.kind ?? ''))
       const narrationContext = intent.kind === 'move' && result.spokeWith
-        ? this.context(world, actorAt(world), { kind: 'talk', npc: result.spokeWith }) : before
+        ? this.context(world, actorAt(world), { kind: 'talk', npc: result.spokeWith }, true) : before
       const text = result.rejected ? result.text + '\n\n' + this.sceneAnswer(world, actorAt(world), 'location') : result.text
       this.store.transaction(() => {
         if (!result.rejected) {
@@ -514,10 +529,16 @@ export class Game {
     }
     demand(job.result && job.context, '待處理敘事缺少正式結果。')
     const context = JSON.parse(job.context)
-    const narrative = context.free ? await this.ai.narrateFree(context, signal)
-      : context.question && typeof context.speaker === 'string'
-        ? await this.ai.answerNpc(context, context.speaker, signal)
-        : await this.ai.narrate(context, job.result, !!job.announce, signal)
+    const draft = (text: string) => { this.#drafts.set(id, text) }
+    let narrative: string
+    try {
+      narrative = context.free ? await this.ai.narrateFree(context, signal, draft)
+        : context.question && typeof context.speaker === 'string'
+          ? await this.ai.answerNpc(context, context.speaker, signal, draft)
+          : await this.ai.narrate(context, job.result, !!job.announce, signal, draft)
+    } finally {
+      this.#drafts.delete(id)
+    }
     if (signal.aborted) return
     world = this.room(code)
     if (!allowed(world)) return

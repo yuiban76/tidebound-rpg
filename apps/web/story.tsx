@@ -30,13 +30,13 @@ export const clock = (minutes: number) => '第 ' + (Math.floor(minutes / 1440) +
 type Side = 'map' | 'me' | 'bag' | 'crew' | 'news'
 const sideTabs: [Side, string][] = [['map', '地圖'], ['me', '角色'], ['bag', '背包'], ['crew', '船團'], ['news', '消息']]
 
-function Log({ entries, names }: { entries: Entry[], names: Record<string, string> }) {
+function Log({ entries, names, draft }: { entries: Entry[], names: Record<string, string>, draft?: string }) {
   const ref = useRef<HTMLDivElement>(null)
   const latest = entries.at(-1)?.seq
   useEffect(() => {
     const box = ref.current
     if (box) box.scrollTop = box.scrollHeight
-  }, [latest])
+  }, [latest, draft])
   return <div className="log" ref={ref} role="log" aria-live="polite">
     {!entries.length && <p className="hint empty">這裡還沒有紀錄。</p>}
     {entries.map(entry => <article key={entry.seq} className={'entry entry-' + entry.type}>
@@ -46,6 +46,10 @@ function Log({ entries, names }: { entries: Entry[], names: Record<string, strin
       </header>
       <p>{entry.text}</p>
     </article>)}
+    {draft && <article className="entry entry-narrative entry-draft" aria-busy="true">
+      <header><span>旁白撰寫中</span></header>
+      <p>{draft}</p>
+    </article>}
   </div>
 }
 
@@ -289,7 +293,7 @@ export function Story({ view, send, history, connected, gap, review }: {
           {crew.map(member => <section key={member.id} className={'window personal' + (windowId === member.id ? '' : ' window-hidden')}
             aria-label={member.character!.name + '的視窗'}>
             <h2 className="sr-only">{member.character!.name}{member.id === player ? '（你）' : member.connected ? '' : '・離線'}</h2>
-            <Log entries={windowEntries(member.id)} names={names}/>
+            <Log entries={windowEntries(member.id)} names={names} draft={view.pending.find(job => job.actor === member.id)?.draft}/>
           </section>)}
           {connected && hasMore && entries.length >= 60 && <button className="light older" onClick={async () => {
             try {

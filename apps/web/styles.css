@@ -272,3 +272,9 @@ legend { padding: 0 .3rem; font-weight: 700; }
   .mast-button { min-height: 36px; padding: .25rem .6rem; }
   .page:has(.game) { padding-block: .5rem; }
 }
+
+/* Narration that is still streaming in from the model. */
+.entry-draft p { color: var(--muted); }
+.entry-draft p::after { content: '▍'; margin-left: .1rem; animation: blink 1s steps(2, start) infinite; }
+@keyframes blink { to { visibility: hidden; } }
+@media (prefers-reduced-motion: reduce) { .entry-draft p::after { animation: none; } }
