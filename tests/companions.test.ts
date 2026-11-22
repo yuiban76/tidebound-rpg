@@ -180,3 +180,9 @@ test('招募一般居民與反派：居民擲骰成功就加入，反派等級�
   assert.match(act(courier.world, courier.member, { kind: 'recruit', npc: 'courier' }).text, /潮汐簿/)
   assert.ok(c.level >= 1)
 })
+
+test('在同一座島上「前往」與島同名的地點是走路，不是出航', () => {
+  assert.deepEqual(familiarIntent('前往西羅布村', 'kayaMansion'), { kind: 'move', to: 'syrupVillage' })
+  assert.deepEqual(familiarIntent('前往西羅布村海岸', 'kayaMansion'), { kind: 'move', to: 'syrupPort' })
+  assert.deepEqual(familiarIntent('前往西羅布村', 'square'), { kind: 'sail', order: 'depart', destination: 'syrup' })
+})

@@ -175,7 +175,10 @@ export function familiarIntent(input: string, here?: LocationId): Intent | undef
   const text = input.trim().replace(/[。！!?？]+$/, '')
     .replace(/^(?:我們?|大家)?(?:想要|打算|想|要|先)?(?:先)?\s*/, '')
   const sailing = seaIntent(text)
-  if (sailing) return sailing
+  // 「前往西羅布村」 on Syrup island means the village spot, not a voyage to the island you are already on.
+  const sameIsland = sailing?.kind === 'sail' && sailing.order === 'depart' && here &&
+    sailing.destination === islandAt(here)
+  if (sailing && !sameIsland) return sailing
   for (const story of Object.values(islandStories)) {
     const step = story.samples.indexOf(text)
     if (step !== -1) return { kind: 'islandTask', step: (['accept', 'search', 'deliver'] as const)[step] }
