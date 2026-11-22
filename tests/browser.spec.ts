@@ -69,28 +69,34 @@ async function ready(page: Page, name: string) {
   await fillCharacter(page, name)
   await expect(page.getByRole('button', { name: '取消準備' })).toBeVisible()
 }
+/** Opens a tab of the info panel: the side tabs on desktop, the screen tabs on a phone. */
+async function openTab(page: Page, name: string) {
+  await page.locator('[role=tab]:visible', { hasText: name }).first().click()
+}
 async function action(page: Page, actionText: string, result: string) {
   await page.getByLabel('輸入行動或聊天').fill(actionText)
   await page.getByRole('button', { name: '送出行動' }).click()
   await expect(page.locator('.entry-result').filter({ hasText: result }).last()).toBeVisible()
 }
 
-test('在世界公告上方顯示可操作地圖和步行路線，手機也能帶入指令', async ({ page }, info) => {
+test('地圖在資訊分頁、輸入框不用捲動就看得到，手機也能從地圖帶入指令', async ({ page }, info) => {
   await page.setViewportSize({ width: 1200, height: 920 })
   await create(page)
   await ready(page, '風向')
   await page.getByRole('button', { name: '開始遊戲' }).click()
   const map = page.getByRole('region', { name: '世界地圖' })
-  const bulletin = page.getByRole('heading', { name: '世界公告' })
   await expect(map).toBeVisible()
+  // The redesign keeps the action box inside the first screen on desktop.
+  const input = (await page.getByLabel('輸入行動或聊天').boundingBox())!
+  expect(input.y + input.height).toBeLessThanOrEqual(920)
   await expect(map.locator('[aria-current="location"]')).toContainText('風車村廣場')
   await expect(map.getByRole('button', { name: '風車村港口，可直達' })).toBeVisible()
   await expect(map.getByRole('button', { name: '科爾波山山道，經小路' })).toBeVisible()
   await expect(map.getByRole('button', { name: '哥亞王國城下町，經小路' })).toBeVisible()
-  expect((await map.boundingBox())!.y).toBeLessThan((await bulletin.boundingBox())!.y)
   await map.screenshot({ path: info.outputPath('world-map-desktop.png') })
 
   await page.setViewportSize({ width: 390, height: 844 })
+  await openTab(page, '地圖')
   await expect(map).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390)
   await map.screenshot({ path: info.outputPath('world-map-mobile.png') })
@@ -98,7 +104,8 @@ test('在世界公告上方顯示可操作地圖和步行路線，手機也能�
   await expect(page.getByLabel('輸入行動或聊天')).toHaveValue('前往風車村港口')
   await expect(page.locator('.voyage-bar')).toContainText('風車村廣場')
   await page.getByRole('button', { name: '送出行動' }).click()
-  await page.getByRole('button', { name: '地圖與公告' }).click()
+  await expect(page.locator('.entry-result').filter({ hasText: '你抵達風車村港口' })).toBeVisible()
+  await openTab(page, '地圖')
   await expect(map.locator('[aria-current="location"]')).toContainText('風車村港口')
   await expect(map.getByRole('button', { name: '派對酒吧，經廣場' })).toBeVisible()
 })
@@ -110,7 +117,7 @@ test('單人須先實際生成回覆才能開房，開局後可執行 D20、問�
   await expect(page.getByRole('button', { name: '開始遊戲' })).toBeDisabled()
   await ready(page, '風向')
   await page.getByRole('button', { name: '開始遊戲' }).click()
-  await expect(page.getByRole('heading', { name: '世界公告' })).toBeVisible()
+  await expect(page.getByRole('tab', { name: /世界公告/ })).toBeVisible()
   expect(fixture.seen.map(call => call.kind)).toEqual(['probe', 'probe', 'probe'])
   await expect(page.locator('.entry-world').first()).toContainText('魯夫')
   await expect(page.locator('.personal')).toHaveCount(1)
@@ -148,8 +155,7 @@ test('單人須先實際生成回覆才能開房，開局後可執行 D20、問�
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390)
   await page.reload()
   await page.getByRole('button', { name: '開啟', exact: true }).click()
-  await expect(page.getByRole('heading', { name: '世界公告' })).toBeVisible()
-  await page.getByRole('button', { name: '風向', exact: true }).click()
+  await expect(page.getByRole('tab', { name: /世界公告/ })).toBeVisible()
   await expect(page.getByText('你抵達風車村港口。', { exact: true })).toBeVisible()
 })
 
@@ -158,6 +164,7 @@ test('去哥亞王國買刀，背包顯示目前武器並可帶入換武器指�
   await ready(page, '刀客')
   await page.getByRole('button', { name: '開始遊戲' }).click()
   await action(page, '前往哥亞王國', '抵達哥亞王國城下町')
+  await openTab(page, '背包')
   await expect(page.getByText('目前武器：普通武士刀')).toBeVisible()
   await page.getByRole('button', { name: '改為徒手' }).click()
   await expect(page.getByLabel('輸入行動或聊天')).toHaveValue('收起武器')
@@ -224,6 +231,8 @@ for (const count of [2, 3, 4]) test(count + ' 個瀏覽器用 WebRTC 開局與�
     for (const client of [page, ...guests.slice(0, count - 1)])
       await expect(client.locator('.personal')).toHaveCount(count)
     await action(guests[0], '去碼頭', '你抵達風車村港口')
+    // Each player's window stays separate (spec §5.1); the host opens the teammate's tab to read it.
+    await page.getByRole('tab', { name: /^水手0/ }).click()
     await expect(page.getByText('你抵達風車村港口。', { exact: true })).toBeVisible()
     const hostMap = page.getByRole('region', { name: '世界地圖' })
     await expect(hostMap.locator('.map-party li').filter({ hasText: '水手0' })).toContainText('風車村港口')
@@ -235,15 +244,16 @@ for (const count of [2, 3, 4]) test(count + ' 個瀏覽器用 WebRTC 開局與�
       await fillCharacter(late, '新人')
       await expect(late.locator('.personal')).toHaveCount(3, { timeout: 15_000 })
       await expect(page.locator('.personal')).toHaveCount(3)
+      await page.getByRole('tab', { name: /世界公告/ }).click()
       await expect(page.locator('.entry-world').filter({ hasText: '新夥伴新人在風車村港口與大家會合。' })).toBeVisible()
     }
     if (count === 4) {
       await guests[0].close()
-      await expect(page.locator('.personal').filter({ hasText: '水手0' }).getByText('離線')).toBeVisible({ timeout: 14_000 })
+      await expect(page.getByRole('tab', { name: /水手0・離線/ })).toBeVisible({ timeout: 14_000 })
       await action(page, '往村道', '你抵達村外小路')
       const returned = await contexts[0].newPage()
       await returned.goto(gameUrl)
-      await expect(returned.getByText('離線期間新增', { exact: false })).toBeVisible({ timeout: 15_000 })
+      await expect(returned.getByText('你離線期間有', { exact: false })).toBeVisible({ timeout: 15_000 })
       await expect(returned.getByText('你抵達風車村港口。', { exact: true })).toBeVisible()
       await expect(returned.locator('.personal')).toHaveCount(count)
     }
@@ -257,6 +267,7 @@ test('對村長出手會開打並結算，狀態欄顯示懸賞金與招式欄',
   await create(page)
   await ready(page, '莽夫')
   await page.getByRole('button', { name: '開始遊戲' }).click()
+  await openTab(page, '角色')
   await expect(page.getByText('懸賞金', { exact: true })).toBeVisible()
   await expect(page.getByText('招式（0／6）')).toBeVisible()
   await action(page, '攻擊村長', '莽夫向村長（平民）出手了')
