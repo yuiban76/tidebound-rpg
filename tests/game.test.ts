@@ -15,6 +15,7 @@ import { allocatePoint, attackCheck, grantXp, makeCharacter, maxHP, maxSTA, reso
 import { newWorld } from '../packages/world/village.ts'
 import { routeBetween } from '../packages/world/explore.ts'
 import { character, compatibilityFixture } from './fixtures.ts'
+import { scale } from '../packages/world/scale.ts'
 
 async function withGame(t: TestContext, count = 1, open = true) {
   const ai = await compatibilityFixture()
@@ -626,7 +627,7 @@ test('P0-11／15／18 最後一件長槍只賣一次，NPC 交談連續，跨島
 test('P0-12／14 有效自然 20、自然 1、武器骰、失能與回復', () => {
   const seq = [20, 4, 2]
   assert.deepEqual(attackCheck(() => seq.shift()!, { attr: 3, skill: 2, def: 15, die: 6 }),
-    { natural: 20, total: 25, hit: true, damage: 9, dice: [4, 2] })
+    { natural: 20, total: 25, hit: true, damage: 9 * scale, dice: [4, 2] })
   assert.equal(attackCheck(() => 20, { attr: 3, skill: 2, def: 30, die: 6 }).hit, false)
   assert.equal(attackCheck(() => 1, { attr: 9, skill: 9, def: 1, die: 6 }).damage, 0)
   const world = newWorld('CODE', 'host')
@@ -658,10 +659,10 @@ test('同步戰鬥等所有參戰者鎖定，離線不代操，非戰鬥可完�
   const attack = { kind: 'attack', target: '岬恩' } as const
   const next = (sides: number) => Math.min(12, sides)
   assert.match(resolveAction(world, one, attack, '攻擊', next, connected).text, /鎖定/)
-  assert.equal(world.courierHP, 20)
+  assert.equal(world.courierHP, 20 * scale)
   assert.equal(resolveAction(world, two, { kind: 'guard' }, '防守', next, new Set(['host'])).rejected, true)
   assert.match(resolveAction(world, two, { kind: 'guard' }, '防守', next, connected).text, /反擊/)
-  assert.ok(world.courierHP < 20)
+  assert.ok(world.courierHP < 20 * scale)
   assert.equal(world.combat?.round, 2)
   delete world.combat
   world.quest = 'active'
@@ -750,14 +751,14 @@ test('XP 依 100×等級升級，第 4 級得屬性點，重複判定遞減，�
   const c = makeCharacter(character('甲'))
   const hp = maxHP(c)
   assert.match(grantXp(c, 100), /升到等級 2/)
-  assert.deepEqual([c.level, c.xp, maxHP(c), c.hp], [2, 0, hp + 2, hp + 2])
+  assert.deepEqual([c.level, c.xp, maxHP(c), c.hp], [2, 0, hp + 4 * scale, hp + 4 * scale])
   grantXp(c, 200 + 300 + 50)
   assert.deepEqual([c.level, c.xp, c.unspent], [4, 50, 1])
   const paid = [1, 2, 3, 4, 5].map(() => Number(/獲得 (\d+) XP/.exec(grantXp(c, 8, 'check:observe:square'))?.[1] ?? 0))
   assert.deepEqual(paid, [8, 4, 2, 0, 0])
   const before = { hp: c.hp, max: maxHP(c) }
   assert.match(allocatePoint(c, 'CON').text, /體魄提升為 4/)
-  assert.deepEqual([maxHP(c), c.hp, c.unspent], [before.max + 5, before.hp + 5, 0])
+  assert.deepEqual([maxHP(c), c.hp, c.unspent], [before.max + 5 * scale, before.hp + 5 * scale, 0])
   assert.equal(allocatePoint(c, 'CON').rejected, true)
 })
 
@@ -945,11 +946,13 @@ test('時間線：等待讓原作事件依日期發生，NPC 移動並改變說�
   assert.equal(world.npcPlaces?.zoro, null)
   assert.match(world.npcFacts?.rika ?? '', /蒙卡上校被打倒了/)
   assert.equal(world.islandTasks?.shells?.stage, 'closed')
-  assert.ok(game.store.entries(code).some(entry => entry.actor === null && entry.text.startsWith('【報紙】謝爾茲鎮・')))
+  // The party is on another island, so the news waits for the morning paper instead of arriving at once.
+  assert.ok(world.paperQueue?.some(item => item.event === 'shells'))
 
   world.islandTasks = { ...world.islandTasks, syrup: { stage: 'done' } }
   game.store.save(world)
-  await play('等待 4 天')
+  await play('等待 6 天')
+  assert.ok(game.store.entries(code).some(entry => entry.actor === null && entry.text.startsWith('【報紙】謝爾茲鎮・')))
   world = game.room(code)
   assert.equal(world.timeline?.syrup, 'changed')
   assert.equal(world.npcPlaces?.klahadore, null)
@@ -1009,8 +1012,8 @@ test('高難度委託有等級與日期門檻；推進城救出艾斯後，頂�
   assert.match(await play('和艾斯一起逃出'), /艾斯重獲自由[\s\S]*獲得 600 XP/)
   assert.equal(game.room(code).npcPlaces?.ace, null)
 
-  await play('等待 10 天')
-  await play('等待 10 天')
+  // Warnings on an island the party is standing on cut a long wait short, so keep waiting until the war is over.
+  for (let i = 0; i < 5; i++) await play('等待 10 天')
   const world = game.room(code)
   for (const id of ['execution', 'aceTransfer', 'warBegins', 'warEnds']) assert.equal(world.timeline?.[id], 'changed', id)
   assert.equal(world.npcPlaces?.ace, null)

@@ -3,8 +3,8 @@ import type { AddressInfo } from 'node:net'
 import type { CharacterInput } from '../packages/shared/protocol.ts'
 
 export const character = (name: string): CharacterInput => ({
-  name, age: 23, race: '人類', appearance: '灰色外套', personality: '有耐心',
-  dream: '寫一份航海誌', origin: '外海小島', background: '曾在港口工作', style: '普通防身劍術',
+  name, age: 23, race: '人類', 
+  background: '曾在港口工作',
   stats: { STR: 4, AGI: 3, CON: 3, PER: 3, INT: 2, WIL: 3 },
   major: '劍術', basics: ['觀察', '閃避'], life: '工藝',
 })

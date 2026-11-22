@@ -1,0 +1,134 @@
+// How each canon event shows up before and after it happens (spec §6.2): a rumor, a warning, and a short aftermath.
+// Events with a `scene` become a playable stand-off when the party is on the island and the villain is there.
+import type { NpcId } from '../shared/protocol.ts'
+
+export type EventPhases = {
+  /** Heard on the island about 36 hours ahead, e.g. as a tavern rumor. */
+  omen?: string
+  /** Heard on the island about 6 hours ahead: it is about to happen. */
+  warn?: string
+  /** Heard on the island about 12 hours after it happened. */
+  after?: string
+  /** Hours before the event for omen / warn, and after it for the aftermath. */
+  lead?: { omen?: number, warn?: number, after?: number }
+  /** The first matching entry moves the event: negative hours bring it forward, positive ones delay it. */
+  shifts?: { when: string[], hours: number }[]
+  /** A stand-off with the villain. The players have `minutes` to beat him; if they do the outcome changes. */
+  scene?: { foe: NpcId, minutes: number, intro: string }
+}
+
+export const eventPhases: Record<string, EventPhases> = {
+  shells: {
+    omen: '酒館裡有人說，謝爾茲鎮基地廣場綁著一個叫索隆的劍士，誰也不敢靠近。',
+    warn: '有一艘小船載著戴草帽的少年靠岸，他直直往海軍基地走去。',
+    after: '基地廣場空蕩蕩的，士兵們還沒回過神來。',
+  },
+  orange: {
+    omen: '水手說橘子鎮被小丑巴其海賊團佔了，居民躲在家裡不敢出聲。',
+    warn: '橘子鎮方向傳來爆炸聲，海賊團似乎正在和誰起衝突。',
+  },
+  syrup: {
+    omen: '西羅布村的騙人布又在喊「海賊來了」，這次他說海岸有黑貓海賊團的影子。',
+    warn: '天快亮了，海岸邊的黑貓海賊團開始集結，今晚恐怕不會平靜。',
+    after: '村民望著黎明的海面，不確定昨夜發生的是夢還是真的。',
+    scene: { foe: 'klahadore', minutes: 180, intro: '黎明前的海岸邊，黑貓海賊團的人影逼近村子，管家克拉哈德正獨自站在宅邸前。現在動手，還來得及阻止他。' },
+  },
+  baratie: {
+    omen: '航海人都說海上餐廳巴拉蒂最近客人特別凶，副料理長整天在叫人滾出去。',
+    warn: '外海出現一艘滿是傷痕的巨艦，旗幟是首領・克利克海賊團。',
+    after: '餐廳的甲板上滿是碎木板，廚師們一邊罵一邊收拾。',
+  },
+  arlong: {
+    omen: '可可亞西村的人們低著頭交保護費，惡龍樂園的魚人們最近特別暴躁。',
+    warn: '惡龍樂園的方向傳出怒吼聲，今天恐怕有人要翻天了。',
+    after: '村民們站在街上，不敢相信八年的陰影真的散了。',
+    shifts: [{ when: ['task:cocoyasi'], hours: -8 }],
+    scene: { foe: 'arlong', minutes: 240, intro: '惡龍樂園的大門前，魚人惡龍正得意地俯瞰著村民。趁這一天還沒結束，你們有機會挑戰他。' },
+  },
+  loguetown: {
+    omen: '羅格鎮來了一個新的賞金首，聽說處刑台已經準備好了。',
+    warn: '處刑台旁聚了一大群人，天色驟暗，雷雲正在逼近。',
+  },
+  whisky: {
+    omen: '威士忌山峰的居民熱情得詭異，每個海賊上岸都被請去喝酒。',
+    warn: '山峰上的歡迎宴會已經準備妥當，今晚的賓客恐怕沒有人能全身而退。',
+  },
+  littleGarden: {
+    omen: '商船說小花園一年到頭有兩個巨人在決鬥，他們已經打了一百年。',
+    warn: '叢林深處傳來震耳欲聾的金屬撞擊聲，決鬥快分出勝負了。',
+  },
+  drum: {
+    omen: '磁鼓島的冬夜特別冷，聽說山頂的城堡亮起了不尋常的燈光。',
+    warn: '雪越下越大，山頂城堡的方向傳來陣陣爆炸聲。',
+    after: '粉紅色的雪還在飄，島民們抬頭看著夜空發呆。',
+  },
+  alabastaMarch: {
+    omen: '阿拉巴斯坦各地盛傳一種「雨之粉」，說是國王害得王國沒了雨。',
+    warn: '叛亂軍的營火佈滿沙漠，明天一早就要出發了。',
+  },
+  alabasta: {
+    omen: '阿爾巴那城內人心惶惶，親衛隊整天巡邏卻查不出是誰在搗亂。',
+    warn: '首都外的沙漠聚集了大批叛亂軍，今天恐怕要決一死戰。',
+    after: '久違的雨水打在街道上，人們捧著水，說不出話來。',
+    shifts: [{ when: ['task:alabasta'], hours: -12 }],
+    scene: { foe: 'crocodile', minutes: 240, intro: '阿爾巴那王宮前，克洛克達爾已經走到了他計畫的最後一步。要阻止他，只有現在。' },
+  },
+  jaya: {
+    omen: '加亞島的老海賊說，下一次衝天海流就在這幾天，他們已經等很久了。',
+    warn: '海面的水位開始異常升高，有船影正靠近衝天海流的入口。',
+  },
+  skypiea: {
+    omen: '空島的雲海傳出神官的命令：外來者又入侵了，守護神域。',
+    warn: '聖地的天空閃起一道道雷光，今天恐怕有一場決戰。',
+    after: '黃金鐘的餘音還在雲海上迴盪。',
+    scene: { foe: 'enel', minutes: 240, intro: '黃金鐘塔下的雷光越來越亮，艾涅爾正站在神殿頂端俯視一切。想阻止他，只有現在。' },
+  },
+  water7: {
+    omen: '七水之都的造船廠近來鬧鬼，市長冰山的秘書行蹤詭異。',
+    warn: '海列車站附近出現了身穿黑衣的陌生人，夜風特別不對勁。',
+  },
+  enies: {
+    omen: '有人說世界政府的司法島，牆上最近多了不少新鮮的刮痕。',
+    warn: '正義之門前聚集了大批 CP9 人員，今天恐怕有人要被押進去。',
+    shifts: [{ when: ['task:eniesLobby'], hours: -6 }],
+    scene: { foe: 'lucci', minutes: 180, intro: '正義之門前，路基率領 CP9 押著羅賓。這是搶人的最後機會。' },
+  },
+  aceCaptured: {
+    omen: '報紙上說火拳艾斯正在海上追捕黑鬍子，已經好幾天沒有消息。',
+    warn: '海軍巡邏艦收到急電：白鬍子海賊團的隊長出事了。',
+  },
+  thriller: {
+    omen: '航海者都說，有一座像鬼船的島正在偉大航路上漂流。',
+    warn: '怪霧漸濃，島上的僵屍開始出動，今晚恐怕沒人睡得著。',
+    after: '霧散了，天空露出了久違的太陽。',
+    scene: { foe: 'moria', minutes: 240, intro: '摩利亞的宅邸燈火通明，影子的收集已經到了最後階段。現在還來得及阻止他。' },
+  },
+  sabaody: {
+    omen: '夏波帝諸島的人口拍賣所今晚有稀有商品，據說有人魚。',
+    warn: '拍賣所門口排滿了貴客，天龍人的轎子正朝這裡走來。',
+    shifts: [{ when: ['task:sabaody'], hours: 6 }],
+  },
+  kuma: {
+    omen: '海軍在夏波帝一帶增派了大批兵力，似乎有大人物要來。',
+    warn: '天空忽然出現一道巨大的影子，有人正朝這邊逼近。',
+  },
+  execution: {
+    omen: '海軍本部的通訊兵連夜發出密電，有大事要宣布。',
+    warn: '海軍本部公布了公告，頭條就是火拳艾斯的處刑日。',
+    shifts: [{ when: ['task:impelDown'], hours: 72 }],
+  },
+  aceTransfer: {
+    omen: '推進城的獄卒傳出消息：最底層的死刑犯要被轉移了。',
+    warn: '押送艦已經在港口升帆，艾斯即將被帶出牢房。',
+  },
+  warBegins: {
+    omen: '世界各地的海賊與海軍都收到了消息：馬林福特將發生史上最大的戰事。',
+    warn: '馬林福特外海的海面沸騰了，白鬍子的大艦隊逼近。',
+    shifts: [{ when: ['task:impelDown'], hours: 24 }],
+  },
+  warEnds: {
+    omen: '馬林福特的炮聲日夜不停，戰況越來越慘烈。',
+    warn: '戰場上空的硝煙散去了一半，最後的決戰就要見分曉。',
+    after: '戰場上一片沉默，只有海浪聲。',
+  },
+}

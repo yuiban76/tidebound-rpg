@@ -59,10 +59,7 @@ async function create(page: Page, failFirst = false) {
 
 async function fillCharacter(page: Page, name: string) {
   await page.getByLabel('角色姓名').fill(name)
-  for (const [label, text] of Object.entries({
-    外貌: '灰色外套', 性格: '有耐心', 夢想: '寫一份航海誌', 出身: '外海小島',
-    身世: '曾在港口工作', 戰鬥風格: '普通防身劍術',
-  })) await page.getByLabel(label).fill(text)
+  await page.getByLabel('背景（選填）').fill('曾在港口工作，想寫一份航海誌')
   await page.getByRole('button', { name: '儲存角色' }).click()
   await expect(page.getByText('角色已存檔。', { exact: false })).toBeVisible()
   await page.getByLabel('我確認這段共同背景').check()

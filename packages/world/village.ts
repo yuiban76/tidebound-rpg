@@ -2,7 +2,10 @@ import type { CharacterInput, Intent, IslandId, LocationId, NpcId, Weapon } from
 import { npcs } from '../shared/protocol.ts'
 import type { Ship, SailingPlan, IslandTask, RouteChoice } from './sea.ts'
 import type { Foe } from './foes.ts'
+import type { FruitId } from './fruits.ts'
+import { scale } from './scale.ts'
 import { canonIslands, canonPeople } from './canon.ts'
+import { castPeople } from './cast.ts'
 import { npcFoe } from './foes.ts'
 
 /** Canon islands are laid out as port ↔ second place ↔ third place. */
@@ -33,6 +36,7 @@ export function walkMinutes(from: LocationId, to: LocationId) {
 /** Starting place (null: away at sea), role and Day-1 knowledge. The timeline can change both via World. */
 export const people: Record<NpcId, { place: LocationId | null, role: string, known: string }> = {
   ...canonPeople,
+  ...castPeople,
   keeper: { place: 'tavern', role: '派對酒吧老闆娘', known: '魯夫今天清晨乘小船出海了，說要成為海賊王。港口的提奧正在尋找遺失的潮汐簿。' },
   clerk: { place: 'dock', role: '港務記錄員', known: '港務的潮汐簿失蹤了。昨夜的搬運工曾往科爾波山山道去。' },
   watch: { place: 'road', role: '巡守', known: '昨晚有人抱著包裹往山坡走，可在山道注意鞋印。科爾波山深處是山賊的地盤，別走太深。' },
@@ -53,12 +57,12 @@ export const boatCrewReplies: Partial<Record<NpcId, string>> = {
   mayor: '那是魯夫的小船！那小子終於出海了，真是不讓人省心。',
 }
 export const landmarks = {
-  square: '村子的集合點，村長常在這裡',
+  square: '村子的集合點，村長常在這裡，鐵匠鋪可以強化武器、買傷藥',
   tavern: '找瑪琪諾聊天或點餐',
   dock: '找提奧問潮汐簿，補給鋪與船塢也在這裡',
   road: '找巡守蘇芮，往科爾波山或哥亞王國',
   hill: '查看山道上的痕跡',
-  goa: '城下町的武器鋪販售武士刀',
+  goa: '城下町的武器鋪販售武士刀和火槍，也能強化武器',
   lanternPort: '停泊或搭船離開潮燈島',
   lighthouse: '找守燈人蕊卡',
   tideCave: '踏勘洞口的石階和沉積物',
@@ -74,17 +78,23 @@ export const landmarks = {
   ...canonLandmarks,
 } as Record<LocationId, string>
 export const meals = {
-  bread: { name: '烤麵包', price: 15 },
-  rice: { name: '燉肉飯', price: 35 },
+  bread: { name: '烤麵包', price: 15, hp: 2 * scale, sta: 4 },
+  rice: { name: '燉肉飯', price: 35, hp: 5 * scale, sta: 8 },
 }
 
-export const shops: Partial<Record<LocationId, string>> = { dock: '港口補給鋪', goa: '城下町武器鋪', logueShop: '一本松武器店' }
+export const shops: Partial<Record<LocationId, string>> = { square: '風車村鐵匠鋪', dock: '港口補給鋪', goa: '城下町武器鋪', logueShop: '一本松武器店', nanohana: '那諾哈娜雜貨攤', angelBeach: '天使海灘貝殼攤' }
 export const goods = {
   spear: { label: '普通長槍', price: 500, initial: 1, shop: 'dock' },
   bandage: { label: '繃帶', price: 80, initial: 4, shop: 'dock' },
   bullets: { label: '火槍彈藥', price: 30, initial: 12, shop: 'dock' },
   sword: { label: '普通武士刀', price: 600, initial: 2, shop: 'goa' },
+  musket: { label: '普通火槍', price: 900, initial: 2, shop: 'goa' },
+  tonic: { label: '傷藥', price: 120, initial: 10, shop: 'square' },
   logPose: { label: '記錄指針', price: 1000, initial: 4, shop: 'logueShop' },
+  // Answers to logia bodies before haki exists (see foes.ts Weakness).
+  waterskin: { label: '水壺', price: 30, initial: 6, shop: 'nanohana' },
+  seastone: { label: '海樓石十手', price: 3000, initial: 1, shop: 'logueShop' },
+  dial: { label: '衝擊貝', price: 300, initial: 4, shop: 'angelBeach' },
 } as const satisfies Record<string, { label: string, price: number, initial: number, shop: LocationId }>
 export type Good = keyof typeof goods
 /** Inventory item that lets a character wield each weapon. Bare hands need nothing. */
@@ -111,8 +121,12 @@ export type Character = CharacterInput & {
   bounty: number
   /** Self-made techniques (spec §7.6): a name and a cost tier only; flashy names add no damage. */
   techniques: Technique[]
+  /** The devil fruit this character ate, if any (only one may be eaten). */
+  fruit?: FruitId
+  /** Forge tier (0–3) of each weapon kind, from reforging at a forge (see world/forge.ts). */
+  gear?: Partial<Record<Weapon, number>>
 }
-export type Technique = { name: string, style: 'special' | 'advanced' | 'flurry' }
+export type Technique = { name: string, style: 'special' | 'advanced' | 'flurry', /** Granted by a devil fruit; does not count toward the six self-made moves. */ fruit?: true }
 export type CombatChoice = Extract<Intent, { kind: 'attack' | 'guard' | 'flee' | 'negotiate' | 'reload' | 'useItem' }>
 /** A voyage interrupted by a sea encounter; it resumes once the fight is over. */
 export type PendingVoyage = RouteChoice & { from: IslandId, miles: number, minutes: number, damage: number, text: string, landfallXp: number }
@@ -137,6 +151,29 @@ export type Proposal = {
   votes: Record<string, boolean>
   passed: boolean
 }
+/** An NPC who joined the party. Their place is always their leader's place, so they follow, board and fight with the players. */
+export type Companion = {
+  /** Member id of the player who recruited them; if that player is gone they follow the first party member. */
+  leader: string
+  /** Game minute when they joined. */
+  since: number
+  hp: number
+  /** The party level their numbers were last scaled to; they grow with the party. */
+  level?: number
+  /** What they knew before joining, restored when they leave the party. */
+  facts?: string
+}
+/** What the party has heard, newest last: rumors before an event, warnings, eyewitness reports, the morning paper. */
+export type NewsItem = {
+  minute: number
+  kind: 'rumor' | 'warning' | 'scene' | 'witness' | 'paper' | 'after'
+  text: string
+  island?: IslandId
+  event?: string
+}
+/** A headline waiting for the next morning paper that is due at or after `due`. */
+export type PaperItem = { minute: number, due: number, text: string, island?: IslandId, event?: string }
+
 export type World = {
   code: string
   version: number
@@ -146,9 +183,17 @@ export type World = {
   quest: 'unoffered' | 'offered' | 'active' | 'recovered' | 'done' | 'abandoned'
   clue: boolean
   courierHP: number
+  /** Number scale the saved HP values use (see world/scale.ts); missing means 1. */
+  scale?: number
   settled: boolean
   logHolder?: string
   stock: Record<Good, number>
+  /** Fruits dropped by knocked-out NPCs, waiting for the last-blow player to eat or release them. */
+  fruitOffers?: { fruit: FruitId, npc: NpcId, to: string, since: number }[]
+  /** Fruits released into the world: they appear at the Sabaody auction once `ready` has passed. */
+  fruitStalls?: { fruit: FruitId, from: NpcId, ready: number }[]
+  /** NPCs whose fruit is gone (eaten or released): they lose the power. */
+  fruitLost?: Partial<Record<NpcId, true>>
   memories: Record<NpcId, string[]>
   combat?: Combat
   proposals: Proposal[]
@@ -162,6 +207,16 @@ export type World = {
   npcFacts?: Partial<Record<NpcId, string>>
   /** Timeline events that already fired, and whether players changed the outcome. */
   timeline?: Record<string, 'canon' | 'changed'>
+  /** What the players did, by flag name (see world/flags.ts). The value is the minute it first happened. */
+  flags?: Record<string, number>
+  /** Per-event bookkeeping: `<event>:omen`, `:warn`, `:scene`, `:until`, `:fired`, `:after`, and `:omen:heard` / `:warn:heard`. -1 means skipped. */
+  phases?: Record<string, number>
+  /** News the party has received, for the calendar panel (the newest 80). */
+  news?: NewsItem[]
+  /** Headlines that are not out yet: they wait for the next 06:00 paper after the news has had time to travel. */
+  paperQueue?: PaperItem[]
+  /** Index of the newest morning paper already printed (paper d is out at day d, 06:00). */
+  paperDay?: number
   /** Dice-checked free actions, newest last. Every AI prompt sees them so the story can leave canon. */
   chronicle?: string[]
   /** Named NPCs knocked out until this minute; they cannot talk or fight before then. */
@@ -172,16 +227,32 @@ export type World = {
   renown?: { marineHeat: number, islandRep: Partial<Record<IslandId, number>> }
   /** Turns off random sea encounters (quiet story stretches or tests). */
   calmSeas?: boolean
+  /** NPCs who joined the party (see world/companions.ts). Their place follows their leader. */
+  companions?: Partial<Record<NpcId, Companion>>
+  /** Minute before which an NPC who refused an invitation will not listen to another one. */
+  recruitRetry?: Partial<Record<NpcId, number>>
 }
 
-export function npcPlace(world: Pick<World, 'npcPlaces'>, npc: NpcId): LocationId | null {
+/** What place lookups need: companions resolve through the members, so pass the whole world when you have it. */
+type PlaceWorld = Pick<World, 'npcPlaces'> & Partial<Pick<World, 'companions' | 'members'>>
+
+/** Where a companion is: with the player who recruited them, or with the first party member if that player is gone. */
+export function companionPlace(world: Partial<Pick<World, 'members'>>, companion: Companion): LocationId | null {
+  const members = world.members ?? []
+  const here = (m: Member) => !!m.character && !m.pendingJoin
+  const leader = members.find(m => m.id === companion.leader && here(m)) ?? members.find(here)
+  return leader?.character?.place ?? null
+}
+export function npcPlace(world: PlaceWorld, npc: NpcId): LocationId | null {
+  const companion = world.companions?.[npc]
+  if (companion) return companionPlace(world, companion)
   const moved = world.npcPlaces?.[npc]
   return moved !== undefined ? moved : people[npc].place
 }
 export function npcFacts(world: Pick<World, 'npcFacts'>, npc: NpcId) {
   return world.npcFacts?.[npc] ?? people[npc].known
 }
-export function npcsAt(world: Pick<World, 'npcPlaces'>, place: LocationId) {
+export function npcsAt(world: PlaceWorld, place: LocationId) {
   return (Object.keys(people) as NpcId[]).filter(npc => npcPlace(world, npc) === place)
 }
 
@@ -197,13 +268,22 @@ export function newWorld(code: string, host: string): World {
   return {
     code, version: 0, started: false, minute: 8 * 60,
     members: [{ id: host, host: true, ready: false, agree: false, approved: false }],
-    quest: 'unoffered', clue: false, courierHP: 20, settled: false,
+    quest: 'unoffered', clue: false, courierHP: 20 * scale, settled: false, scale,
     stock: initialStock(), memories: emptyMemories(), proposals: [], crew: false,
   }
 }
 
 /** Fills fields added after a save was written. Idempotent; never changes values that already exist. */
 export function normalizeWorld(world: World): World {
+  // Saves written before (or under another) number scale: multiply every stored HP once.
+  const ratio = scale / (world.scale ?? 1)
+  if (ratio !== 1) {
+    for (const member of world.members) if (member.character) member.character.hp = Math.round(member.character.hp * ratio)
+    for (const companion of Object.values(world.companions ?? {})) if (companion) companion.hp = Math.round(companion.hp * ratio)
+    for (const foe of world.combat?.foes ?? []) { foe.hp = Math.round(foe.hp * ratio); foe.maxHp = Math.round(foe.maxHp * ratio) }
+    world.courierHP = Math.round(world.courierHP * ratio)
+    world.scale = scale
+  }
   const stock = initialStock()
   for (const id of Object.keys(stock) as Good[]) world.stock[id] ??= stock[id]
   for (const id of Object.keys(npcs) as NpcId[]) world.memories[id] ??= []

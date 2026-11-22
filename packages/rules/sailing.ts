@@ -3,6 +3,7 @@ import type { Intent } from '../shared/protocol.ts'
 import { ballotCount, boatYard, islandAt, islands, islandStories, paceNames, routesFrom, sameRoute, selectedRoute, shipPurchaseInfo } from '../world/sea.ts'
 import type { RouteChoice } from '../world/sea.ts'
 import { party } from '../world/village.ts'
+import { companionIds } from '../world/companions.ts'
 import type { Member, PendingVoyage, World } from '../world/village.ts'
 import { rollSeaEncounter, tierNames } from '../world/foes.ts'
 import { startSeaFight } from './combat.ts'
@@ -174,6 +175,7 @@ export function finishVoyage(world: World, voyage: PendingVoyage): { text: strin
   return {
     text: voyage.text + '\n全隊抵達' + islands[voyage.to].name + '的' + locations[ship.port] +
       '。船體 ' + before + ' → ' + ship.hull + '／100。' +
+      (companionIds(world).length ? '\n隨船夥伴：' + companionIds(world).map(npc => npcs[npc]).join('、') + '也一起上岸。' : '') +
       (islandStories[voyage.to] && !['done', 'closed'].includes(world.islandTasks?.[voyage.to]?.stage ?? '')
         ? '\n島上消息：' + islandStories[voyage.to]!.title + '。可找' + npcs[islandStories[voyage.to]!.guide] + '。' : '') +
       discoveries.filter(Boolean).map(text => '\n' + text).join(''),

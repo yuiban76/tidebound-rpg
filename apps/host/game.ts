@@ -6,6 +6,7 @@ import { allocatePoint, guideFor, makeCharacter, needsReview, resolve, voteThres
 import { asksAboutShipPurchase, dialogueQuestion, familiarIntent, sceneQuestion } from '../../packages/world/explore.ts'
 import { npcFacts, npcPlace, npcsAt, opening, party, paths, people, tideEvent } from '../../packages/world/village.ts'
 import { advanceTimeline } from '../../packages/world/timeline.ts'
+import { companionIds, companionMaxHp, isCompanion, recruitable } from '../../packages/world/companions.ts'
 import { islandAt, islands, routesFrom, shipPurchaseInfo } from '../../packages/world/sea.ts'
 import { sellMainShip, shipSaleBlock } from '../../packages/rules/sailing.ts'
 import type { Member, World } from '../../packages/world/village.ts'
@@ -195,8 +196,8 @@ export class Game {
         combat: combat && {
           round: combat.round, place: combat.place, participants: combat.participants, locked: Object.keys(combat.choices),
           atSea: !!combat.sea,
-          foes: combat.foes.map(({ id, name, npc, tier, faction, hp, maxHp, logia, bounty, down, surrendered }) =>
-            ({ id, name, npc, tier, faction, hp, maxHp, logia, bounty, down, surrendered })),
+          foes: combat.foes.map(({ id, name, npc, tier, faction, hp, maxHp, logia, exposed, bounty, down, surrendered }) =>
+            ({ id, name, npc, tier, faction, hp, maxHp, logia, exposed, bounty, down, surrendered })),
           waitingForConnection: combat.participants.some(id => !connected.has(id)),
         },
       },
@@ -259,7 +260,7 @@ export class Game {
     if (msg.kind === 'technique') {
       // Spec §7.6: a self-made move becomes a rules card with a name and a cost tier; the name adds no power.
       const c = actor.character
-      demand(c.techniques.length < 6, '最多建立 6 個招式。')
+      demand(c.techniques.filter(move => !move.fruit).length < 6, '最多建立 6 個招式。')
       demand(!c.techniques.some(move => move.name === msg.name), '已經有同名的招式。')
       c.techniques.push({ name: msg.name, style: msg.style })
       const tier = { special: '基礎特殊招式（3 STA）', advanced: '進階招式（5 STA）', flurry: '高強度連續攻擊（7 STA）' }[msg.style]
@@ -386,6 +387,7 @@ export class Game {
     const c = actor.character!
     const local = npcsAt(world, c.place).map(key => {
       return { id: key, name: npcs[key], role: people[key].role,
+        ...(isCompanion(world, key) ? { companion: true, trait: recruitable[key]?.trait } : {}),
         ...(intent?.kind === 'talk' && intent.npc === key
           ? {
               facts: key === 'clerk' && world.quest === 'done' ? '潮汐簿已歸還。' : npcFacts(world, key),
@@ -404,7 +406,15 @@ export class Game {
       speaker: intent?.kind === 'talk' ? npcs[intent.npc] : undefined,
       party: party(world).map(m => m.character!.name),
       partyHere: party(world).filter(m => m.character!.place === c.place).map(m => m.character!.name),
+      // NPC companions follow the players, so the narrator can describe them as part of the party.
+      companions: companionIds(world).map(npc => ({
+        id: npc, name: npcs[npc], trait: recruitable[npc]?.trait, hp: world.companions![npc]!.hp, maxHp: companionMaxHp(world, npc),
+        here: npcPlace(world, npc) === c.place,
+      })),
       items: c.inventory,
+      // Rumors and warnings the party has heard about this island that have not happened yet; locals can mention them.
+      rumors: (world.news ?? []).filter(item => (item.kind === 'rumor' || item.kind === 'warning') && item.island === islandAt(c.place) && item.event && !world.timeline?.[item.event])
+        .slice(-3).map(item => item.text),
       chronicle: world.chronicle ?? [],
     }
   }
@@ -475,7 +485,7 @@ export class Game {
       }
       const before = this.context(world, actorAt(world), intent)
       const result = resolve(world, actorAt(world), intent, job.text, this.store.roller(code, id), this.connected(world))
-      const narrate = !result.rejected && !result.directReply && !['sail', 'islandTask', 'give', 'equip', 'wait'].includes(intent.kind) &&
+      const narrate = !result.rejected && !result.directReply && !['sail', 'islandTask', 'give', 'equip', 'wait', 'recruit', 'dismiss', 'handover', 'fruit', 'buyFruit', 'upgrade', 'use'].includes(intent.kind) &&
         (!!result.spokeWith || !['move', 'meal', 'crew'].includes(shortcut?.kind ?? ''))
       const narrationContext = intent.kind === 'move' && result.spokeWith
         ? this.context(world, actorAt(world), { kind: 'talk', npc: result.spokeWith }) : before

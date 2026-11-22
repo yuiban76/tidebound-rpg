@@ -25,7 +25,7 @@ export function CombatPanel({ combat, character, player, suggest }: {
     <ul className="foe-list" aria-label="對手">
       {combat.foes.map(foe => <li key={foe.id} data-down={foe.down || foe.surrendered}>
         <strong>{foe.name}</strong>
-        <span className="hint">{tierNames[foe.tier]}{foe.logia ? ' · 自然系' : ''}{foe.bounty ? ' · 懸賞 ' + foe.bounty.toLocaleString('en-US') : ''}</span>
+        <span className="hint">{tierNames[foe.tier]}{foe.logia ? (foe.exposed ? ' · 自然系（現形中，剩 ' + foe.exposed + ' 回合）' : ' · 自然系') : ''}{foe.bounty ? ' · 懸賞 ' + foe.bounty.toLocaleString('en-US') : ''}</span>
         <meter min={0} max={foe.maxHp} value={foe.hp} aria-label={foe.name + ' HP'}/>
         <span>{foe.down ? '倒下' : foe.surrendered ? '收手' : 'HP ' + foe.hp + '／' + foe.maxHp}</span>
       </li>)}
@@ -58,11 +58,11 @@ export function Techniques({ character, post, disabled }: { character: Character
     post({ kind: 'technique', name: name.trim(), style })
     setName('')
   }
-  return <details><summary>招式（{character.techniques.length}／6）</summary>
+  return <details><summary>招式（{character.techniques.filter(move => !move.fruit).length}／6）</summary>
     {character.techniques.length > 0 && <ul>{character.techniques.map(move =>
       <li key={move.name}>「{move.name}」· {styleLabels[move.style]}</li>)}</ul>}
     <p className="hint">自創招式只決定名稱與等級；傷害和命中由等級與武器決定，華麗的名字不會讓它更強。</p>
-    {character.techniques.length < 6 && <form onSubmit={create}>
+    {character.techniques.filter(move => !move.fruit).length < 6 && <form onSubmit={create}>
       <Field label="招式名稱"><input maxLength={12} value={name} onChange={e => setName(e.target.value)} required/></Field>
       <Field label="招式等級"><select value={style} onChange={e => setStyle(e.target.value as typeof style)}>
         {Object.entries(styleLabels).map(([id, label]) => <option key={id} value={id}>{label}</option>)}

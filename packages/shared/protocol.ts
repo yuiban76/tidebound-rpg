@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { canonIslandIds, canonLocations, canonNpcs } from './atlas.ts'
+import { canonIslandIds, canonLocations, canonNpcs, castNpcs } from './atlas.ts'
 
 export const attributes = ['STR', 'AGI', 'CON', 'PER', 'INT', 'WIL'] as const
 export const attributeLabels = { STR: '力量', AGI: '敏捷', CON: '體魄', PER: '感知', INT: '智識', WIL: '意志' }
@@ -15,7 +15,7 @@ export const locations = {
   ...canonLocations,
 }
 export const npcs = { keeper: '瑪琪諾', clerk: '提奧', watch: '蘇芮', courier: '岬恩', lamplighter: '蕊卡', sounder: '洛汀', mayor: '村長',
-  rika: '莉卡', zoro: '索隆', boodle: '布德鎮長', chouchou: '修修', ...canonNpcs }
+  rika: '莉卡', zoro: '索隆', boodle: '布德鎮長', chouchou: '修修', ...canonNpcs, ...castNpcs }
 export const weapons = ['fist', 'sword', 'spear', 'musket'] as const
 export const attackStyles = ['normal', 'power', 'special', 'advanced', 'flurry'] as const
 export type AttackStyle = (typeof attackStyles)[number]
@@ -37,8 +37,7 @@ const stats = z.strictObject({
 export const characterInput = z.strictObject({
   name: text(24), age: z.number().int().min(1).max(400),
   race: z.enum(races), otherRace: z.string().trim().max(32).optional(),
-  appearance: text(300), personality: text(300), dream: text(300),
-  origin: text(300), background: text(600), style: text(300),
+  background: z.string().trim().max(600).optional(),
   stats, major: z.enum(skills), basics: z.tuple([z.enum(skills), z.enum(skills)]),
   life: z.enum(['航海', '醫術', '工藝', '採集', '烹飪']),
 }).superRefine((value, ctx) => {
@@ -77,6 +76,10 @@ export const intentSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('talk'), npc: z.enum(npcIds) }),
   z.strictObject({ kind: z.literal('meal'), dish: z.enum(['bread', 'rice']) }),
   z.strictObject({ kind: z.literal('crew') }),
+  // An NPC joins the party (or leaves it). Only the rules core can make this true; a spoken "yes" in the story is not enough.
+  z.strictObject({ kind: z.literal('recruit'), npc: z.enum(npcIds) }),
+  z.strictObject({ kind: z.literal('dismiss'), npc: z.enum(npcIds) }),
+  z.strictObject({ kind: z.literal('handover'), npc: z.enum(npcIds), to: z.string().trim().min(1).max(24) }),
   z.strictObject({ kind: z.literal('sail'), order: z.enum(['buy', 'borrow', 'materials', 'repair', 'vote', 'ready', 'unready', 'depart']), destination: z.enum(islandIds).optional(), pace: z.enum(sailingPaces).optional() }),
   z.strictObject({ kind: z.literal('islandTask'), step: z.enum(['accept', 'search', 'deliver']) }),
   z.strictObject({ kind: z.literal('check'), method: z.enum(['observe', 'climb', 'search', 'sneak']) }),
@@ -92,7 +95,10 @@ export const intentSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('quest'), step: z.enum(['accept', 'deliver', 'abandon']) }),
   z.strictObject({ kind: z.literal('rest'), sleep: z.boolean() }),
   z.strictObject({ kind: z.literal('aid'), patient: z.string().min(1).max(24) }),
-  z.strictObject({ kind: z.literal('buy'), item: z.enum(['spear', 'bandage', 'bullets', 'sword', 'logPose']) }),
+  z.strictObject({ kind: z.literal('buy'), item: z.enum(['spear', 'bandage', 'bullets', 'sword', 'musket', 'tonic', 'logPose', 'waterskin', 'seastone', 'dial']) }),
+  // Reforge the held weapon at a forge; use eats or drinks a carried restorative (傷藥).
+  z.strictObject({ kind: z.literal('upgrade') }),
+  z.strictObject({ kind: z.literal('use'), item: z.string().trim().min(1).max(24) }),
   z.strictObject({ kind: z.literal('wait'), hours: z.number().int().min(1).max(240) }),
   z.strictObject({
     kind: z.literal('give'), to: z.string().trim().min(1).max(24),
@@ -101,6 +107,9 @@ export const intentSchema = z.discriminatedUnion('kind', [
   }),
   z.strictObject({ kind: z.literal('equip'), weapon: z.enum(weapons) }),
   z.strictObject({ kind: z.literal('reload') }),
+  // Eat (take: true) or let go of a devil fruit dropped by a defeated NPC; buyFruit buys a drifted one at the Sabaody auction.
+  z.strictObject({ kind: z.literal('fruit'), take: z.boolean(), fruit: z.string().trim().min(1).max(24).optional() }),
+  z.strictObject({ kind: z.literal('buyFruit'), fruit: z.string().trim().min(1).max(24).optional() }),
   z.strictObject({ kind: z.literal('social') }),
   z.strictObject({
     kind: z.literal('free'),

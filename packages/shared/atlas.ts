@@ -50,3 +50,16 @@ export const canonNpcs = {
   sengoku: '戰國', whitebeard: '白鬍子',
   luffy: '魯夫',
 } as const
+
+/** More popular canon characters (positions and details live in packages/world/cast.ts). */
+export const castNpcs = {
+  dadan: '達丹', koby: '可比', nami: '娜美', buggy: '巴其', tashigi: '塔希吉', gin: '吉恩', krieg: '唐・克里克',
+  mihawk: '密佛格', dragon: '蒙其・D・龍',
+  galdino: '加爾迪諾', wapol: '瓦波爾', bonclay: '邦・克雷',
+  kokoro: '可可蘿', paulie: '保利', kaku: '卡庫', kalifa: '卡莉法', blueno: '布魯諾',
+  perona: '佩羅娜', law: '特拉法爾加・羅', kid: '尤斯塔斯・基德', killer: '奇拉', drake: '德雷克', hawkins: '霍金斯', bonney: '邦妮',
+  kuma: '巴索羅繆・大熊', shanks: '香克斯',
+  jinbe: '甚平', teach: '黑鬍子', doflamingo: '多佛朗明哥',
+  garp: '卡普', akainu: '赤犬', aokiji: '青雉', kizaru: '黃猿',
+  marco: '馬可', jozu: '喬茲', vista: '比斯塔',
+} as const

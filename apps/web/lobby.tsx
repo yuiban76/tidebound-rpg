@@ -8,10 +8,6 @@ export function Field({ label, children }: { label: string, children: React.Reac
   return <label className="field"><span>{label}</span>{children}</label>
 }
 
-const writing = [
-  ['appearance', '外貌'], ['personality', '性格'], ['dream', '夢想'],
-  ['origin', '出身'], ['background', '身世'], ['style', '戰鬥風格'],
-] as const
 const life = ['航海', '醫術', '工藝', '採集', '烹飪'] as const
 const defaults = { STR: 3, AGI: 3, CON: 3, PER: 3, INT: 3, WIL: 3 }
 
@@ -28,7 +24,7 @@ function CharacterForm({ initial, submit }: { initial?: CharacterInput, submit: 
       name: form.get('name'), age: Number(form.get('age')), race,
       otherRace: form.get('otherRace') || undefined, stats, major: form.get('major'),
       basics: [form.get('basic1'), form.get('basic2')], life: form.get('life'),
-      ...Object.fromEntries(writing.map(([name]) => [name, form.get(name)])),
+      background: String(form.get('background') ?? '').trim() || undefined,
     }
     const validated = characterInput.safeParse(payload)
     if (!validated.success) return setError(validated.error.issues[0].message)
@@ -49,7 +45,7 @@ function CharacterForm({ initial, submit }: { initial?: CharacterInput, submit: 
         {races.map(item => <option key={item}>{item}</option>)}
       </select></Field>
       {race === '其他' && <Field label="自訂種族"><input name="otherRace" maxLength={32} required defaultValue={initial?.otherRace}/></Field>}
-      {writing.map(([name, label]) => <Field key={name} label={label}><textarea name={name} rows={2} maxLength={name === 'background' ? 600 : 300} required defaultValue={initial?.[name]}/></Field>)}
+      <Field label="背景（選填）"><textarea name="background" rows={2} maxLength={600} defaultValue={initial?.background}/></Field>
     </div>
     <fieldset><legend>六項屬性 · 已分配 {total}／18</legend>
       <p className="hint">每項 2～4 點，合計 18 點。</p>

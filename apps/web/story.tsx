@@ -5,6 +5,7 @@ import type { Message } from '../../packages/shared/protocol.ts'
 import { guideFor, maxHP, maxSTA, voteThreshold, xpToNext } from '../../packages/rules/engine.ts'
 import { sceneQuestion } from '../../packages/world/explore.ts'
 import { islandAt, islands } from '../../packages/world/sea.ts'
+import { forges, weaponLabel } from '../../packages/world/forge.ts'
 import { goods, npcsAt, party, people, shops, weaponItems, weaponNames } from '../../packages/world/village.ts'
 import type { Good } from '../../packages/world/village.ts'
 import type { View } from './network.ts'
@@ -13,6 +14,10 @@ import { Field } from './lobby.tsx'
 import { WorldMap } from './world-map.tsx'
 import { CombatPanel, Techniques } from './combat.tsx'
 import { IslandAdventure, VoyagePanel } from './voyage.tsx'
+import { CompanionPanel } from './companions.tsx'
+import { FruitPanel } from './fruit.tsx'
+import { RecoveryPanel } from './recovery.tsx'
+import { CalendarPanel } from './calendar.tsx'
 
 const phaseText = { queued: '排隊中', interpret: 'AI 理解與規則驗證', narrate: '正式結果已存檔，旁白生成中' }
 const entryText: Record<string, string> = { world: '世界', result: '正式結果', narrative: 'AI 旁白', input: '行動', chat: '玩家聊天', cancelled: '待辦', guide: '附近指引', location: '目前位置' }
@@ -173,13 +178,15 @@ export function Story({ view, send, history, connected, gap, review }: {
         </dl>
         <Techniques character={character} post={post} disabled={paused}/>
         <details open><summary>背包與裝備</summary>
-          <p>目前武器：{weaponNames[character.weapon]}</p>
+          <p>目前武器：{weaponLabel(character, weaponNames[character.weapon])}</p>
           <ul>{Object.entries(character.inventory).filter(([, count]) => count > 0).map(([item, count]) =>
             <li key={item}>{item} × {count}</li>)}</ul>
           <div className="button-row">
             {(Object.keys(weaponItems) as (keyof typeof weaponItems)[]).filter(id => id !== character.weapon && character.inventory[weaponItems[id]])
               .map(id => <button key={id} type="button" className="light" onClick={() => suggest('改用' + weaponItems[id])}>改用{weaponItems[id]}</button>)}
             {character.weapon !== 'fist' && <button type="button" className="light" onClick={() => suggest('收起武器')}>改為徒手</button>}
+            {forges[character.place] && <button type="button" className="light" onClick={() => suggest('強化武器')}>強化武器</button>}
+            {!!character.inventory['傷藥'] && <button type="button" className="light" onClick={() => suggest('喝傷藥')}>喝傷藥</button>}
           </div>
           {crew.some(m => m.id !== player && m.character!.place === character.place) &&
             <p className="hint">同地的隊友可以轉交物品或貝里，例如「把繃帶交給隊友名字」或「給隊友名字 100 貝里」。</p>}
@@ -197,6 +204,10 @@ export function Story({ view, send, history, connected, gap, review }: {
             {m.character && !m.approved && <button className="light" onClick={() => review(m.id, true)}>核准</button>}
           </li>)}</ul>
         </section>}
+        <CalendarPanel world={world}/>
+        <RecoveryPanel world={world} player={player} suggest={suggest}/>
+        <FruitPanel world={world} player={player} suggest={suggest}/>
+        <CompanionPanel world={world} player={player} suggest={suggest}/>
         <section className="subsection"><h3>任務日誌</h3><p>{questText[world.quest]}</p></section>
         <section className="subsection"><h3>團隊決議</h3>
           <p>{world.crew ? '船團已成立' : '尚未成立船團'} · {world.ship ? '主船迎潮號' : '尚無主船'}</p>

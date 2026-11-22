@@ -111,8 +111,10 @@ test('打倒原作頭目會改變世界，時間線也跟著改寫', () => {
   world.defeated = ['arlong']
   world.npcPlaces = { arlong: null }
   world.minute = (9 - 1) * 1440
-  const news = advanceTimeline(world)
+  advanceTimeline(world)
   assert.equal(world.timeline?.arlong, 'changed')
-  assert.ok(news.some(item => item.text.includes('惡龍早已被一群旅人打倒')))
+  // The party is on another island, so the news reaches them with the morning paper a few days later.
+  world.minute += 4 * 1440
+  assert.ok(advanceTimeline(world).some(item => item.text.includes('惡龍早已被一群旅人打倒')))
   assert.equal(npcPlace(world, 'arlong'), null)
 })

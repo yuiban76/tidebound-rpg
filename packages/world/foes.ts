@@ -1,8 +1,12 @@
 // Combat profiles for every NPC and for random sea encounters.
 // Strength follows the canon tiers (spec §7.7: luck alone cannot bridge a large power gap).
+import { scale } from './scale.ts'
 import type { NpcId } from '../shared/protocol.ts'
 import { npcs } from '../shared/protocol.ts'
+import { castProfiles } from './cast.ts'
 
+/** What lets a blow land on a logia body before haki exists: wet sand, sea stone, or a Sky Island dial. */
+export type Weakness = 'water' | 'seastone' | 'dial'
 export type Faction = 'civilian' | 'pirate' | 'marine' | 'government' | 'bandit' | 'beast' | 'tyrant'
 
 /** One combatant on the NPC side of a fight. Named NPCs carry their id so defeat can change the world. */
@@ -13,6 +17,10 @@ export type Foe = {
   attack: number, die: number, bonus: number
   /** Logia bodies let ordinary blows pass through (no haki in the game yet). */
   logia?: boolean
+  /** What can hurt this logia body (default: sea stone only). Empty: nothing the party owns can touch them yet. */
+  weak?: Weakness[]
+  /** Rounds left in which the body is solid (after water or a dial); counted down at the end of each round. */
+  exposed?: number
   bounty?: number, loot: number, items?: Record<string, number>
   down?: boolean, surrendered?: boolean
 }
@@ -32,7 +40,7 @@ const tierStats: [number, number, number, number, number, number][] = [
 /** XP for each participant when a foe of this tier is defeated. */
 export const tierXp = [5, 15, 30, 60, 120, 250, 500]
 
-type Profile = { tier: number, faction: Faction, bounty?: number, logia?: boolean, hp?: number, def?: number, attack?: number, die?: number }
+type Profile = { tier: number, faction: Faction, bounty?: number, logia?: boolean, weak?: Weakness[], hp?: number, def?: number, attack?: number, die?: number }
 
 // Every NPC can be fought. Civilians fight back weakly and attacking them costs reputation.
 export const npcProfiles: Record<NpcId, Profile> = {
@@ -51,26 +59,27 @@ export const npcProfiles: Record<NpcId, Profile> = {
   vivi: { tier: 1, faction: 'civilian' }, igaram: { tier: 2, faction: 'civilian' },
   dorry: { tier: 5, faction: 'civilian' }, brogy: { tier: 5, faction: 'civilian' },
   dalton: { tier: 3, faction: 'civilian' }, kureha: { tier: 2, faction: 'civilian' }, chopper: { tier: 3, faction: 'civilian' },
-  pell: { tier: 3, faction: 'civilian' }, cobra: { tier: 1, faction: 'civilian' }, crocodile: { tier: 5, faction: 'tyrant', logia: true },
+  pell: { tier: 3, faction: 'civilian' }, cobra: { tier: 1, faction: 'civilian' }, crocodile: { tier: 5, faction: 'tyrant', logia: true, weak: ['water', 'seastone'] },
   bellamy: { tier: 3, faction: 'pirate', bounty: 55_000_000 }, cricket: { tier: 2, faction: 'civilian' },
-  ganfall: { tier: 3, faction: 'civilian' }, enel: { tier: 5, faction: 'tyrant', logia: true },
+  ganfall: { tier: 3, faction: 'civilian' }, enel: { tier: 5, faction: 'tyrant', logia: true, weak: ['dial', 'seastone'] },
   iceburg: { tier: 1, faction: 'civilian' }, franky: { tier: 4, faction: 'civilian' },
   spandam: { tier: 1, faction: 'government' }, lucci: { tier: 5, faction: 'government' }, robin: { tier: 4, faction: 'civilian' },
   brook: { tier: 4, faction: 'civilian' }, moria: { tier: 5, faction: 'tyrant' },
   rayleigh: { tier: 6, faction: 'civilian' }, shakky: { tier: 3, faction: 'civilian' },
   hancock: { tier: 5, faction: 'pirate' }, nyon: { tier: 1, faction: 'civilian' },
-  magellan: { tier: 5, faction: 'government' }, ivankov: { tier: 5, faction: 'civilian' }, ace: { tier: 5, faction: 'pirate', logia: true, bounty: 550_000_000 },
+  magellan: { tier: 5, faction: 'government' }, ivankov: { tier: 5, faction: 'civilian' }, ace: { tier: 5, faction: 'pirate', logia: true, weak: [], bounty: 550_000_000 },
   sengoku: { tier: 6, faction: 'marine' }, whitebeard: { tier: 6, faction: 'pirate', bounty: 5_046_000_000 },
   luffy: { tier: 4, faction: 'pirate' },
+  ...castProfiles,
 }
 
 function foeFrom(id: string, name: string, profile: Profile, npc?: NpcId): Foe {
   const [hp, def, attack, die, bonus, armor] = tierStats[profile.tier]
-  const maxHp = profile.hp ?? hp
+  const maxHp = (profile.hp ?? hp) * scale
   return {
     id, name, npc, tier: profile.tier, faction: profile.faction,
     hp: maxHp, maxHp, def: profile.def ?? def, armor, attack: profile.attack ?? attack, die: profile.die ?? die, bonus,
-    ...(profile.logia && { logia: true }), ...(profile.bounty && { bounty: profile.bounty }),
+    ...(profile.logia && { logia: true, weak: profile.weak ?? ['seastone'] }), ...(profile.bounty && { bounty: profile.bounty }),
     loot: profile.faction === 'civilian' || profile.faction === 'beast' ? profile.tier * 20 : (profile.tier + 1) ** 2 * 100,
   }
 }

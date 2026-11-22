@@ -13,7 +13,7 @@ const locationNames: Record<string, LocationId> = {
   科爾波山: 'hill', 山道: 'hill', 山徑: 'hill', 山上: 'hill',
   哥亞王國: 'goa', 哥亞: 'goa', 王國: 'goa', 城下町: 'goa',
   海軍基地: 'marineBase', 基地: 'marineBase', 第153分部: 'marineBase', 基地廣場: 'marineBase', 刑場: 'marineBase',
-  寵物店廢墟: 'petShop',
+  寵物店廢墟: 'petShop', 鐵匠鋪: 'square', 鐵匠: 'square',
 }
 /** Generic words that mean "the one on this island", resolved against the speaker's current island. */
 const portOf = Object.fromEntries(Object.entries(islands).map(([id, island]) => [id, island.port])) as Record<IslandId, LocationId>
@@ -71,7 +71,7 @@ export function routeBetween(from: LocationId, to: LocationId, hillClosed = fals
 export function directions(place: LocationId, { hillClosed = false, inCombat = false, down = false, present = undefined as NpcId[] | undefined } = {}) {
   const nearby = paths[place].filter(id => !hillClosed || id !== 'hill')
   const local = present ?? Object.keys(people).filter(id => people[id as NpcId].place === place) as NpcId[]
-  if (down) return { text: '你倒在' + locations[place] + '。請同伴帶繃帶前來包紮。', suggestions: [] }
+  if (down) return { text: '你倒在' + locations[place] + '。可以原地「睡覺」恢復，或請同伴用繃帶包紮。', suggestions: place === 'hill' ? [] : ['睡覺'] }
   if (inCombat) return {
     text: '你在' + locations[place] + '的戰鬥中。可以防守、撤回村道，或和岬恩交涉。',
     suggestions: ['防守', '撤退', '和岬恩交涉'],
@@ -89,7 +89,8 @@ export function directions(place: LocationId, { hillClosed = false, inCombat = f
     ...nearby.map(id => '前往' + locations[id]),
     ...local.map(id => '找' + npcs[id] + '聊聊'),
     ...(place === 'tavern' ? ['點烤麵包'] : place === 'hill' ? ['查看山道上的痕跡'] : []),
-    ...(place === 'goa' ? ['買普通武士刀'] : []),
+    ...(place === 'goa' ? ['買普通武士刀', '買普通火槍', '強化武器'] : []),
+    ...(place === 'square' ? ['買傷藥', '強化武器'] : []),
   ]
   return { text, suggestions }
 }
@@ -115,6 +116,42 @@ function talkIntent(text: string) {
     return { kind: 'talk', npc: npcByName[namedQuestion[1]] } as const
   const talk = talkWithNpc.exec(text)
   if (talk) return { kind: 'talk', npc: npcByName[talk[1]] } as const
+}
+
+const inviteWords = '(?:加入|入夥|入伙|入團|同行|跟(?:著)?(?:我們?|我)(?:走|一起|出海|航行|冒險)|當(?:我(?:們)?的)?(?:夥伴|同伴|船員|隊友)|成為(?:我(?:們)?的)?(?:夥伴|同伴|船員|隊友)|一起(?:出海|冒險|航行|走))'
+const askingAbout = /為什麼|為何|怎麼|什麼|誰|哪[裡里]|多少|是不是|有沒有|是否|曾經|以前|之前|了嗎|了沒/
+const inviteNpc = new RegExp('(' + npcNames + ')')
+const leaveWords = '(?:離隊|離開(?:隊伍|船團|海賊團|我們|這裡)?|退出(?:隊伍|船團|海賊團)?|下船|留在這裡|留下來?|不用跟(?:著)?(?:我們?|我)?了?)'
+
+/** Someone is being invited to join the crew: 「叫騙人布加入我的海賊團」「邀請索隆入夥」「騙人布要不要跟我們走」. */
+export function recruitRequest(input: string): NpcId | undefined {
+  const text = input.trim().replace(/[。！!?？，,]+/g, ' ')
+  if (askingAbout.test(text) && !/要不要|願不願意|想不想|肯不肯/.test(text)) return undefined
+  const named = inviteNpc.exec(text)
+  if (!named) return undefined
+  const after = text.slice(named.index + named[1].length)
+  // 「招募香吉士」 is already an invitation; otherwise the line must say what they are being invited to do.
+  const bare = !after.trim() && /^(?:邀請|招募|拉攏|邀)$/.test(text.slice(0, named.index).trim())
+  if (!bare && !new RegExp(inviteWords).test(after)) return undefined
+  if (/^(?:問|請問|向|跟|和)/.test(text)) return undefined
+  return npcByName[named[1]]
+}
+
+/** A companion is handed to another player: 「把騙人布交給娜美」「騙人布改跟娜美」. */
+export function handoverRequest(input: string): { npc: NpcId, to: string } | undefined {
+  const text = input.trim().replace(/[。！!?？，,]+/g, ' ').trim()
+  const given = new RegExp('^(?:把|將|請)?\\s*(' + npcNames + ')\\s*(?:轉交給|交給|轉給|託付給|改跟(?:著)?|改由)\\s*(.+?)\\s*(?:帶著?|照顧|負責|帶領|行動)?$').exec(text)
+  if (!given) return undefined
+  return { npc: npcByName[given[1]], to: given[2].trim() }
+}
+
+/** Someone in the party is being asked to leave: 「請騙人布離隊」「索隆下船」. */
+export function dismissRequest(input: string): NpcId | undefined {
+  const text = input.trim().replace(/[。！!?？，,]+/g, ' ')
+  const named = inviteNpc.exec(text)
+  if (!named || askingAbout.test(text)) return undefined
+  const rest = text.slice(named.index + named[1].length).trim()
+  if (new RegExp('^(?:先|可以|要)?' + leaveWords + '(?:吧|了)?$').test(rest) || /^(?:不要|別|不用)?(?:再)?跟(?:著)?(?:我們?|我)了$/.test(rest)) return npcByName[named[1]]
 }
 
 function seaIntent(text: string): Intent | undefined {
@@ -144,6 +181,12 @@ export function familiarIntent(input: string, here?: LocationId): Intent | undef
     if (step !== -1) return { kind: 'islandTask', step: (['accept', 'search', 'deliver'] as const)[step] }
   }
   if (/^(?:找[^，。]{1,24}(?:一起)?|和[^，。]{1,24}(?:一起)?|跟[^，。]{1,24}(?:一起)?)?(?:想|要|來)?(?:成立|組建|組成)(?:一個|一支)?(?:海賊團|船團)$/.test(text)) return { kind: 'crew' }
+  const handed = handoverRequest(text)
+  if (handed) return { kind: 'handover', ...handed }
+  const invited = recruitRequest(text)
+  if (invited) return { kind: 'recruit', npc: invited }
+  const dismissed = dismissRequest(text)
+  if (dismissed) return { kind: 'dismiss', npc: dismissed }
   if (/^(?:吃|點|點一份|買|來一份|來份)(?:一個|一份|一片)?(?:烤)?麵包$/.test(text)) return { kind: 'meal', dish: 'bread' }
   if (/^(?:吃|點|買|來一份|來份)(?:一碗|一份)?(?:爌肉飯|控肉飯|燉肉飯|滷肉飯)$/.test(text)) return { kind: 'meal', dish: 'rice' }
   if (/^(?:接受|接下|接)(?:潮汐簿)?(?:的)?委託$/.test(text)) return { kind: 'quest', step: 'accept' }
@@ -165,9 +208,30 @@ export function familiarIntent(input: string, here?: LocationId): Intent | undef
   if (/^(?:裝填|裝彈|裝填火槍)$/.test(text)) return { kind: 'reload' }
   const bandage = /^(?:使用|用)繃帶(?:給|替|幫)?\s*(.*)$/.exec(text)
   if (bandage) return { kind: 'useItem', item: '繃帶', ...(bandage[1].trim() && { target: bandage[1].trim() }) }
+  if (/^(?:吸收|吃下|吃掉|吞下)(?:那顆|這顆|該顆)?(?:惡魔)?果實$/.test(text)) return { kind: 'fruit', take: true }
+  if (/^(?:放走|放棄|不吸收|不吃|丟掉|放生)(?:那顆|這顆|該顆)?(?:惡魔)?果實$/.test(text)) return { kind: 'fruit', take: false }
+  const absorb = /^(?:吸收|吃下|吃掉|吞下)(.{1,12}果實.*)$/.exec(text)
+  if (absorb) return { kind: 'fruit', take: true, fruit: absorb[1] }
+  const auction = /^(?:買|購買|標下|競標)(?:一顆)?(.{0,12}果實.*|惡魔果實)$/.exec(text)
+  if (auction) return { kind: 'buyFruit', ...(auction[1] !== '惡魔果實' && { fruit: auction[1] }) }
+  const soak = /^(?:用|使用)(水壺|衝擊貝)(?:對|向|朝|攻擊|潑|淋|打)?\s*(.*)$/.exec(text) ?? /^()潑水(?:給|到|在)?\s*(.*)$/.exec(text)
+  if (soak) return { kind: 'useItem', item: soak[1] || '水壺', ...(soak[2].trim() && { target: soak[2].trim() }) }
   if (/^(?:查看|觀察|調查)(?:山徑|山道|山路)上的(?:痕跡|鞋印)$/.test(text)) return { kind: 'check', method: 'observe' }
+  if (/^(?:強化|升級|鍛造|重新鍛打|打磨|精煉)(?:我的|目前的|手上的)?(?:武器|刀|槍|長槍|火槍|武士刀|拳套|護手)?$/.test(text)) return { kind: 'upgrade' }
+  const potion = /^(?:使用|用|喝|喝下|服用)(?:一瓶|一罐)?傷藥$/.exec(text)
+  if (potion) return { kind: 'use', item: '傷藥' }
+  if (/^(?:買|購買)(?:一把)?(?:普通)?火槍$/.test(text)) return { kind: 'buy', item: 'musket' }
+  if (/^(?:買|購買)(?:一瓶|一罐|一份)?傷藥$/.test(text)) return { kind: 'buy', item: 'tonic' }
   if (/^(?:買|購買)(?:一把)?(?:普通)?武士刀$/.test(text)) return { kind: 'buy', item: 'sword' }
   if (/^(?:買|購買)(?:一個)?(?:記錄指針|永久指針|指針)$/.test(text)) return { kind: 'buy', item: 'logPose' }
+  // Any shop item by its name ("買繃帶", "買兩捲繃帶", "購買水壺"), so buying never depends on the AI.
+  const shopping = /^(?:買|購買)(?:[一兩二三四五六七八九十\d]+)?(?:個|份|捲|把|瓶|罐|支|只|包)?\s*(.+)$/.exec(text)
+  const ware = shopping && (Object.keys(goods) as Good[]).find(id => goods[id].label === shopping[1].trim())
+  if (ware) return { kind: 'buy', item: ware }
+  const gear = /^(?:買|購買)(?:一個|一把|一顆|一個)?(水壺|海樓石十手|海樓石|衝擊貝)$/.exec(text)
+  if (gear) return { kind: 'buy', item: gear[1] === '水壺' ? 'waterskin' : gear[1] === '衝擊貝' ? 'dial' : 'seastone' }
+  if (/^(?:睡覺|睡一覺|睡一晚|睡一下覺|過夜|休息一晚|好好睡一覺|去睡覺)$/.test(text)) return { kind: 'rest', sleep: true }
+  if (/^(?:休息|休息一下|休息一會兒?|歇一歇|歇息|小憩|小睡|喘口氣|稍作休息|恢復體力|回復體力)$/.test(text)) return { kind: 'rest', sleep: false }
   const wait = /^(?:等待|等|待|休息|原地等待)\s*(\d+)\s*(?:個)?(小時|天)$/.exec(text)
   if (wait) return { kind: 'wait', hours: Math.min(240, Math.max(1, Number(wait[1]) * (wait[2] === '天' ? 24 : 1))) }
   const equip = /^(?:裝備|改用|換成|換上|拿起|使用)\s*(\S+)$/.exec(text)

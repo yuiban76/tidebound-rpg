@@ -8,10 +8,15 @@ import { islandAt } from '../world/sea.ts'
 import { npcFacts, npcPlace, npcsAt, party, paths } from '../world/village.ts'
 import type { Character, Combat, CombatChoice, Member, World } from '../world/village.ts'
 import { bossDefeats } from '../world/canon.ts'
+import { fruitDamage, fruits, isLogia } from '../world/fruits.ts'
+import { offerFruit } from './fruits.ts'
 import { applyEffect } from '../world/timeline.ts'
-import { attackCheck, defense, grantXp, maxHP } from './engine.ts'
+import { scale } from '../world/scale.ts'
+import { tierDamage, tierHit, tierOf } from '../world/forge.ts'
+import { attackCheck, bandageHeal, defense, grantXp, levelDamage, levelDefense, levelHit, maxHP } from './engine.ts'
 import type { Result, Roll } from './engine.ts'
 import { finishVoyage } from './sailing.ts'
+import { alliesAt, companionByName, companionFight, companionMaxHp, hurtCompanion, isCompanion, partyLevel, recruitable } from '../world/companions.ts'
 
 const stop = (text: string): Result => ({ text, rejected: true })
 
@@ -48,7 +53,9 @@ function findFoe(combat: Combat, target?: string) {
 
 /** A named NPC on the actor's spot who can be attacked right now. */
 function npcTarget(world: World, c: Character, target?: string): NpcId | string {
-  const here = npcsAt(world, c.place).filter(npc => !isDown(world, npc))
+  const mate = target ? companionByName(world, target) : undefined
+  if (mate && npcPlace(world, mate) === c.place) return npcs[mate] + '是你的夥伴，不能攻擊。'
+  const here = npcsAt(world, c.place).filter(npc => !isDown(world, npc) && !isCompanion(world, npc))
   if (!here.length) return '這裡沒有可以攻擊的對象。'
   if (!target) return here.length === 1 ? here[0] : '請說明要攻擊誰：' + here.map(npc => npcs[npc]).join('、') + '。'
   const found = here.find(npc => npcs[npc] === target) ?? here.find(npc => npcs[npc].includes(target) || target.includes(npcs[npc]))
@@ -78,13 +85,25 @@ function negotiateCourier(world: World, actor: Member, roll: Roll, dc: number) {
 
 function useBandage(world: World, actor: Member, target?: string) {
   const c = actor.character!
+  const mate = target ? companionByName(world, target) : undefined
+  if (mate && !party(world).some(m => m.character!.name === target)) {
+    const sheet = world.companions![mate]!
+    if (npcPlace(world, mate) !== c.place) return '找不到在你身邊、名叫「' + target + '」的隊友。'
+    if (!c.inventory['繃帶']) return '你的背包裡沒有繃帶。'
+    if (sheet.hp >= companionMaxHp(world, mate)) return npcs[mate] + '沒有受傷。'
+    c.inventory['繃帶']--
+    if (!c.inventory['繃帶']) delete c.inventory['繃帶']
+    sheet.hp = Math.min(companionMaxHp(world, mate), sheet.hp + bandageHeal(c, partyLevel(world)))
+    if (world.npcDown?.[mate]) delete world.npcDown[mate]
+    return { text: c.name + '替' + npcs[mate] + '包紮，目前 HP ' + sheet.hp + '。' }
+  }
   const patient = target ? party(world).find(m => m.character!.name === target)?.character : c
   if (!patient || patient.place !== c.place) return '找不到在你身邊、名叫「' + target + '」的隊友。'
   if (!c.inventory['繃帶']) return '你的背包裡沒有繃帶。'
   if (patient.hp === maxHP(patient)) return patient.name + '沒有受傷。'
   c.inventory['繃帶']--
   if (!c.inventory['繃帶']) delete c.inventory['繃帶']
-  patient.hp = Math.min(maxHP(patient), patient.hp + 4 + (c.skillRanks['醫術'] ?? 0))
+  patient.hp = Math.min(maxHP(patient), patient.hp + bandageHeal(c, patient.level))
   return { text: (patient === c ? c.name + '替自己包紮' : c.name + '替' + patient.name + '包紮') + '，目前 HP ' + patient.hp + '。' }
 }
 
@@ -123,6 +142,7 @@ export function resolveCombatAction(world: World, actor: Member, choice: CombatC
     const target = npcTarget(world, c, choice.target)
     if (!(target in npcs)) return stop(target)
     const foe = npcFoe(target as NpcId, world.minute)
+    if (world.fruitLost?.[target as NpcId]) { delete foe.logia; delete foe.weak }
     if (target === 'courier') foe.hp = world.courierHP || foe.maxHp
     combat = startFight(world, c.place, [foe])
     started = true
@@ -157,7 +177,13 @@ function validate(combat: Combat, c: Character, choice: CombatChoice) {
     if (!findFoe(combat, choice.target)) return '找不到名叫「' + choice.target + '」的對手。'
   }
   if (choice.kind === 'reload' && (c.weapon !== 'musket' || c.loaded || !c.inventory['火槍彈藥'])) return '目前沒有可裝填的火槍或彈藥。'
-  if (choice.kind === 'useItem' && (!/繃帶/.test(choice.item) || !c.inventory['繃帶'])) return '戰鬥中目前只能使用背包裡的繃帶。'
+  if (choice.kind === 'useItem') {
+    const tool = soakTool(choice.item)
+    if (tool) {
+      if (!c.inventory[tool.label]) return '你的背包裡沒有' + tool.label + '。'
+      if (!combat.foes.some(foe => !foe.down && !foe.surrendered && foe.weak?.includes(tool.weakness))) return '這場戰鬥裡沒有' + tool.label + '派得上用場的對手。'
+    } else if (!/繃帶/.test(choice.item) || !c.inventory['繃帶']) return '戰鬥中只能使用背包裡的繃帶、水壺或衝擊貝。'
+  }
   if (choice.kind === 'negotiate' && !findFoe(combat, choice.target)) return '找不到可以交涉的對手。'
 }
 
@@ -179,7 +205,8 @@ function resolveRound(world: World, combat: Combat, roll: Roll, opening: string)
       fighter.loaded = true
       lines.push(fighter.name + '裝填火槍。')
     }
-    if (choice.kind === 'useItem') {
+    if (choice.kind === 'useItem' && soakTool(choice.item)) lines.push(useSoak(combat, fighter, soakTool(choice.item)!, choice.target))
+    else if (choice.kind === 'useItem') {
       const used = useBandage(world, member, choice.target)
       lines.push(typeof used === 'string' ? fighter.name + '想用繃帶，但' + used : used.text)
     }
@@ -237,14 +264,16 @@ function resolveRound(world: World, combat: Combat, roll: Roll, opening: string)
     for (let blow = 0; blow < (style === 'flurry' ? 2 : 1); blow++) {
       const foe = findFoe(combat, choice.target) ?? standing(combat)[0]
       if (!foe) break
-      if (foe.logia) {
-        lines.push(fighter.name + '的' + move + '穿過了' + foe.name + '的身體，自然系的能力讓攻擊沒有效果。')
+      const solid = canHurt(foe, fighter)
+      if (solid === false) {
+        lines.push(fighter.name + '的' + move + '穿過了' + foe.name + '的身體，自然系的能力讓攻擊沒有效果。' + weakHint(foe))
         continue
       }
-      const hit = attackCheck(roll, { attr, skill: (fighter.skillRanks[skill] ?? 0) + spec.hit, def: foe.def, die, bonus: spec.damage, armor: foe.armor })
+      if (solid === 'seastone') lines.push(fighter.name + '握著海樓石十手，' + foe.name + '的身體在這一擊中變得實在。')
+      const hit = attackCheck(roll, { attr, skill: (fighter.skillRanks[skill] ?? 0) + spec.hit + levelHit(fighter.level) + tierHit(tierOf(fighter)), def: foe.def, die, bonus: spec.damage + levelDamage(fighter.level) + tierDamage(tierOf(fighter)) + fruitDamage(fighter.fruit, fighter.level), armor: foe.armor })
       foe.hp = Math.max(0, foe.hp - hit.damage)
       lines.push(fighter.name + '對' + foe.name + '使出' + move + '，D20 ' + hit.natural + '，合計 ' + hit.total + '／' + foe.def +
-        (hit.hit ? '，傷害 ' + hit.damage + '（武器骰 ' + hit.dice.join('+') + '）。' + foe.name + ' HP ' + foe.hp + '／' + foe.maxHp + '。' : '，未命中。'))
+        (hit.hit ? '，傷害 ' + hit.damage + '（武器骰 ' + hit.dice.join('+') + '，數值×' + scale + '）。' + foe.name + ' HP ' + foe.hp + '／' + foe.maxHp + '。' : '，未命中。'))
       if (!foe.hp) {
         foe.down = true
         lastHit.set(foe.id, member)
@@ -252,27 +281,45 @@ function resolveRound(world: World, combat: Combat, roll: Roll, opening: string)
       }
     }
   }
+  allyStrikes(world, combat, roll, lines)
   syncCourier(world, combat)
   if (!standing(combat).length) return victory(world, combat, lines, lastHit)
 
   // NPC turn: every foe still standing strikes a random fighter on the spot.
   for (const foe of standing(combat)) {
-    const targets = fighters.filter(m => m.character!.place === combat.place && m.character!.hp > 0)
+    // Companions on the spot draw fire too, so a foe may pick a player or an NPC companion.
+    const targets: Victim[] = [
+      ...fighters.filter(m => m.character!.place === combat.place && m.character!.hp > 0).map(m => {
+        const x = m.character!
+        return {
+          // A fruit user cannot swim: at sea a fall overboard costs defense. A logia body halves blows from ordinary foes.
+          name: x.name, def: defense(x.stats.AGI, x.skillRanks['閃避'] ?? 0, (guarding.has(m.id) ? 2 : 0) + levelDefense(x.level) - (x.fruit && combat.sea ? 2 : 0)),
+          hurt: (damage: number) => { x.hp = Math.max(0, x.hp - (isLogia(x.fruit) && !foe.logia ? Math.ceil(damage / 2) : damage)); return x.hp ? undefined : x.name + '倒下，仍可接受救援。' },
+        }
+      }),
+      ...alliesAt(world, combat.place).flatMap(npc => {
+        const profile = recruitable[npc]
+        return profile ? [{
+          name: npcs[npc], def: companionFight(world, npc).def,
+          hurt: (damage: number) => hurtCompanion(world, npc, damage) ? npcs[npc] + '倒下了，需要休息一陣子。' : undefined,
+        }] : []
+      }),
+    ]
     if (!targets.length) break
-    const target = targets.length === 1 ? targets[0] : targets[roll(targets.length) - 1]
-    const victim = target.character!
-    const def = defense(victim.stats.AGI, victim.skillRanks['閃避'] ?? 0, guarding.has(target.id) ? 2 : 0)
+    const victim = targets.length === 1 ? targets[0] : targets[roll(targets.length) - 1]
+    const def = victim.def
     const natural = roll(20)
     const total = natural + foe.attack
     const hit = natural !== 1 && total >= def
     const dice = hit ? [roll(foe.die)] : []
     if (hit && natural === 20) dice.push(roll(foe.die))
-    const damage = hit ? Math.max(0, dice.reduce((a, b) => a + b, 0) + foe.bonus) : 0
-    victim.hp = Math.max(0, victim.hp - damage)
+    const damage = hit ? Math.max(0, dice.reduce((a, b) => a + b, 0) + foe.bonus) * scale : 0
+    const fallen = victim.hurt(damage)
     lines.push(foe.name + '反擊' + victim.name + '，D20 ' + natural + '，合計 ' + total + '／' + def + (hit ? '，傷害 ' + damage + '。' : '，未命中。'))
-    if (!victim.hp) lines.push(victim.name + '倒下，仍可接受救援。')
+    if (fallen) lines.push(fallen)
   }
 
+  for (const foe of combat.foes) if (foe.exposed) foe.exposed--
   combat.participants = combat.participants.filter(id => {
     const fighter = world.members.find(m => m.id === id)!.character!
     return fighter.hp > 0 && fighter.place === combat.place
@@ -281,6 +328,65 @@ function resolveRound(world: World, combat: Combat, roll: Roll, opening: string)
   combat.round++
   if (!combat.participants.length) return defeat(world, combat, lines)
   return { text: lines.join('\n'), announce: true, minutes: 1 }
+}
+
+/** Items that make a logia body solid for a few rounds, and how long it lasts. */
+const soakTools = [
+  { label: '水壺', words: /水壺|潑水/, weakness: 'water' as const, rounds: 3, verb: '把水潑向' },
+  { label: '衝擊貝', words: /衝擊貝/, weakness: 'dial' as const, rounds: 2, verb: '用衝擊貝震向' },
+]
+const soakTool = (item: string) => soakTools.find(tool => tool.words.test(item))
+
+/** Uses a water-skin or dial on the named foe (or the first standing foe it works on); everyone's blows then land. */
+function useSoak(combat: Combat, fighter: Character, tool: (typeof soakTools)[number], target?: string) {
+  const foe = (target ? findFoe(combat, target) : undefined) ?? standing(combat).find(f => f.weak?.includes(tool.weakness))
+  if (!foe || !fighter.inventory[tool.label]) return fighter.name + '想用' + tool.label + '，但沒有派得上用場的對手。'
+  fighter.inventory[tool.label]--
+  if (!fighter.inventory[tool.label]) delete fighter.inventory[tool.label]
+  if (!foe.weak?.includes(tool.weakness)) return fighter.name + tool.verb + foe.name + '，沒有任何效果。'
+  foe.exposed = Math.max(foe.exposed ?? 0, tool.rounds)
+  return fighter.name + tool.verb + foe.name + '！他的身體變得實在，接下來 ' + tool.rounds + ' 回合大家的攻擊都打得到。'
+}
+
+/** Whether a blow can hurt this foe: true, false, or 'seastone' when the attacker's sea-stone jitte is what makes it land. */
+function canHurt(foe: Foe, fighter: Character): boolean | 'seastone' {
+  if (!foe.logia || (foe.exposed ?? 0) > 0 || isLogia(fighter.fruit)) return true
+  return foe.weak?.includes('seastone') && !!fighter.inventory['海樓石十手'] ? 'seastone' : false
+}
+
+/** A nudge toward whatever works on this logia foe, so a stuck party always knows there is a way (or that there is none yet). */
+function weakHint(foe: Foe) {
+  if (!foe.weak?.length) return '\n（這種對手現在的你們碰不到，先避開，等學會別的本事再說。）'
+  const tips = {
+    water: '沙一遇水就會變重，也許能用水壺讓他現形（那諾哈娜的雜貨攤有賣）。',
+    seastone: '海樓石能壓住惡魔果實的力量（羅格鎮的一本松武器店有賣海樓石十手）。',
+    dial: '空島的衝擊貝也許能震散雷身（天使海灘的貝殼攤有賣）。',
+  }
+  return '\n（' + foe.weak.map(w => tips[w]).join('') + '）'
+}
+
+/** Something a foe can hit: a player or an NPC companion. `hurt` applies the damage and returns a line when the target falls. */
+type Victim = { name: string, def: number, hurt: (damage: number) => string | undefined }
+
+/** Companions on the spot strike the weakest standing foe once each, after the players; they never need orders. */
+function allyStrikes(world: World, combat: Combat, roll: Roll, lines: string[]) {
+  for (const npc of alliesAt(world, combat.place)) {
+    const foe = standing(combat).sort((a, b) => a.hp - b.hp)[0]
+    if (!recruitable[npc] || !foe) return
+    const fight = companionFight(world, npc)
+    if (foe.logia && !(foe.exposed ?? 0)) {
+      lines.push(npcs[npc] + '的' + fight.move + '穿過了' + foe.name + '的身體，自然系的能力讓攻擊沒有效果。')
+      continue
+    }
+    const hit = attackCheck(roll, { attr: fight.attr, skill: fight.skill, def: foe.def, die: fight.die, bonus: fight.bonus, armor: foe.armor })
+    foe.hp = Math.max(0, foe.hp - hit.damage)
+    lines.push(npcs[npc] + '使出' + fight.move + '攻擊' + foe.name + '，D20 ' + hit.natural + '，合計 ' + hit.total + '／' + foe.def +
+      (hit.hit ? '，傷害 ' + hit.damage + '。' + foe.name + ' HP ' + foe.hp + '／' + foe.maxHp + '。' : '，未命中。'))
+    if (!foe.hp) {
+      foe.down = true
+      lines.push(foe.name + '倒下了。')
+    }
+  }
 }
 
 function syncCourier(world: World, combat: Combat) {
@@ -309,12 +415,12 @@ function victory(world: World, combat: Combat, lines: string[], lastHit: Map<str
       renown.marineHeat = Math.min(100, renown.marineHeat + 5 * (foe.tier + 1))
       for (const m of winners) m.character!.bounty += (foe.tier + 1) ** 2 * 1_000_000
     }
-    if (foe.faction === 'civilian') renown.islandRep[island] = (renown.islandRep[island] ?? 0) - 10
+    if (foe.faction === 'civilian' && !isThief(world, foe)) renown.islandRep[island] = (renown.islandRep[island] ?? 0) - 10
     if (['pirate', 'bandit', 'tyrant'].includes(foe.faction) && foe.down) renown.islandRep[island] = (renown.islandRep[island] ?? 0) + 5
   }
   if (combat.foes.some(foe => ['marine', 'government'].includes(foe.faction)))
     lines.push('你們對海軍／世界政府動了手：海軍注意度 ' + renown.marineHeat + '／100，懸賞金提高了。')
-  if (combat.foes.some(foe => foe.faction === 'civilian'))
+  if (combat.foes.some(foe => foe.faction === 'civilian' && !isThief(world, foe)))
     lines.push('欺負平民的事傳開了，' + locations[combat.place] + '一帶的人對你們的評價變差。')
 
   for (const foe of combat.foes) {
@@ -332,7 +438,11 @@ function victory(world: World, combat: Combat, lines: string[], lastHit: Map<str
       const [known, ...recent] = npcFacts(world, npc).split(' 最近：')
       ;(world.npcFacts ??= {})[npc] = [known, ...recent.slice(-2), '被' + (by?.character!.name ?? '旅人') + '一行人打倒過'].join(' 最近：')
     }
-    if (npc === 'courier' && by) recoverLog(world, by.character!, by.id)
+    if (npc === 'courier' && by && !world.settled) {
+      recoverLog(world, by.character!, by.id)
+      lines.push(by.character!.name + '從岬恩身上取回了潮汐簿，帶回港口交給提奧吧。')
+    }
+    offerFruit(world, foe, by, lines)
     const boss = foe.down ? bossDefeats[npc] : undefined
     if (boss) {
       applyEffect(world, boss.effect)
@@ -346,15 +456,18 @@ function victory(world: World, combat: Combat, lines: string[], lastHit: Map<str
   return { text: lines.join('\n'), announce: true, minutes: 1 }
 }
 
+/** The tide-log thief may be stopped by force without it counting as bullying a civilian. */
+const isThief = (world: World, foe: Foe) => foe.npc === 'courier' && world.quest !== 'done'
+
 /** Everyone on the party side is down or gone. HP 0 is never death (spec §7.3). */
 function defeat(world: World, combat: Combat, lines: string[]): Result {
   delete world.combat
+  // Only fighters left lying on the spot can be robbed; everyone who retreated got away clean.
+  const downed = party(world).filter(m => m.character!.place === combat.place && m.character!.hp <= 0)
   const robbers = combat.foes.some(foe => ['pirate', 'bandit'].includes(foe.faction) && !foe.down && !foe.surrendered)
-  if (robbers) {
-    for (const m of party(world).filter(m => m.character!.place === combat.place)) {
-      const taken = Math.floor(m.character!.money * .3)
-      m.character!.money -= taken
-    }
+  if (!downed.length) lines.push('你們脫離了戰鬥。')
+  else if (robbers) {
+    for (const m of downed) m.character!.money -= Math.floor(m.character!.money * .3)
     lines.push('對手搶走了你們身上三成的貝里後揚長而去。')
   } else lines.push('對手沒有追擊，留下倒地的你們離開了。')
   if (combat.sea) {
