@@ -86,6 +86,10 @@ test('地圖在資訊分頁、輸入框不用捲動就看得到，手機也能�
   await page.getByRole('button', { name: '開始遊戲' }).click()
   const map = page.getByRole('region', { name: '世界地圖' })
   await expect(map).toBeVisible()
+  // The world bulletin sits on top of the story and needs no switching.
+  const bulletin = (await page.getByRole('region', { name: '世界公告' }).boundingBox())!
+  const story = (await page.locator('.windows').boundingBox())!
+  expect(bulletin.y).toBeLessThan(story.y)
   // The redesign keeps the action box inside the first screen on desktop.
   const input = (await page.getByLabel('輸入行動或聊天').boundingBox())!
   expect(input.y + input.height).toBeLessThanOrEqual(920)
@@ -117,7 +121,7 @@ test('單人須先實際生成回覆才能開房，開局後可執行 D20、問�
   await expect(page.getByRole('button', { name: '開始遊戲' })).toBeDisabled()
   await ready(page, '風向')
   await page.getByRole('button', { name: '開始遊戲' }).click()
-  await expect(page.getByRole('tab', { name: /世界公告/ })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '世界公告' })).toBeVisible()
   expect(fixture.seen.map(call => call.kind)).toEqual(['probe', 'probe', 'probe'])
   await expect(page.locator('.entry-world').first()).toContainText('魯夫')
   await expect(page.locator('.personal')).toHaveCount(1)
@@ -155,7 +159,7 @@ test('單人須先實際生成回覆才能開房，開局後可執行 D20、問�
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390)
   await page.reload()
   await page.getByRole('button', { name: '開啟', exact: true }).click()
-  await expect(page.getByRole('tab', { name: /世界公告/ })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '世界公告' })).toBeVisible()
   await expect(page.getByText('你抵達風車村港口。', { exact: true })).toBeVisible()
 })
 
@@ -244,7 +248,6 @@ for (const count of [2, 3, 4]) test(count + ' 個瀏覽器用 WebRTC 開局與�
       await fillCharacter(late, '新人')
       await expect(late.locator('.personal')).toHaveCount(3, { timeout: 15_000 })
       await expect(page.locator('.personal')).toHaveCount(3)
-      await page.getByRole('tab', { name: /世界公告/ }).click()
       await expect(page.locator('.entry-world').filter({ hasText: '新夥伴新人在風車村港口與大家會合。' })).toBeVisible()
     }
     if (count === 4) {

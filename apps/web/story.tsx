@@ -106,17 +106,9 @@ export function Story({ view, send, history, connected, gap, review }: {
     (!chat && !sceneQuestion(draft) && (!!current || paused || !!combat?.locked.includes(player)))
   const names = Object.fromEntries(crew.map(m => [m.id, m.character!.name]))
 
-  // A player's window holds their own lines plus the public results of the actions they took,
-  // so an attack and its outcome stay together; the world bulletin still shows every public line (spec §5.1).
-  const actionsBy = new Map<string, Set<string>>()
-  for (const entry of entries) if (entry.actor && entry.action) {
-    if (!actionsBy.has(entry.actor)) actionsBy.set(entry.actor, new Set())
-    actionsBy.get(entry.actor)!.add(entry.action)
-  }
-  const windowEntries = (id: string) => id === 'world'
-    ? entries.filter(e => e.actor === null)
-    : entries.filter(e => e.actor === id || (e.actor === null && !!e.action && !!actionsBy.get(id)?.has(e.action)))
-  const windows: [string, string][] = [[player, character.name + '（你）'], ['world', '世界公告'],
+  // Spec §5.1: the world bulletin is its own always-visible window on top; each player's window below holds their own lines.
+  const windowEntries = (id: string) => id === 'world' ? entries.filter(e => e.actor === null) : entries.filter(e => e.actor === id)
+  const windows: [string, string][] = [[player, character.name + '（你）'],
     ...crew.filter(m => m.id !== player).map(m => [m.id, m.character!.name + (m.connected ? '' : '・離線')] as [string, string])]
   const latestIn = (id: string) => windowEntries(id).at(-1)?.seq ?? 0
   const unread = (id: string) => id === windowId ? 0 : windowEntries(id).filter(e => e.seq > (seen[id] ?? 0)).length
@@ -282,14 +274,15 @@ export function Story({ view, send, history, connected, gap, review }: {
 
     <div className="game-grid">
       <main className="story-column">
-        <div className="window-tabs" role="tablist" aria-label="切換視窗">
+        <section className="bulletin world-log" aria-label="世界公告">
+          <h2>世界公告</h2>
+          <Log entries={windowEntries('world')} names={names}/>
+        </section>
+        {/* Teammates' windows are a tab away; playing alone there is nothing to switch. */}
+        {windows.length > 1 && <div className="window-tabs" role="tablist" aria-label="切換視窗">
           {windows.map(([id, label]) => <Tab key={id} selected={windowId === id} badge={unread(id)} onClick={() => setWindowId(id)}>{label}</Tab>)}
-        </div>
+        </div>}
         <div className="windows">
-          <section className={'window world-log' + (windowId === 'world' ? '' : ' window-hidden')} aria-label="世界公告">
-            <h2 className="sr-only">世界公告</h2>
-            <Log entries={windowEntries('world')} names={names}/>
-          </section>
           {crew.map(member => <section key={member.id} className={'window personal' + (windowId === member.id ? '' : ' window-hidden')}
             aria-label={member.character!.name + '的視窗'}>
             <h2 className="sr-only">{member.character!.name}{member.id === player ? '（你）' : member.connected ? '' : '・離線'}</h2>
