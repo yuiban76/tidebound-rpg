@@ -34,7 +34,8 @@ export type RaceTrait = {
 
 export const raceTraits: Record<Race, RaceTrait> = {
   人類: { perk: '適應力強：開局多 1 個自由屬性點，進遊戲後在角色面板分配', extraPoint: true },
-  魚人: { bonus: { STR: 1 }, perk: '海裡長大：海上戰鬥命中 +2', cost: '人類對魚人有偏見：戰鬥中交涉 −2', seaHit: 2, negotiate: -2 },
+  魚人: { bonus: { STR: 1 }, perk: '天生招式「魚人空手道」（3 STA，不佔自創招式名額）；海裡長大：海上戰鬥命中 +2',
+    cost: '人類對魚人有偏見：戰鬥中交涉 −2', seaHit: 2, negotiate: -2, technique: { name: '魚人空手道', style: 'special' } },
   人魚: { perk: '海中之王：海上戰鬥命中與防禦各 +3，海上甩開對手 +3', cost: '在陸上靠尾巴移動：陸地戰鬥防禦 −1',
     seaHit: 3, seaDefense: 3, seaEscape: 3, landDefense: -1 },
   毛皮族: { bonus: { AGI: 1 }, perk: '天生招式「電擊」（3 STA，不佔自創招式名額）', technique: { name: '電擊', style: 'special' } },
@@ -58,13 +59,14 @@ export const raceDefense = (c: Character, sea: boolean) =>
   (traitOf(c).defense ?? 0) + (sea ? traitOf(c).seaDefense ?? 0 : traitOf(c).landDefense ?? 0)
 export const raceSeats = (c: Pick<Character, 'race'>) => traitOf(c).seats ?? 1
 
-/** What a race hands out once: a human's extra point and a mink's Electro. Safe to call again (old saves too). */
+/** What a race hands out: a human's extra point (once), and a born move such as a mink's Electro or Fish-Man Karate.
+ * Safe to call again; a born move added to a race later still reaches characters made before it. */
 export function applyRace(c: Character) {
-  if (c.raceReady) return
   const trait = traitOf(c)
-  if (trait.extraPoint) c.unspent++
   if (trait.technique && !c.techniques.some(move => move.name === trait.technique!.name))
     c.techniques.push({ ...trait.technique, innate: true })
+  if (c.raceReady) return
+  if (trait.extraPoint) c.unspent++
   c.raceReady = true
 }
 

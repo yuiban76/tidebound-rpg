@@ -55,6 +55,20 @@ test('人類開局多 1 個自由屬性點；毛皮族天生會「電擊」，�
   assert.equal(mink.techniques.filter(selfMade).length, 0)
 })
 
+test('魚人天生會「魚人空手道」；早就建好的魚人角色讀檔時也會補上，只補一次', () => {
+  const fishman = make('魚人')
+  assert.deepEqual(fishman.techniques, [{ name: '魚人空手道', style: 'special', innate: true }])
+  assert.equal(fishman.techniques.filter(selfMade).length, 0)
+  const world = newWorld('RACES00004', 'host')
+  const old = world.members[0].character = make('魚人')
+  old.techniques = [{ name: '鯊魚衝撞', style: 'advanced' }]
+  old.raceReady = true
+  normalizeWorld(world)
+  normalizeWorld(world)
+  assert.deepEqual(old.techniques.map(move => move.name), ['鯊魚衝撞', '魚人空手道'])
+  assert.equal(old.unspent, 0)
+})
+
 test('巨人傷害 +2（加上力量 +1），但目標大、防禦 −2', () => {
   const human = solo('人類')
   const giant = solo('巨人')
