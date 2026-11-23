@@ -62,6 +62,8 @@ test('招式依等級扣 STA；自創招式只能用已建立的名稱，連續�
 
 test('打倒海軍或政府的人會被懸賞並提高海軍注意度；交涉成功的對手收手、不會昏倒', () => {
   const { world, member, c } = solo('justiceTower')
+  // Lucci is away, so Spandam faces the party alone (with him there, CP9 would fight as a crew).
+  world.npcPlaces = { lucci: null }
   for (let i = 0; i < 5 && (!world.defeated?.includes('spandam')); i++)
     act(world, member, { kind: 'attack', target: '斯潘達姆' })
   assert.ok(world.defeated?.includes('spandam'))

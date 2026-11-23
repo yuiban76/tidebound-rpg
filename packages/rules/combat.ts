@@ -3,6 +3,7 @@
 import { locations, npcs } from '../shared/protocol.ts'
 import type { AttackStyle, NpcId } from '../shared/protocol.ts'
 import { npcFoe, tierNames, tierXp } from '../world/foes.ts'
+import { crewmates } from '../world/crews.ts'
 import type { Foe } from '../world/foes.ts'
 import { islandAt } from '../world/sea.ts'
 import { npcFacts, npcPlace, npcsAt, party, paths } from '../world/village.ts'
@@ -107,7 +108,15 @@ function useBandage(world: World, actor: Member, target?: string) {
   return { text: (patient === c ? c.name + '替自己包紮' : c.name + '替' + patient.name + '包紮') + '，目前 HP ' + patient.hp + '。' }
 }
 
-/** Starts a land fight against one named NPC; every standing party member on the spot joins. */
+/** A named NPC as a foe, with what the world has already done to them (lost fruit, the courier's wounds). */
+function makeFoe(world: World, npc: NpcId): Foe {
+  const foe = npcFoe(npc, world.minute)
+  if (world.fruitLost?.[npc]) { delete foe.logia; delete foe.weak }
+  if (npc === 'courier') foe.hp = world.courierHP || foe.maxHp
+  return foe
+}
+
+/** Starts a land fight against one named NPC and their crew; every standing party member on the spot joins. */
 function startFight(world: World, place: Character['place'], foes: Foe[]): Combat {
   const participants = party(world).filter(m => m.character!.place === place && m.character!.hp > 0).map(m => m.id)
   return world.combat = { round: 1, place, participants, foes, choices: {} }
@@ -123,6 +132,7 @@ export function resolveCombatAction(world: World, actor: Member, choice: CombatC
   const c = actor.character!
   let combat = world.combat
   let started = false
+  let rally = ''
   if (!combat) {
     if (choice.kind === 'useItem') {
       if (!/繃帶/.test(choice.item)) return stop('目前只有繃帶能在這裡使用。')
@@ -141,11 +151,12 @@ export function resolveCombatAction(world: World, actor: Member, choice: CombatC
     if (choice.kind !== 'attack') return stop('目前沒有進行中的戰鬥。')
     const target = npcTarget(world, c, choice.target)
     if (!(target in npcs)) return stop(target)
-    const foe = npcFoe(target as NpcId, world.minute)
-    if (world.fruitLost?.[target as NpcId]) { delete foe.logia; delete foe.weak }
-    if (target === 'courier') foe.hp = world.courierHP || foe.maxHp
-    combat = startFight(world, c.place, [foe])
+    // Crew battle: whoever fights beside the target on this spot (or sails with its captain) joins in.
+    const band = crewmates(world, target as NpcId, c.place)
+    const foes = [makeFoe(world, target as NpcId), ...band.npcs.map(npc => makeFoe(world, npc)), ...band.grunts]
+    combat = startFight(world, c.place, foes)
     started = true
+    rally = foes.length > 1 && band.crew ? band.crew.name + '全員迎戰！' + foes.slice(1).map(foe => foe.name).join('、') + '也加入了戰鬥。\n' : ''
   }
   if (!combat.participants.includes(actor.id)) {
     if (c.place !== combat.place || c.hp <= 0) return stop('你沒有參與當前戰鬥。')
@@ -161,8 +172,8 @@ export function resolveCombatAction(world: World, actor: Member, choice: CombatC
     return stop(invalid)
   }
   combat.choices[actor.id] = choice
-  const opening = combat.round === 1 && Object.keys(combat.choices).length === 1 && combat.foes.length === 1 && combat.foes[0].npc
-    ? c.name + '向' + combat.foes[0].name + '（' + tierNames[combat.foes[0].tier] + '）出手了！\n' : ''
+  const opening = started && combat.foes[0].npc
+    ? c.name + '向' + combat.foes[0].name + '（' + tierNames[combat.foes[0].tier] + '）出手了！\n' + rally : ''
   if (combat.participants.some(id => !combat.choices[id]))
     return { text: opening + '已鎖定第 ' + combat.round + ' 回合指令。等待其他參戰者。', announce: !!opening }
   return resolveRound(world, combat, roll, opening)

@@ -84,6 +84,9 @@ function foeFrom(id: string, name: string, profile: Profile, npc?: NpcId): Foe {
   }
 }
 
+/** An unnamed crewman (bandit, fishman, zombie…) who fights alongside a named captain. */
+export const gruntFoe = (id: string, name: string, tier: number, faction: Faction) => foeFrom(id, name, { tier, faction })
+
 /** Luffy grows along his own voyage: after Alabasta he fights like a Warlord. */
 export function npcFoe(npc: NpcId, minute: number): Foe {
   const profile = npcProfiles[npc]
