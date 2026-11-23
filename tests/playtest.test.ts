@@ -36,16 +36,6 @@ test('單人成立船團不用投票', () => {
   assert.equal(world.proposals.length, 0)
 })
 
-test('打倒偷潮汐簿的岬恩不算欺負平民，結果會說取回了潮汐簿', () => {
-  const { world, member } = solo('hill')
-  world.quest = 'active'
-  let text = ''
-  for (let i = 0; i < 8 && !world.settled; i++) text = act(world, member, { kind: 'attack', target: '岬恩' }).text
-  assert.match(text, /取回了潮汐簿/)
-  assert.doesNotMatch(text, /欺負平民/)
-  assert.equal(world.renown?.islandRep.wind ?? 0, 0)
-})
-
 test('成功撤退不會被說成被搶；倒下時的指引會提到睡覺', () => {
   const { world, member, c } = solo('orangeStreet')
   act(world, member, { kind: 'attack', target: '巴其' }, dice(1, 1))

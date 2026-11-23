@@ -48,8 +48,8 @@ test('旗標：任務、擊敗、招募、物品、所在島與自訂旗標，�
   assert.equal(hasFlag(world, 'defeated:arlong'), true)
   assert.equal(hasFlag(world, 'at:wind'), true)
   assert.equal(hasFlag(world, 'at:shells'), false)
-  world.members[0].character!.inventory['潮汐簿'] = 1
-  assert.equal(hasFlag(world, 'item:潮汐簿'), true)
+  world.members[0].character!.inventory['記錄指針'] = 1
+  assert.equal(hasFlag(world, 'item:記錄指針'), true)
   assert.equal(hasFlag(world, 'recruited:usopp'), false)
   setFlag(world, 'recruited:usopp')
   assert.equal(hasFlag(world, 'recruited:usopp'), true)

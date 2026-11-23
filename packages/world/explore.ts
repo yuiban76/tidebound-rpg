@@ -89,8 +89,8 @@ export function directions(place: LocationId, { hillClosed = false, inCombat = f
   const local = present ?? Object.keys(people).filter(id => people[id as NpcId].place === place) as NpcId[]
   if (down) return { text: '你倒在' + locations[place] + '。可以原地「睡覺」恢復，或請同伴用繃帶包紮。', suggestions: place === 'hill' ? [] : ['睡覺'] }
   if (inCombat) return {
-    text: '你在' + locations[place] + '的戰鬥中。可以防守、撤回村道，或和岬恩交涉。',
-    suggestions: ['防守', '撤退', '和岬恩交涉'],
+    text: '你在' + locations[place] + '的戰鬥中。可以攻擊、防守、撤退或交涉。',
+    suggestions: ['防守', '撤退'],
   }
   const wares = (Object.keys(goods) as Good[]).filter(id => goods[id].shop === place)
   const text = [
@@ -171,10 +171,9 @@ export function dismissRequest(input: string): NpcId | undefined {
 }
 
 function seaIntent(text: string): Intent | undefined {
-  if (/^(?:買|購買)(?:一艘)?(?:船|小艇|迎潮號)$/.test(text)) return { kind: 'sail', order: 'buy' }
-  if (/^借(?:一艘)?(?:船|迎潮號)$/.test(text)) return { kind: 'sail', order: 'borrow' }
+  if (/^(?:買|購買)(?:一艘)?(?:船|小艇|帆船|小帆船)$/.test(text)) return { kind: 'sail', order: 'buy' }
   if (/^買(?:一份)?木料$/.test(text)) return { kind: 'sail', order: 'materials' }
-  if (/^(?:修船|維修船隻|修理迎潮號)$/.test(text)) return { kind: 'sail', order: 'repair' }
+  if (/^(?:修船|維修船隻|修理(?:小)?帆船)$/.test(text)) return { kind: 'sail', order: 'repair' }
   if (/^準備出航$/.test(text)) return { kind: 'sail', order: 'ready' }
   if (/^取消出航準備$/.test(text)) return { kind: 'sail', order: 'unready' }
   const vote = voteForRoute.exec(text)
@@ -208,9 +207,6 @@ export function familiarIntent(input: string, here?: LocationId): Intent | undef
   if (dismissed) return { kind: 'dismiss', npc: dismissed }
   if (/^(?:吃|點|點一份|買|來一份|來份)(?:一個|一份|一片)?(?:烤)?麵包$/.test(text)) return { kind: 'meal', dish: 'bread' }
   if (/^(?:吃|點|買|來一份|來份)(?:一碗|一份)?(?:爌肉飯|控肉飯|燉肉飯|滷肉飯)$/.test(text)) return { kind: 'meal', dish: 'rice' }
-  if (/^(?:接受|接下|接)(?:潮汐簿)?(?:的)?委託$/.test(text)) return { kind: 'quest', step: 'accept' }
-  if (/^(?:交還|還回|歸還)潮汐簿$/.test(text)) return { kind: 'quest', step: 'deliver' }
-  if (/^(?:和|跟|找)?岬恩(?:交涉|談(?:工錢|潮汐簿))$/.test(text)) return { kind: 'negotiate', target: '岬恩' }
   const parley = /^(?:和|跟|向)(.+?)(?:交涉|談判|講和)$/.exec(text)
   if (parley) return { kind: 'negotiate', target: parley[1].trim() }
   const technique = /^(?:用|使出|施展)(?:招式)?「(.+?)」(?:攻擊)?\s*(.*)$/.exec(text)

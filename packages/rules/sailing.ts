@@ -18,7 +18,6 @@ const stop = (text: string): Result => ({ text, rejected: true })
 
 export function shipSaleBlock(world: World) {
   if (!world.ship) return '目前沒有可出售的主船。'
-  if (world.ship.borrowed) return '借來的迎潮號仍屬船塢，不能出售。'
   if (world.ship.port !== 'dock' || party(world).some(m => m.character?.place !== 'dock'))
     return '出售主船前，船和全隊都要回到' + locations.dock + '。'
 }
@@ -29,7 +28,7 @@ export function sellMainShip(world: World) {
   buyer.money += boatYard.sale
   delete world.ship
   delete world.sailing
-  return '船塢收購了迎潮號。' + buyer.name + '收到 ' + boatYard.sale + ' 貝里。'
+  return '船塢收購了' + boatYard.name + '。' + buyer.name + '收到 ' + boatYard.sale + ' 貝里。'
 }
 
 function logVote(world: World, actor: Member, choice: RouteChoice) {
@@ -45,16 +44,13 @@ function logVote(world: World, actor: Member, choice: RouteChoice) {
 export function resolveSailing(world: World, actor: Member, intent: SeaIntent, roll: Roll, connected: Set<string>): Result {
   const c = actor.character!
   const ship = world.ship
-  if (intent.order === 'buy' || intent.order === 'borrow') {
+  if (intent.order === 'buy') {
     if (c.place !== 'dock') return stop(shipPurchaseInfo)
-    if (ship) return stop('隊伍已登記迎潮號，可查看航海面板。')
-    const borrowing = intent.order === 'borrow'
-    if (borrowing && world.quest !== 'done') return stop('交還潮汐簿後，提奧才會把迎潮號借給你們。')
-    if (!borrowing && c.money < boatYard.price) return stop('購船需要 ' + boatYard.price + ' 貝里。完成潮汐簿委託也可借船。')
-    if (!borrowing) c.money -= boatYard.price
-    world.ship = { owner: actor.id, port: 'dock', hull: 100, wood: 2, trips: 0, ...(borrowing && { borrowed: true }) }
-    return { text: (borrowing ? '提奧把' : '你花了 ' + boatYard.price + ' 貝里買下') + '迎潮號' +
-      (borrowing ? '借給隊伍。' : '，登記為隊伍共用主船。') +
+    if (ship) return stop('隊伍已有' + boatYard.name + '，可查看航海面板。')
+    if (c.money < boatYard.price) return stop('購船需要 ' + boatYard.price + ' 貝里。')
+    c.money -= boatYard.price
+    world.ship = { owner: actor.id, port: 'dock', hull: 100, wood: 2, trips: 0 }
+    return { text: '你花了 ' + boatYard.price + ' 貝里買下' + boatYard.name + '，登記為隊伍共用主船。' +
       '船停在' + locations.dock + '，附兩份木料。接著可選航線或輸入「出海」。', minutes: 8, announce: true }
   }
   if (!ship) return stop(shipPurchaseInfo)
@@ -74,7 +70,7 @@ export function resolveSailing(world: World, actor: Member, intent: SeaIntent, r
       '，目前 ' + count + '／' + requirement + ' 票。' +
       (count >= requirement ? '航線已通過。請全員到' + locations[ship.port] + '準備出航。' : '') }
   }
-  if (!atPort) return stop('迎潮號停在' + locations[ship.port] + '。請先到船邊。')
+  if (!atPort) return stop(boatYard.name + '停在' + locations[ship.port] + '。請先到船邊。')
   if (intent.order === 'materials') {
     if (c.money < boatYard.woodPrice) return stop('買一份木料需要 ' + boatYard.woodPrice + ' 貝里。')
     c.money -= boatYard.woodPrice
@@ -108,7 +104,7 @@ export function resolveSailing(world: World, actor: Member, intent: SeaIntent, r
   if (party(world).some(m => !connected.has(m.id))) return stop('有隊友離線。出航需要所有成員到齊。')
   if (party(world).some(m => m.character?.place !== ship.port)) return stop('請所有隊友到' + locations[ship.port] + '集合後再出海。')
   if (party(world).some(m => !m.character || m.character.hp <= 0)) return stop('有隊友還沒恢復行動能力，請先協助他們。')
-  if (party(world).length > boatYard.seats) return stop('迎潮號的座位不足以載全隊。')
+  if (party(world).length > boatYard.seats) return stop(boatYard.name + '的座位不足以載全隊。')
   if (!ship.hull) return stop('船體損壞。請先「修船」。')
 
   const solo = party(world).length === 1
@@ -139,7 +135,7 @@ export function resolveSailing(world: World, actor: Member, intent: SeaIntent, r
   const weather = score < 9 ? '遇見逆風與碎浪' : score >= 18 ? '順著有利的海流' : '越過平穩海面'
   const voyage: PendingVoyage = {
     from, to: option.to, pace: option.pace, miles: route.miles, minutes, damage, landfallXp: route.logPose ? 50 : 20,
-    text: '迎潮號從' + islands[from].name + '出航，以' + paceNames[option.pace] + '航行 ' + route.miles +
+    text: boatYard.name + '從' + islands[from].name + '出航，以' + paceNames[option.pace] + '航行 ' + route.miles +
       ' 海里。航海 D20 ' + natural + '＋' + navigator + '＝' + score + '，' + weather +
       (route.hazard ? '，' + route.hazard.name : '') + '，耗時 ' + duration(minutes) + '。',
   }
@@ -149,7 +145,7 @@ export function resolveSailing(world: World, actor: Member, intent: SeaIntent, r
   if (encounter) {
     startSeaFight(world, encounter.foes, voyage)
     return {
-      text: '迎潮號從' + islands[from].name + '出航，駛向' + islands[option.to].name + '。\n航行途中：' + encounter.text +
+      text: boatYard.name + '從' + islands[from].name + '出航，駛向' + islands[option.to].name + '。\n航行途中：' + encounter.text +
         '\n對手：' + encounter.foes.map(foe => foe.name + '（' + tierNames[foe.tier] + '）').join('、') +
         '。全隊可以攻擊、防守、使用繃帶，或輸入「撤退」由航海士嘗試甩開。',
       minutes: Math.ceil(minutes / 2), announce: true,
@@ -187,7 +183,7 @@ export function resolveIslandTask(world: World, actor: Member, intent: TaskInten
   const c = actor.character!
   const island = islandAt(c.place)
   const story = islandStories[island]
-  if (!story) return stop('此處可在碼頭找提奧打聽潮汐簿。')
+  if (!story) return stop('這座島目前沒有可以接的委託。')
   const task = world.islandTasks?.[island]
   if (task?.stage === 'done') return stop('這項島上事件已處理完畢。')
   if (task?.stage === 'closed') return stop('「' + story.title + '」已經落幕，這件事由別人了結了。')

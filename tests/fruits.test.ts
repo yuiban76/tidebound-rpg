@@ -102,11 +102,11 @@ test('自然系玩家打得到自然系、被普通對手打到只受一半傷�
 })
 
 test('果實的力量讓每一擊更痛；沒人理會的果實兩天後自己滾走', () => {
-  const a = solo('road')
-  const b = solo('road')
+  const a = solo('square')
+  const b = solo('square')
   b.c.fruit = 'ope'
-  const plain = act(a.world, a.member, { kind: 'attack', target: '蘇芮' }, dice(20, 3, 3, 1, 1))
-  const eater = act(b.world, b.member, { kind: 'attack', target: '蘇芮' }, dice(20, 3, 3, 1, 1))
+  const plain = act(a.world, a.member, { kind: 'attack', target: '村長' }, dice(20, 3, 3, 1, 1))
+  const eater = act(b.world, b.member, { kind: 'attack', target: '村長' }, dice(20, 3, 3, 1, 1))
   const dmg = (text: string) => Number(/傷害 (\d+)/.exec(text)?.[1])
   assert.ok(dmg(eater.text) > dmg(plain.text))
   const { world, member } = solo('road')

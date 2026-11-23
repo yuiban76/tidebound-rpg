@@ -4,7 +4,7 @@ import { aiInput, locations, npcs } from '../../packages/shared/protocol.ts'
 import type { Intent, Message, NpcId } from '../../packages/shared/protocol.ts'
 import { allocatePoint, guideFor, makeCharacter, needsReview, resolve, voteThreshold } from '../../packages/rules/engine.ts'
 import { asksAboutShipPurchase, dialogueQuestion, familiarIntent, sceneQuestion } from '../../packages/world/explore.ts'
-import { npcFacts, npcPlace, npcsAt, opening, party, paths, people, tideEvent } from '../../packages/world/village.ts'
+import { npcFacts, npcPlace, npcsAt, opening, party, paths, people } from '../../packages/world/village.ts'
 import { advanceTimeline } from '../../packages/world/timeline.ts'
 import { companionIds, companionMaxHp, isCompanion, recruitable } from '../../packages/world/companions.ts'
 import { islandAt, islands, routesFrom, shipPurchaseInfo } from '../../packages/world/sea.ts'
@@ -397,7 +397,7 @@ export class Game {
         ...(isCompanion(world, key) ? { companion: true, trait: recruitable[key]?.trait } : {}),
         ...(intent?.kind === 'talk' && intent.npc === key
           ? {
-              facts: key === 'clerk' && world.quest === 'done' ? '潮汐簿已歸還。' : npcFacts(world, key),
+              facts: npcFacts(world, key),
               memory: (world.memories[key] ?? []).slice(-3),
             }
           : {}),
@@ -413,7 +413,7 @@ export class Game {
     }
     return {
       actor: c.name, place: locations[c.place], ...navigation,
-      local, quest: world.quest,
+      local,
       combat: world.combat && { foes: world.combat.foes.map(foe => ({ name: foe.name, hp: foe.hp, maxHp: foe.maxHp, down: !!foe.down })), atSea: !!world.combat.sea },
       speaker: intent?.kind === 'talk' ? npcs[intent.npc] : undefined,
       party: party(world).map(m => m.character!.name),
@@ -515,8 +515,6 @@ export class Game {
           // Canon events due by the new time fire inside the same transaction as the action.
           const news = advanceTimeline(world)
           this.store.save(world)
-          if (previousMinute < tideEvent.minute && world.minute >= tideEvent.minute)
-            this.store.entry({ ...world, minute: tideEvent.minute }, null, 'world', tideEvent.text, id)
           for (const item of news) this.store.entry({ ...world, minute: item.minute }, null, 'world', item.text)
         }
         this.store.entry(world, result.announce ? null : job.actor, 'result', text, id)

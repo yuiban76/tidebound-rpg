@@ -13,12 +13,9 @@ export function VoyagePanel({ world, player, suggest }: Props) {
   const crew = party(world)
   if (!ship) return <section className="panel sea-panel" aria-labelledby={title}>
     <h2 id={title}>航海</h2>
-    <p>{locations.dock}的船塢販售迎潮號，可載全隊出海。售價 {boatYard.price} 貝里。</p>
+    <p>{locations.dock}的船塢販售{boatYard.name}，可載全隊出海。售價 {boatYard.price} 貝里。</p>
     <div className="button-row">
-      {character.place === 'dock' ? <>
-        <button type="button" onClick={() => suggest('買船')}>買船</button>
-        {world.quest === 'done' && <button type="button" className="light" onClick={() => suggest('借船')}>借船</button>}
-      </> : <button type="button" className="light" onClick={() => suggest('前往' + locations.dock)}>前往船塢</button>}
+      {character.place === 'dock' ? <button type="button" onClick={() => suggest('買船')}>買船</button> : <button type="button" className="light" onClick={() => suggest('前往' + locations.dock)}>前往船塢</button>}
     </div>
   </section>
 
@@ -40,7 +37,7 @@ export function VoyagePanel({ world, player, suggest }: Props) {
     : '單人可直接出海，也能先選島嶼和航速。'
   return <section className="panel sea-panel" aria-labelledby={title}>
     <h2 id={title}>航海</h2>
-    <p><strong>迎潮號</strong>{ship.borrowed ? '（租借）' : ''}停在{locations[ship.port]} · 船體 {ship.hull}／100 · 木料 {ship.wood}</p>
+    <p><strong>{boatYard.name}</strong>停在{locations[ship.port]} · 船體 {ship.hull}／100 · 木料 {ship.wood}</p>
     <ul className="voyage-courses" aria-label="可選航線">
       {routesFrom(from).map(route => { const { to, miles } = route; const needs = routeNeeds(route); return <li key={to}>
         <strong>{islands[to].name}</strong>

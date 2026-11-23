@@ -159,8 +159,7 @@ function converse(world: World, c: Character, npc: NpcId, raw: string, minute = 
     ? reject(npcs[npc] + '在' + locations[place] + '。可以先輸入「前往' + locations[place] + '」。')
     : reject(npcs[npc] + '在' + islands[islandAt(place)].name + '，要航行過去才能見到。')
   if (isDown(world, npc)) return reject(npcs[npc] + '被打倒了，暫時無法交談。')
-  if (npc === 'clerk' && world.quest === 'unoffered') world.quest = 'offered'
-  const facts = npc === 'clerk' && world.quest === 'done' ? '潮汐簿已歸還。' : npcFacts(world, npc)
+  const facts = npcFacts(world, npc)
   c.conversingWith = npc
   ;(world.memories[npc] ??= []).push(c.name + '在第 ' + minute + ' 分鐘交談：' + raw)
   const answer = asksAboutShipPurchase(raw) ? shipPurchaseInfo :
@@ -245,31 +244,9 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
       const [label, attr, skill, dc] = method[intent.method]
       const natural = roll(20)
       const total = natural + c.stats[attr] + (c.skillRanks[skill] ?? 0)
-      let text = label + ' D20 ' + natural + '，合計 ' + total + '／' + dc + '，' + (total >= dc ? '成功。' : '未成功。')
-      if (c.place === 'hill' && total >= dc && ['search', 'observe'].includes(intent.method) && !world.clue) {
-        world.clue = true
-        text += '你找到搬運工的工錢欠條，能當作交涉線索。'
-      }
+      const text = label + ' D20 ' + natural + '，合計 ' + total + '／' + dc + '，' + (total >= dc ? '成功。' : '未成功。')
       return withXp({ text, minutes: 5 }, total >= dc ? grantXp(c, 5, 'check:' + intent.method + ':' + c.place) : '')
     }
-    case 'quest':
-      if (intent.step === 'abandon' && ['offered', 'active'].includes(world.quest)) {
-        world.quest = 'abandoned'
-        return { text: '隊伍擱置潮汐簿的委託。', announce: true, minutes: 1 }
-      }
-      if (c.place !== 'dock') return reject('需到' + locations.dock + '找提奧處理委託。')
-      if (intent.step === 'accept' && ['offered', 'abandoned'].includes(world.quest)) {
-        world.quest = 'active'
-        return { text: '潮汐簿委託已登記。調查' + locations.hill + '。', announce: true, minutes: 2 }
-      }
-      if (intent.step === 'deliver' && world.logHolder === actor.id && c.inventory['潮汐簿']) {
-        delete world.logHolder
-        delete c.inventory['潮汐簿']
-        world.quest = 'done'
-        c.money += 350
-        return withXp({ text: '潮汐簿回到提奧手上。你領到 350 貝里。', announce: true, minutes: 4 }, grantXp(c, 45))
-      }
-      return reject('目前無法登記或交付此委託。')
     case 'buy': {
       const item = goods[intent.item]
       if (c.place !== item.shop) return reject(item.label + '在' + locations[item.shop] + '的' + shops[item.shop] + '販售。')
@@ -335,7 +312,6 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
       c.inventory[item] -= count
       if (!c.inventory[item]) delete c.inventory[item]
       t.inventory[item] = (t.inventory[item] ?? 0) + count
-      if (item === '潮汐簿') world.logHolder = target.id
       let note = ''
       if (c.weapon !== 'fist' && weaponItems[c.weapon] === item && !c.inventory[item]) {
         if (c.weapon === 'musket') c.loaded = false
@@ -422,7 +398,7 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
   }
 }
 
-export function guideFor(world: Pick<World, 'quest' | 'logHolder' | 'npcPlaces'> & Partial<Pick<World, 'companions' | 'members' | 'crew'>> & { combat?: Pick<NonNullable<World['combat']>, 'participants' | 'place'> & { foes?: { name: string, hp: number, maxHp: number, down?: boolean, surrendered?: boolean }[] } }, actor: Member) {
+export function guideFor(world: Pick<World, 'npcPlaces'> & Partial<Pick<World, 'companions' | 'members' | 'crew'>> & { combat?: Pick<NonNullable<World['combat']>, 'participants' | 'place'> & { foes?: { name: string, hp: number, maxHp: number, down?: boolean, surrendered?: boolean }[] } }, actor: Member) {
   const character = actor.character!
   const inCombat = world.combat?.participants.includes(actor.id)
   if (inCombat && world.combat?.foes && character.hp > 0) {
@@ -453,18 +429,6 @@ export function guideFor(world: Pick<World, 'quest' | 'logHolder' | 'npcPlaces'>
   if (invitable.length) guide = {
     text: guide.text + '\n' + invitable.slice(0, 3).map(npc => npcs[npc]).join('、') + (invitable.length > 3 ? '等人' : '') + '或許願意加入你們的船團，可以輸入「邀請' + npcs[invitable[0]] + '加入」。',
     suggestions: [...guide.suggestions, ...invitable.slice(0, 3).map(npc => '邀請' + npcs[npc] + '加入')],
-  }
-  if (character.place === 'dock' && world.quest === 'offered') {
-    return {
-      text: guide.text + '\n提奧正在找潮汐簿。可以輸入「接受潮汐簿委託」。',
-      suggestions: [...guide.suggestions, '接受潮汐簿委託'],
-    }
-  }
-  if (character.place === 'dock' && world.logHolder === actor.id) {
-    return {
-      text: guide.text + '\n你帶著已找回的潮汐簿。可以輸入「交還潮汐簿」。',
-      suggestions: [...guide.suggestions, '交還潮汐簿'],
-    }
   }
   return guide
 }

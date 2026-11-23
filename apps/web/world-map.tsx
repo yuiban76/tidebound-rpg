@@ -20,8 +20,6 @@ const canonShort = Object.fromEntries([...Object.values(canonIslands).flatMap(is
 const points = {
   ...canonPoints,
   square: [49, 54], tavern: [18, 73], dock: [81, 78], road: [74, 36], hill: [50, 14], goa: [18, 26],
-  lanternPort: [23, 72], lighthouse: [52, 23], tideCave: [79, 66],
-  mistPort: [23, 72], netSlope: [52, 23], whiteBay: [79, 66],
   shellsPort: [20, 74], shellsTown: [50, 50], marineBase: [78, 20],
   orangePort: [20, 74], orangeStreet: [50, 44], petShop: [80, 66],
   ...layoutPoints,
@@ -29,8 +27,6 @@ const points = {
 const shortNames = {
   ...canonShort,
   square: '廣場', tavern: '酒吧', dock: '港口', road: '小路', hill: '科爾波山', goa: '哥亞',
-  lanternPort: '碼頭', lighthouse: '燈塔', tideCave: '海蝕洞',
-  mistPort: '泊位', netSlope: '曬網坡', whiteBay: '白灘灣',
   shellsPort: '港口', shellsTown: '大街', marineBase: '海軍基地',
   orangePort: '港口', orangeStreet: '大街', petShop: '寵物店',
 } as Record<LocationId, string>

@@ -44,11 +44,7 @@ type Profile = { tier: number, faction: Faction, bounty?: number, logia?: boolea
 
 // Every NPC can be fought. Civilians fight back weakly and attacking them costs reputation.
 export const npcProfiles: Record<NpcId, Profile> = {
-  keeper: { tier: 0, faction: 'civilian' }, clerk: { tier: 0, faction: 'civilian' }, mayor: { tier: 0, faction: 'civilian' },
-  watch: { tier: 1, faction: 'civilian' },
-  // The original hill encounter keeps its tuned numbers.
-  courier: { tier: 1, faction: 'civilian', hp: 20, def: 15, attack: 3, die: 4 },
-  lamplighter: { tier: 0, faction: 'civilian' }, sounder: { tier: 0, faction: 'civilian' },
+  keeper: { tier: 0, faction: 'civilian' }, mayor: { tier: 0, faction: 'civilian' },
   rika: { tier: 0, faction: 'civilian' }, zoro: { tier: 4, faction: 'bandit' },
   boodle: { tier: 0, faction: 'civilian' }, chouchou: { tier: 0, faction: 'beast' },
   usopp: { tier: 1, faction: 'civilian' }, kaya: { tier: 0, faction: 'civilian' }, klahadore: { tier: 4, faction: 'pirate', bounty: 16_000_000 },

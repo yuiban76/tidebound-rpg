@@ -4,7 +4,7 @@ import { attributes, attributeLabels, locations, npcs } from '../../packages/sha
 import type { Message } from '../../packages/shared/protocol.ts'
 import { guideFor, maxHP, maxSTA, voteThreshold, xpToNext } from '../../packages/rules/engine.ts'
 import { sceneQuestion } from '../../packages/world/explore.ts'
-import { islandAt, islands } from '../../packages/world/sea.ts'
+import { boatYard, islandAt, islands } from '../../packages/world/sea.ts'
 import { forges, weaponLabel } from '../../packages/world/forge.ts'
 import { canonTimeline } from '../../packages/world/canon.ts'
 import { goods, npcsAt, party, people, shops, weaponItems, weaponNames } from '../../packages/world/village.ts'
@@ -23,7 +23,6 @@ import { CalendarPanel } from './calendar.tsx'
 const phaseText = { queued: '排隊中', interpret: 'AI 理解與規則驗證中', narrate: '結果已存檔，旁白生成中' }
 // Only entry kinds that need explaining get a tag; results, narration and the player's own input speak for themselves.
 const entryTag: Record<string, string> = { world: '世界', chat: '聊天', cancelled: '取消', guide: '指引', location: '位置' }
-const questText = { unoffered: '目前沒有進行中的委託。', offered: '潮汐簿失蹤了。可以向風車村港口的提奧接下委託。', active: '往科爾波山山道調查潮汐簿的去向。', recovered: '已找回潮汐簿，由持有人交給港口的提奧（也能先轉交給隊友）。', done: '潮汐簿已交還。', abandoned: '隊伍已擱置潮汐簿委託。' }
 export const clock = (minutes: number) => '第 ' + (Math.floor(minutes / 1440) + 1) + ' 日 ' +
   String(Math.floor(minutes / 60) % 24).padStart(2, '0') + ':' + String(minutes % 60).padStart(2, '0')
 
@@ -209,7 +208,6 @@ export function Story({ view, send, history, connected, gap, review }: {
       <RecoveryPanel world={world} player={player} suggest={suggest}/>
     </>,
     crew: <>
-      <section className="subsection first"><h3>任務</h3><p>{questText[world.quest]}</p></section>
       {review && joining.length > 0 && <section className="subsection callout"><h3>加入中的玩家</h3>
         <ul className="roster">{joining.map(m => <li key={m.id}>
           <div><strong>{m.character?.name ?? '未創角'}</strong>
@@ -219,7 +217,7 @@ export function Story({ view, send, history, connected, gap, review }: {
       </section>}
       <CompanionPanel world={world} player={player} suggest={suggest}/>
       <section className="subsection"><h3>團隊決議</h3>
-        <p className="hint">{world.crew ? '船團已成立' : '尚未成立船團'} · {world.ship ? '主船迎潮號' : '尚無主船'}</p>
+        <p className="hint">{world.crew ? '船團已成立' : '尚未成立船團'} · {world.ship ? '主船' + boatYard.name : '尚無主船'}</p>
         {world.proposals.filter(p => !p.passed).map(p => <div className="proposal" key={p.id}><strong>{p.title}</strong>
           <p className="hint">{crew.filter(m => p.votes[m.id]).length}／{voteThreshold(crew.length, p.type !== 'ordinary')} 贊成</p>
           <div className="button-row">
@@ -231,7 +229,7 @@ export function Story({ view, send, history, connected, gap, review }: {
           <form onSubmit={e => { e.preventDefault(); post({ kind: 'propose', type: proposalType, title }); setTitle('') }}>
             <Field label="提案類型"><select value={proposalType} onChange={e => setProposalType(e.target.value as typeof proposalType)}>
               <option value="ordinary">一般決議</option><option value="formCrew" disabled={world.crew}>成立船團</option>
-              <option value="sellShip" disabled={!world.ship || world.ship.borrowed}>出售主船</option>
+              <option value="sellShip" disabled={!world.ship}>出售主船</option>
             </select></Field>
             <Field label="提案名稱"><input required maxLength={60} value={title} onChange={e => setTitle(e.target.value)}/></Field>
             <button type="submit" className="light" disabled={paused}>提出決議</button>

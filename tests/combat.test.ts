@@ -45,13 +45,13 @@ test('自然系的身體讓普通攻擊穿過，對手照樣反擊', () => {
 })
 
 test('招式依等級扣 STA；自創招式只能用已建立的名稱，連續攻擊打兩下', () => {
-  const { world, member, c } = solo('road')
+  const { world, member, c } = solo('square')
   c.sta = 4
-  assert.match(act(world, member, { kind: 'attack', target: '蘇芮', style: 'flurry' }).text, /需要 7 STA/)
+  assert.match(act(world, member, { kind: 'attack', target: '村長', style: 'flurry' }).text, /需要 7 STA/)
   assert.equal(world.combat, undefined)
-  assert.match(act(world, member, { kind: 'attack', target: '蘇芮', technique: '風車斬' }).text, /還沒有名為「風車斬」的招式/)
+  assert.match(act(world, member, { kind: 'attack', target: '村長', technique: '風車斬' }).text, /還沒有名為「風車斬」的招式/)
   c.techniques.push({ name: '風車斬', style: 'special' })
-  const strike = act(world, member, { kind: 'attack', target: '蘇芮', technique: '風車斬' }, dice(10, 1, 1))
+  const strike = act(world, member, { kind: 'attack', target: '村長', technique: '風車斬' }, dice(10, 1, 1))
   assert.match(strike.text, /使出「風車斬」/)
   assert.equal(c.sta, 1)
   c.sta = maxSTA(c)
@@ -70,42 +70,42 @@ test('打倒海軍或政府的人會被懸賞並提高海軍注意度；交涉�
   assert.ok(c.bounty > 0)
   assert.ok((world.renown?.marineHeat ?? 0) > 0)
 
-  const talk = solo('road')
-  act(talk.world, talk.member, { kind: 'attack', target: '蘇芮' }, dice(1, 1))
-  const result = act(talk.world, talk.member, { kind: 'negotiate', target: '蘇芮' }, dice(20))
-  assert.match(result.text, /蘇芮收手了[\s\S]*戰鬥結束/)
-  assert.equal(talk.world.npcDown?.watch, undefined)
+  const talk = solo('square')
+  act(talk.world, talk.member, { kind: 'attack', target: '村長' }, dice(1, 1))
+  const result = act(talk.world, talk.member, { kind: 'negotiate', target: '村長' }, dice(20))
+  assert.match(result.text, /村長收手了[\s\S]*戰鬥結束/)
+  assert.equal(talk.world.npcDown?.mayor, undefined)
 })
 
 test('航行遇到海上遭遇：打贏後繼續航程，船抵達目的地', () => {
   const { world, member, c } = solo('dock')
   world.ship = { owner: 'host', port: 'dock', hull: 100, wood: 2, trips: 0 }
   // Navigation 20, encounter check 20, encounter pick 3 = young Sea King.
-  const set = act(world, member, { kind: 'sail', order: 'depart', destination: 'lantern' }, dice(20, 20, 3))
+  const set = act(world, member, { kind: 'sail', order: 'depart', destination: 'shells' }, dice(20, 20, 3))
   assert.match(set.text, /航行途中：一頭幼小的海王類/)
   assert.equal(c.place, 'dock')
   assert.ok(world.combat?.sea)
   for (let i = 0; i < 6 && world.combat; i++) act(world, member, { kind: 'attack' })
   assert.equal(world.combat, undefined)
-  assert.equal(c.place, 'lanternPort')
-  assert.equal(world.ship.port, 'lanternPort')
+  assert.equal(c.place, 'shellsPort')
+  assert.equal(world.ship.port, 'shellsPort')
 })
 
 test('海上遭遇可以甩開；全隊倒下時被海賊搶走三成貝里，船仍漂到目的地', () => {
   const run = solo('dock')
   run.world.ship = { owner: 'host', port: 'dock', hull: 100, wood: 2, trips: 0 }
-  act(run.world, run.member, { kind: 'sail', order: 'depart', destination: 'lantern' }, dice(10, 20, 1))
+  act(run.world, run.member, { kind: 'sail', order: 'depart', destination: 'shells' }, dice(10, 20, 1))
   const escape = act(run.world, run.member, { kind: 'flee' }, dice(20))
-  assert.match(escape.text, /成功脫離[\s\S]*全隊抵達潮燈島/)
+  assert.match(escape.text, /成功脫離[\s\S]*全隊抵達謝爾茲鎮/)
 
   const lost = solo('dock')
   lost.world.ship = { owner: 'host', port: 'dock', hull: 100, wood: 2, trips: 0 }
   lost.c.hp = 1
-  act(lost.world, lost.member, { kind: 'sail', order: 'depart', destination: 'lantern' }, dice(10, 20, 1))
+  act(lost.world, lost.member, { kind: 'sail', order: 'depart', destination: 'shells' }, dice(10, 20, 1))
   const beaten = act(lost.world, lost.member, { kind: 'attack' }, dice(1, 20, 6, 6))
-  assert.match(beaten.text, /搶走了你們身上三成的貝里[\s\S]*全隊抵達潮燈島/)
+  assert.match(beaten.text, /搶走了你們身上三成的貝里[\s\S]*全隊抵達謝爾茲鎮/)
   assert.equal(lost.c.money, 1400)
-  assert.equal(lost.c.place, 'lanternPort')
+  assert.equal(lost.c.place, 'shellsPort')
 })
 
 test('打倒原作頭目會改變世界，時間線也跟著改寫', () => {

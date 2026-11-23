@@ -59,17 +59,16 @@ test('每個請求都要求模型跳過隱藏的思考，旁白以串流送出',
 
 test('戰鬥只在結束時請 AI 寫一次旁白，休息與吃飯不寫旁白', async t => {
   const { ai, game, code, act } = await started(t)
-  await act('去山徑')
   const narrations = () => ai.seen.filter(call => call.kind === 'narrative').length
   const before = narrations()
   for (let round = 0; round < 30; round++) {
-    await act('攻擊岬恩')
+    await act('攻擊村長')
     if (!game.room(code).combat) break
     assert.equal(narrations(), before, '戰鬥還沒結束時不寫旁白')
   }
   assert.equal(game.room(code).combat, undefined)
   assert.equal(narrations(), before + 1)
-  await act('回廣場')
+  await act('去派對酒吧')
   const rested = narrations()
   await act('休息')
   assert.equal(narrations(), rested)

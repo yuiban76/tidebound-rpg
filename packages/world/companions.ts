@@ -35,7 +35,7 @@ export type RecruitProfile = {
   medic?: boolean
 }
 
-// The hand-written profiles: the Straw Hats and the lamplighter. The generator below fills in everyone else.
+// The hand-written profiles: the Straw Hats. The generator below fills in everyone else.
 const featured: Partial<Record<NpcId, RecruitProfile>> = {
   usopp: {
     trait: '愛吹牛、膽子小，關鍵時刻卻會豁出去；夢想是成為勇敢的海上戰士',
@@ -110,15 +110,6 @@ const featured: Partial<Record<NpcId, RecruitProfile>> = {
     facts: '已加入玩家的船團，是音樂家兼劍士。彬彬有禮，常自嘲只剩骨頭。',
     fight: { hp: 45, def: 15, attr: 2, skill: 5, die: 6, bonus: 1, move: '拔劍' },
   },
-  lamplighter: {
-    trait: '穩重的守燈人，對海況瞭若指掌，看到熄滅的燈會不安',
-    join: '好，我跟你們走。燈塔我託給鎮上的人，我想親眼看看更遠的航道。',
-    refuse: '燈塔一刻都不能沒人守。等這件事處理完，我再考慮。',
-    leave: '我回燈塔等你們，路上小心。',
-    dc: 8, needsTask: 'lantern',
-    facts: '已加入玩家的船團，熟悉潮汐與燈號。性情穩重，提著燈在隊伍後方照路。',
-    fight: { hp: 24, def: 12, attr: 1, skill: 1, die: 4, bonus: 0, move: '提燈揮擊' },
-  },
 }
 
 
@@ -132,7 +123,6 @@ export const cannotJoin: Partial<Record<NpcId, string>> = {
   sengoku: '戰國是海軍元帥，肩上扛著整個海軍，不可能加入海賊團。',
   rayleigh: '雷利只是個在酒吧喝酒的老人，他不會再出海了。',
   laboon: '拉布是一頭巨大的鯨魚，上不了你們的船，何況他還在等一個約定。',
-  courier: '岬恩身上牽著潮汐簿的委託，這件事還沒有了結之前他不能離開。',
   dragon: '革命軍總司令有他自己的戰場，不會讓任何人把他帶上船。',
   shanks: '香克斯是四皇，有自己的海賊團和船，不會加入別人的船團。',
   garp: '卡普是海軍中將，不會跟海賊同船。',

@@ -8,14 +8,12 @@ export const skills = ['格鬥', '劍術', '長兵器', '射擊', '閃避', '觀
 export const locations = {
   square: '風車村廣場', tavern: '派對酒吧', dock: '風車村港口', road: '村外小路', hill: '科爾波山山道',
   goa: '哥亞王國城下町',
-  lanternPort: '潮燈碼頭', lighthouse: '潮燈塔', tideCave: '海蝕洞',
-  mistPort: '霧灣泊位', netSlope: '曬網坡', whiteBay: '白灘灣',
   shellsPort: '謝爾茲鎮港口', shellsTown: '謝爾茲鎮大街', marineBase: '海軍第153分部',
   orangePort: '橘子鎮港口', orangeStreet: '橘子鎮大街', petShop: '寵物店',
   ...canonLocations,
   ...addedLocations,
 }
-export const npcs = { keeper: '瑪琪諾', clerk: '提奧', watch: '蘇芮', courier: '岬恩', lamplighter: '蕊卡', sounder: '洛汀', mayor: '村長',
+export const npcs = { keeper: '瑪琪諾', mayor: '村長',
   rika: '莉卡', zoro: '索隆', boodle: '布德鎮長', chouchou: '修修', ...canonNpcs, ...castNpcs }
 export const weapons = ['fist', 'sword', 'spear', 'musket'] as const
 export const attackStyles = ['normal', 'power', 'special', 'advanced', 'flurry'] as const
@@ -23,7 +21,7 @@ export type AttackStyle = (typeof attackStyles)[number]
 export type Weapon = (typeof weapons)[number]
 const locationIds = Object.keys(locations) as (keyof typeof locations)[]
 const npcIds = Object.keys(npcs) as (keyof typeof npcs)[]
-export const islandIds = ['wind', 'lantern', 'mist', 'shells', 'orange', ...canonIslandIds] as const
+export const islandIds = ['wind', 'shells', 'orange', ...canonIslandIds] as const
 export type IslandId = (typeof islandIds)[number]
 export const sailingPaces = ['steady', 'fast'] as const
 export type SailingPace = (typeof sailingPaces)[number]
@@ -81,7 +79,7 @@ export const intentSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('recruit'), npc: z.enum(npcIds) }),
   z.strictObject({ kind: z.literal('dismiss'), npc: z.enum(npcIds) }),
   z.strictObject({ kind: z.literal('handover'), npc: z.enum(npcIds), to: z.string().trim().min(1).max(24) }),
-  z.strictObject({ kind: z.literal('sail'), order: z.enum(['buy', 'borrow', 'materials', 'repair', 'vote', 'ready', 'unready', 'depart']), destination: z.enum(islandIds).optional(), pace: z.enum(sailingPaces).optional() }),
+  z.strictObject({ kind: z.literal('sail'), order: z.enum(['buy', 'materials', 'repair', 'vote', 'ready', 'unready', 'depart']), destination: z.enum(islandIds).optional(), pace: z.enum(sailingPaces).optional() }),
   z.strictObject({ kind: z.literal('islandTask'), step: z.enum(['accept', 'search', 'deliver']) }),
   z.strictObject({ kind: z.literal('check'), method: z.enum(['observe', 'climb', 'search', 'sneak']) }),
   // style: normal 0 STA, power 2, special 3, advanced 5, flurry 7 (spec §7.4). technique names a self-made move.
@@ -93,7 +91,6 @@ export const intentSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('useItem'), item: z.string().trim().min(1).max(24), target: z.string().trim().min(1).max(24).optional() }),
   z.strictObject({ kind: z.literal('guard') }),
   z.strictObject({ kind: z.literal('flee') }),
-  z.strictObject({ kind: z.literal('quest'), step: z.enum(['accept', 'deliver', 'abandon']) }),
   z.strictObject({ kind: z.literal('rest'), sleep: z.boolean() }),
   z.strictObject({ kind: z.literal('aid'), patient: z.string().min(1).max(24) }),
   z.strictObject({ kind: z.literal('buy'), item: z.enum(['spear', 'bandage', 'bullets', 'sword', 'musket', 'tonic', 'logPose', 'waterskin', 'seastone', 'dial']) }),

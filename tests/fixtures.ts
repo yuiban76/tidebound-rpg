@@ -31,16 +31,13 @@ export async function compatibilityFixture() {
     ['回廣場', { kind: 'move', to: 'square' }],
     ['往村道', { kind: 'move', to: 'road' }],
     ['去山徑', { kind: 'move', to: 'hill' }],
-    ['找提奧聊聊', { kind: 'talk', npc: 'clerk' }],
+    ['找村長聊聊', { kind: 'talk', npc: 'mayor' }],
     ['檢查地上的鞋印', { kind: 'check', method: 'observe' }],
     ['買一把普通長槍', { kind: 'buy', item: 'spear' }],
-    ['攻擊岬恩', { kind: 'attack', target: '岬恩' }],
+    ['攻擊村長', { kind: 'attack', target: '村長' }],
     ['防守', { kind: 'guard' }],
     ['撤退', { kind: 'flee' }],
     ['我要離開這座島', { kind: 'unsupported' }],
-    ['接受委託', { kind: 'quest', step: 'accept' }],
-    ['交還潮汐簿', { kind: 'quest', step: 'deliver' }],
-    ['和岬恩談工錢', { kind: 'negotiate', target: '岬恩' }],
   ])
   const server = createServer(async (request, response) => {
     const accepted = (kind: string, content: string, model?: string, maxTokens?: number) => {
@@ -95,7 +92,7 @@ export async function compatibilityFixture() {
     }
     if (kind === 'probe') content = 'OK'
     if (kind === 'narrative') content = narration
-    if (kind === 'dialogue') content = '提奧正在找潮汐簿。'
+    if (kind === 'dialogue') content = '魯夫小時候常來店裡吃飯。'
     if (stream && !problem) {
       // Server-sent events like OpenAI-compatible servers: the reply arrives in pieces.
       response.writeHead(200, { 'Content-Type': 'text/event-stream' })

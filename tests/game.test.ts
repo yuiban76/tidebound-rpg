@@ -224,7 +224,7 @@ test('格式錯誤會重試一次；仍無效就當成自由行動交給旁白�
   const before = game.room(code).members[0].character
   ai.rawIntents(
     '{"kind":"buy","item":"不存在的果實"}',
-    '{"kind":"move","to":"hill"} 或 {"kind":"attack","npc":"courier","power":true}',
+    '{"kind":"move","to":"hill"} 或 {"kind":"attack","npc":"dadan","power":true}',
   )
   ai.narrateWith('你的新花樣引來一陣笑聲。')
   const note = await act(game, code, ids[0], '我想做個新花樣')
@@ -263,7 +263,7 @@ test('規則沒有對應的行動交給 AI 自由寫劇情，並帶上最近的�
 
   // Rule kinds that don't fit the scene still go to the free narrator instead of a rejection.
   const freeNarrations = () => ai.seen.filter(call => call.kind === 'narrative' && 'recent' in JSON.parse(call.content)).length
-  for (const [intent, text] of [[{ kind: 'attack', npc: 'courier', power: false }, '拿起鞭子抽路邊的木樁'], [{ kind: 'social' }, '跟路人自我介紹']] as const) {
+  for (const [intent, text] of [[{ kind: 'attack', npc: 'dadan', power: false }, '拿起鞭子抽路邊的木樁'], [{ kind: 'social' }, '跟路人自我介紹']] as const) {
     const count = freeNarrations()
     ai.next(intent)
     const reply = await act(game, code, ids[0], text)
@@ -320,7 +320,7 @@ test('分隔符號前後的移動與交談依序結算，模型收到抵達後�
   const context = JSON.parse(calls[0].content).context
   assert.equal(context.place, '派對酒吧')
   assert.equal(context.local[0].name, '瑪琪諾')
-  assert.match(context.local[0].facts, /潮汐簿/)
+  assert.match(context.local[0].facts, /海賊王/)
 })
 
 test('舊存檔與瑪琪諾交談後，兩種小艇追問都直接回答而不擲骰', async t => {
@@ -336,7 +336,7 @@ test('舊存檔與瑪琪諾交談後，兩種小艇追問都直接回答而不�
   const before = ai.seen.length
   for (const question of ['小艇上是誰', '說明小艇上的人員狀況是如何']) {
     const answer = await act(game, code, player, question)
-    assert.match(answer, /^瑪琪諾說：「.*魯夫.*提奧/)
+    assert.match(answer, /^瑪琪諾說：「.*魯夫.*一個人/)
     assert.doesNotMatch(answer, /D20/)
   }
   assert.equal(ai.seen.length, before)
@@ -352,13 +352,13 @@ test('一般追問向原 NPC 取得台詞，離開後要重新指定對方', asy
   await act(game, code, player, '去派對酒吧')
   const answer = await act(game, code, player, '瑪琪諾，小艇上是誰？')
   assert.match(answer, /瑪琪諾說：「.*魯夫/)
-  const question = '潮汐簿是誰在找？'
+  const question = '村子裡最近有什麼新鮮事嗎？'
   assert.equal(await act(game, code, player, question), '你向瑪琪諾提問。')
   const dialogue = ai.seen.at(-1)!
   assert.equal(dialogue.kind, 'dialogue')
   assert.equal(JSON.parse(dialogue.content).speaker, '瑪琪諾')
   assert.equal(JSON.parse(dialogue.content).input, question)
-  assert.ok(game.store.entries(code).some(entry => entry.type === 'narrative' && entry.text === '瑪琪諾說：「提奧正在找潮汐簿。」'))
+  assert.ok(game.store.entries(code).some(entry => entry.type === 'narrative' && entry.text === '瑪琪諾說：「魯夫小時候常來店裡吃飯。」'))
   await act(game, code, player, '回廣場')
   assert.equal(game.room(code).members[0].character?.conversingWith, null)
   const count = ai.seen.length
@@ -373,10 +373,10 @@ test('指名瑪琪諾並換行問去哪買船會得到購船回答，單純問�
   const [player] = ids
   const before = ai.seen.length
   const info = await act(game, code, player, '我可以去哪裡買船？')
-  assert.match(info, /^風車村港口的船塢販售可載四人的迎潮號/)
+  assert.match(info, /^風車村港口的船塢販售可載四人的小帆船/)
   await act(game, code, player, '去派對酒吧')
   const reply = await act(game, code, player, '瑪琪諾 \n我要買船要去哪買')
-  assert.match(reply, /^瑪琪諾說：「風車村港口的船塢販售可載四人的迎潮號/)
+  assert.match(reply, /^瑪琪諾說：「風車村港口的船塢販售可載四人的小帆船/)
   assert.doesNotMatch(reply, /可以去風車村廣場|酒吧有烤麵包|D20/)
   assert.equal(game.room(code).members[0].character?.conversingWith, 'keeper')
   assert.match(await act(game, code, player, '我要買船要去哪買'), /^瑪琪諾說：「/)
@@ -411,40 +411,41 @@ test('單人可購船、完成兩座新島的委託並返航，規則直接保�
 
   assert.match(await play('出海'), /風車村港口的船塢/)
   await play('前往風車村港口')
-  assert.match(await play('前往潮燈碼頭'), /跨島不能自行步行/)
-  assert.match(await play('買船'), /650 貝里買下迎潮號/)
-  assert.match(await play('買船'), /已登記迎潮號/)
+  assert.match(await play('前往謝爾茲鎮港口'), /跨島不能自行步行/)
+  assert.match(await play('買船'), /650 貝里買下小帆船/)
+  assert.match(await play('買船'), /已有小帆船/)
   assert.equal(world().members[0].character?.money, 1350)
-  assert.match(await play('出海'), /全隊抵達潮燈島的潮燈碼頭/)
-  assert.equal(world().members[0].character?.place, 'lanternPort')
-  assert.equal(world().ship?.port, 'lanternPort')
+  assert.match(await play('出海'), /全隊抵達謝爾茲鎮的謝爾茲鎮港口/)
+  assert.equal(world().members[0].character?.place, 'shellsPort')
+  assert.equal(world().ship?.port, 'shellsPort')
 
-  await play('前往潮燈塔')
-  assert.match(await play('接下燈塔委託'), /找回沖進洞裡的備用透鏡/)
-  await play('前往海蝕洞')
-  for (let i = 0; i < 5 && world().islandTasks?.lantern?.stage !== 'found'; i++) await play('搜索海蝕洞')
-  await play('前往潮燈塔')
-  assert.match(await play('歸還透鏡'), /潮燈塔照亮霧中的航道/)
-  assert.equal(world().islandTasks?.lantern?.stage, 'done')
-  assert.equal(world().members[0].character?.money, 1770)
+  await play('前往謝爾茲鎮大街')
+  assert.match(await play('接下莉卡的請託'), /飯糰送到海軍基地廣場/)
+  await play('前往海軍第153分部')
+  for (let i = 0; i < 5 && world().islandTasks?.shells?.stage !== 'found'; i++) await play('送飯糰給索隆')
+  await play('前往謝爾茲鎮大街')
+  assert.match(await play('回報莉卡'), /開心得跳起來/)
+  assert.equal(world().islandTasks?.shells?.stage, 'done')
+  assert.equal(world().members[0].character?.money, 1550)
 
-  await play('前往潮燈碼頭')
-  assert.match(await play('出海前往霧灣島'), /全隊抵達霧灣島的霧灣泊位/)
-  await play('前往曬網坡')
-  assert.match(await play('接下探潮委託'), /尋找失聯的探潮人/)
-  await play('前往白灘灣')
-  for (let i = 0; i < 5 && world().islandTasks?.mist?.stage !== 'found'; i++) await play('搜索白灘灣')
-  await play('前往曬網坡')
-  assert.match(await play('帶探潮人回去'), /探潮人平安回到曬網坡/)
-  assert.equal(world().members[0].character?.money, 2130)
+  await play('前往謝爾茲鎮港口')
+  assert.match(await play('出海前往橘子鎮'), /全隊抵達橘子鎮的橘子鎮港口/)
+  await play('前往橘子鎮大街')
+  assert.match(await play('接下鎮長的請託'), /看看修修/)
+  await play('前往寵物店')
+  for (let i = 0; i < 5 && world().islandTasks?.orange?.stage !== 'found'; i++) await play('整理寵物店')
+  await play('前往橘子鎮大街')
+  assert.match(await play('回報布德鎮長'), /紅著眼眶/)
+  assert.equal(world().members[0].character?.money, 1850)
   // 20 XP per newly reached island plus 60 per island task: 160 XP crosses level 2 at 100.
   assert.equal(world().members[0].character?.level, 2)
   assert.equal(world().members[0].character?.xp, 60)
   assert.equal(world().ship?.wood, 6)
 
-  await play('前往霧灣泊位')
+  await play('前往橘子鎮港口')
+  assert.match(await play('出海前往謝爾茲鎮'), /全隊抵達謝爾茲鎮/)
   assert.match(await play('返航'), /全隊抵達黎明島的風車村港口/)
-  assert.equal(world().ship?.trips, 3)
+  assert.equal(world().ship?.trips, 4)
   assert.equal(world().members[0].character?.place, 'dock')
   assert.equal(world().sailing, undefined)
   assert.ok(world().minute > 480 + 180)
@@ -461,7 +462,7 @@ test('四人出航需過半選線、全隊在線在港且準備，每位角色�
   const [host, second, third, fourth] = ids
   const command = (text: string) => act(game, code, host, text)
   await command('買船')
-  const vote = '選擇航線 霧灣島 快航'
+  const vote = '選擇航線 謝爾茲鎮 快航'
   await command(vote)
   await act(game, code, second, vote)
   assert.match(await command('出海'), /過半成員投票/)
@@ -476,8 +477,8 @@ test('四人出航需過半選線、全隊在線在港且準備，每位角色�
   assert.match(await command('出海'), /有隊友離線/)
   assert.equal(game.room(code).ship?.trips, 0)
   game.touch(code, third)
-  assert.match(await command('出海'), /快航.*全隊抵達霧灣島/s)
-  assert.deepEqual(game.room(code).members.map(member => member.character?.place), Array(4).fill('mistPort'))
+  assert.match(await command('出海'), /快航.*全隊抵達謝爾茲鎮/s)
+  assert.deepEqual(game.room(code).members.map(member => member.character?.place), Array(4).fill('shellsPort'))
   assert.equal(game.room(code).ship?.trips, 1)
   assert.ok(game.room(code).ship!.hull < 100)
   assert.match(await command('修船'), /用一份木料把船體/)
@@ -503,7 +504,7 @@ test('出售主船需要全員同意，只結算一次並支付登記船主', as
   assert.throws(() => game.message(code, guest, vote), /已結案/)
 })
 
-test('可以用口語找人、前往目的地、吃飯、接委託並發起船團投票', async t => {
+test('可以用口語找人、前往目的地、吃飯並發起船團投票', async t => {
   const { game, ai, code, ids } = await withGame(t, 2)
   ready(game, code, ids)
   await game.start(code)
@@ -512,14 +513,9 @@ test('可以用口語找人、前往目的地、吃飯、接委託並發起船�
   assert.match(await act(game, code, ids[0], '我走進酒館'), /你抵達派對酒吧/)
   assert.match(await act(game, code, ids[0], '吃烤麵包'), /花費 15 貝里/)
   assert.equal(game.room(code).members[0].character?.money, 1985)
-  assert.match(await act(game, code, ids[0], '找提奧聊聊'), /提奧在風車村港口/)
+  assert.match(await act(game, code, ids[0], '找村長聊聊'), /村長在風車村廣場/)
   assert.equal(ai.seen.length, calls)
-  assert.match(await act(game, code, ids[0], '我要去港口找提奧'), /經過風車村廣場，抵達風車村港口。\n提奧與你交談/)
-  assert.match(await act(game, code, ids[0], '向提奧詢問潮汐簿'), /港務的潮汐簿失蹤了/)
-  assert.equal(game.room(code).quest, 'offered')
-  const guide = submit(game, code, ids[0], '附近可以做什麼？')
-  assert.match(game.store.entries(code).find(row => row.action === guide && row.type === 'guide')!.text, /接受潮汐簿委託/)
-  assert.match(await act(game, code, ids[0], '接受潮汐簿委託'), /委託已登記/)
+  assert.match(await act(game, code, ids[0], '我要去廣場找村長'), /抵達風車村廣場。\n村長與你交談/)
   assert.match(await act(game, code, ids[0], '找同伴成立海賊團'), /所有成員.*投票/)
   const room = game.room(code)
   assert.equal(room.crew, false)
@@ -615,13 +611,14 @@ test('P0-11／15／18 最後一件長槍只賣一次，NPC 交談連續，跨島
   assert.match(game.store.pending(code, two)!.result!, /售完/)
   assert.deepEqual(game.room(code).members.map(m => m.character?.money), [1500, 2000])
   assert.equal(game.room(code).stock.spear, 0)
-  const inquiries = ids.map(id => submit(game, code, id, '找提奧聊聊'))
+  for (const id of ids) await act(game, code, id, '回廣場')
+  const inquiries = ids.map(id => submit(game, code, id, '找村長聊聊'))
   await until(() => game.store.pending(code, inquiries[1])?.phase === 'done')
-  assert.equal(game.room(code).memories.clerk.length, 2)
+  assert.equal(game.room(code).memories.mayor.length, 2)
   const narration = JSON.parse(ai.seen.at(-1)!.content)
   assert.match(narration.context.local[0].memory[0], /旅行者 0/)
   assert.match(await act(game, code, ids[1], '我要離開這座島'), /跨島/)
-  assert.equal(game.room(code).members[1].character?.place, 'dock')
+  assert.equal(game.room(code).members[1].character?.place, 'square')
 })
 
 test('P0-12／14 有效自然 20、自然 1、武器骰、失能與回復', () => {
@@ -634,43 +631,39 @@ test('P0-12／14 有效自然 20、自然 1、武器骰、失能與回復', () =
   const member = world.members[0]
   member.character = makeCharacter(character('甲'))
   const c = member.character
-  c.place = 'hill'
+  c.place = 'square'
   c.hp = 1
   const rolls = [1, 20, 1, 1]
-  const report = resolveAction(world, member, { kind: 'attack', target: '岬恩', style: 'power' }, '攻擊', () => rolls.shift()!, new Set(['host']))
+  const report = resolveAction(world, member, { kind: 'attack', target: '村長', style: 'power' }, '攻擊', () => rolls.shift()!, new Set(['host']))
   assert.match(report.text, /倒下/)
   assert.equal(c.hp, 0)
   assert.equal(c.sta, maxSTA(c) - 2)
+  // The mountain path is bandit country: nobody can sleep safely there.
+  c.place = 'hill'
   assert.equal(resolveAction(world, member, { kind: 'rest', sleep: true }, '睡眠', () => 1, new Set()).rejected, true)
   c.place = 'tavern'
   assert.equal(resolveAction(world, member, { kind: 'rest', sleep: true }, '睡眠', () => 1, new Set()).minutes, 480)
   assert.equal(c.hp, Math.ceil(maxHP(c) / 4))
 })
 
-test('同步戰鬥等所有參戰者鎖定，離線不代操，非戰鬥可完成支線', () => {
+test('同步戰鬥等所有參戰者鎖定，離線不代操', () => {
   const world = newWorld('CODE', 'host')
   const one = world.members[0]
   one.character = makeCharacter(character('甲'))
-  one.character.place = 'hill'
+  one.character.place = 'square'
   const two = { id: 'guest', host: false, approved: true, ready: true, agree: true, character: makeCharacter(character('乙')) }
-  two.character.place = 'hill'
+  two.character.place = 'square'
   world.members.push(two)
   const connected = new Set(['host', 'guest'])
-  const attack = { kind: 'attack', target: '岬恩' } as const
-  const next = (sides: number) => Math.min(12, sides)
+  const attack = { kind: 'attack', target: '村長' } as const
+  const next = (sides: number) => Math.min(5, sides)
   assert.match(resolveAction(world, one, attack, '攻擊', next, connected).text, /鎖定/)
-  assert.equal(world.courierHP, 20 * scale)
+  const mayor = () => world.combat!.foes[0]
+  assert.equal(mayor().hp, mayor().maxHp)
   assert.equal(resolveAction(world, two, { kind: 'guard' }, '防守', next, new Set(['host'])).rejected, true)
   assert.match(resolveAction(world, two, { kind: 'guard' }, '防守', next, connected).text, /反擊/)
-  assert.ok(world.courierHP < 20 * scale)
+  assert.ok(mayor().hp < mayor().maxHp)
   assert.equal(world.combat?.round, 2)
-  delete world.combat
-  world.quest = 'active'
-  assert.match(resolveAction(world, one, { kind: 'negotiate', target: '岬恩' }, '交涉', () => 20, connected).text, /交還/)
-  one.character.place = 'dock'
-  assert.match(resolveAction(world, one, { kind: 'quest', step: 'deliver' }, '交還', next, connected).text, /350/)
-  assert.equal(world.quest, 'done')
-  assert.equal(one.character.money, 2350)
 })
 
 test('P0-19 SQLite 重開與備份保留世界、金錢和待續旁白', async t => {
@@ -807,7 +800,7 @@ test('開局後未滿四人可加入；待加入者不算進 N，於港口入隊
   assert.throws(() => game.join(code), /已滿/)
 })
 
-test('同地隊友可轉交貝里與物品，潮汐簿轉交後由接手者交付；武器需持有才可換', async t => {
+test('同地隊友可轉交貝里與物品；武器需持有才可換', async t => {
   const { game, code, ids } = await withGame(t, 2)
   ready(game, code, ids)
   await game.start(code)
@@ -822,16 +815,7 @@ test('同地隊友可轉交貝里與物品，潮汐簿轉交後由接手者交�
   assert.match(await act(game, code, a, '收起武器'), /改用徒手/)
   assert.match(await act(game, code, a, '改用武士刀'), /改用普通武士刀/)
 
-  const world = game.room(code)
-  Object.assign(world, { logHolder: a, quest: 'recovered', settled: true })
-  world.members[0].character!.inventory['潮汐簿'] = 1
-  game.store.save(world)
   await act(game, code, a, '去碼頭')
-  assert.match(await act(game, code, a, '把潮汐簿交給旅行者 1'), /把潮汐簿交給旅行者 1/)
-  assert.equal(game.room(code).logHolder, b)
-  assert.match(await act(game, code, a, '交還潮汐簿'), /目前無法登記或交付此委託/)
-  assert.match(await act(game, code, b, '交還潮汐簿'), /350 貝里/)
-  assert.equal(game.room(code).quest, 'done')
 
   assert.match(await act(game, code, a, '把普通武士刀交給旅行者 1'), /你改為徒手/)
   assert.equal(game.room(code).members[0].character?.weapon, 'fist')

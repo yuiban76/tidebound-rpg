@@ -6,7 +6,6 @@ import type { FruitId } from './fruits.ts'
 import { scale } from './scale.ts'
 import { canonIslands, canonPeople } from './canon.ts'
 import { castPeople } from './cast.ts'
-import { npcFoe } from './foes.ts'
 import { addedSites, islandLayouts } from './sites.ts'
 
 /** Canon islands default to port ↔ second place ↔ third place; islands in sites.ts bring their own roads. */
@@ -20,16 +19,13 @@ const canonLandmarks = Object.fromEntries([...Object.values(canonIslands).flatMa
   .map(([id, , landmark]) => [id, landmark])) as Record<string, string>
 
 // Canon start snapshot (spec §1.2): the morning Luffy leaves Foosha Village on Dawn Island, before he meets Zoro.
-// Named canon people only appear through facts stated here; the 潮汐簿 side quest and its cast are original.
+// Named canon people only appear through facts stated here.
 export const opening = '今天清晨，魯夫乘著一艘小船離開了黎明島的風車村，說要成為海賊王。港口的人還在談論這件事。' +
   '你們是相識多年的朋友，此刻在風車村廣場碰頭。你們還沒有海賊團、船長或共同的船；派對酒吧飄來瑪琪諾烤麵包的香氣。' +
   '往哪裡去、要成為什麼樣的人，由你們自己決定。'
-export const tideEvent = { minute: 8 * 60 + 30, text: '風車村港口響起漲潮鐘。提奧在木樁上劃下今天的第一道水位記號。' }
 export const paths = {
   square: ['tavern', 'dock', 'road'], tavern: ['square'],
   dock: ['square', 'road'], road: ['square', 'dock', 'hill', 'goa'], hill: ['road'], goa: ['road'],
-  lanternPort: ['lighthouse'], lighthouse: ['lanternPort', 'tideCave'], tideCave: ['lighthouse'],
-  mistPort: ['netSlope'], netSlope: ['mistPort', 'whiteBay'], whiteBay: ['netSlope'],
   shellsPort: ['shellsTown'], shellsTown: ['shellsPort', 'marineBase'], marineBase: ['shellsTown'],
   orangePort: ['orangeStreet'], orangeStreet: ['orangePort', 'petShop'], petShop: ['orangeStreet'],
   ...canonPaths,
@@ -43,13 +39,8 @@ export function walkMinutes(from: LocationId, to: LocationId) {
 export const people: Record<NpcId, { place: LocationId | null, role: string, known: string }> = {
   ...canonPeople,
   ...castPeople,
-  keeper: { place: 'tavern', role: '派對酒吧老闆娘', known: '魯夫今天清晨乘小船出海了，說要成為海賊王。港口的提奧正在尋找遺失的潮汐簿。' },
-  clerk: { place: 'dock', role: '港務記錄員', known: '港務的潮汐簿失蹤了。昨夜的搬運工曾往科爾波山山道去。' },
-  watch: { place: 'road', role: '巡守', known: '昨晚有人抱著包裹往山坡走，可在山道注意鞋印。科爾波山深處是山賊的地盤，別走太深。' },
-  courier: { place: 'hill', role: '搬運工', known: '潮汐簿被他帶走。他想補上帳簿裡漏記的工錢；願意有人替他轉達。' },
-  lamplighter: { place: 'lighthouse', role: '守燈人', known: '防波堤旁滅了一盞燈。備用透鏡落在海蝕洞裡，我需要它讓航道重新點亮。' },
-  sounder: { place: 'netSlope', role: '領潮員', known: '一艘測潮艇早上漂到白灘灣，探潮人也還沒回來，請沿著岸邊找找。' },
-  mayor: { place: 'square', role: '風車村村長', known: '魯夫那小子今早真的出海當海賊去了。村民都是老實人；有事可以去港口找提奧，或到酒吧找瑪琪諾。' },
+  keeper: { place: 'tavern', role: '派對酒吧老闆娘', known: '魯夫今天清晨乘小船出海了，說要成為海賊王。他從小就在店裡聽香克斯說海上的故事。' },
+  mayor: { place: 'square', role: '風車村村長', known: '魯夫那小子今早真的出海當海賊去了。村民都是老實人；有事可以到酒吧找瑪琪諾。' },
   // Canon East Blue snapshot for the starting day. These are present states, not scripted futures:
   // what happens next depends on the players.
   rika: { place: 'shellsTown', role: '鎮上的小女孩', known: '劍士索隆被綁在海軍基地的廣場上，好幾天沒吃東西了。她做了飯糰想送去，但上校的兒子貝魯梅柏不准任何人靠近。' },
@@ -58,23 +49,16 @@ export const people: Record<NpcId, { place: LocationId | null, role: string, kno
   chouchou: { place: 'petShop', role: '守著寵物店的小狗', known: '牠守著已故主人留下的寵物店。店裡的狗糧袋被海賊踢散了，門板也壞了。' },
 }
 export const boatCrewReplies: Partial<Record<NpcId, string>> = {
-  keeper: '是魯夫喔。他天一亮就乘著小船出海，說要成為海賊王。港口的提奧負責登記船隻，細節可以問他。',
-  clerk: '那艘小艇是魯夫的，他沒來登記就出港了，船上只有他一個人。',
+  keeper: '是魯夫喔。他天一亮就乘著小船出海，說要成為海賊王。船上只有他一個人。',
   mayor: '那是魯夫的小船！那小子終於出海了，真是不讓人省心。',
 }
 export const landmarks = {
   square: '村子的集合點，村長常在這裡，鐵匠鋪可以強化武器、買傷藥',
   tavern: '找瑪琪諾聊天或點餐',
-  dock: '找提奧問潮汐簿，補給鋪與船塢也在這裡',
-  road: '找巡守蘇芮，往科爾波山或哥亞王國',
-  hill: '查看山道上的痕跡',
+  dock: '補給鋪與船塢在這裡，可以買船出海',
+  road: '穿過森林，往科爾波山或哥亞王國',
+  hill: '山賊達丹一家的地盤',
   goa: '城下町的武器鋪販售武士刀和火槍，也能強化武器',
-  lanternPort: '停泊或搭船離開潮燈島',
-  lighthouse: '找守燈人蕊卡',
-  tideCave: '踏勘洞口的石階和沉積物',
-  mistPort: '停泊或搭船離開霧灣島',
-  netSlope: '找領潮員洛汀',
-  whiteBay: '沿岸搜索漂流船和探潮人',
   shellsPort: '停泊或搭船離開謝爾茲鎮',
   shellsTown: '找莉卡，鎮民都很怕海軍上校',
   marineBase: '基地廣場綁著劍士索隆',
@@ -186,13 +170,8 @@ export type World = {
   started: boolean
   minute: number
   members: Member[]
-  quest: 'unoffered' | 'offered' | 'active' | 'recovered' | 'done' | 'abandoned'
-  clue: boolean
-  courierHP: number
   /** Number scale the saved HP values use (see world/scale.ts); missing means 1. */
   scale?: number
-  settled: boolean
-  logHolder?: string
   stock: Record<Good, number>
   /** Fruits dropped by knocked-out NPCs, waiting for the last-blow player to eat or release them. */
   fruitOffers?: { fruit: FruitId, npc: NpcId, to: string, since: number }[]
@@ -274,7 +253,7 @@ export function newWorld(code: string, host: string): World {
   return {
     code, version: 0, started: false, minute: 8 * 60,
     members: [{ id: host, host: true, ready: false, agree: false, approved: false }],
-    quest: 'unoffered', clue: false, courierHP: 20 * scale, settled: false, scale,
+    scale,
     stock: initialStock(), memories: emptyMemories(), proposals: [], crew: false,
   }
 }
@@ -287,7 +266,6 @@ export function normalizeWorld(world: World): World {
     for (const member of world.members) if (member.character) member.character.hp = Math.round(member.character.hp * ratio)
     for (const companion of Object.values(world.companions ?? {})) if (companion) companion.hp = Math.round(companion.hp * ratio)
     for (const foe of world.combat?.foes ?? []) { foe.hp = Math.round(foe.hp * ratio); foe.maxHp = Math.round(foe.maxHp * ratio) }
-    world.courierHP = Math.round(world.courierHP * ratio)
     world.scale = scale
   }
   const stock = initialStock()
@@ -301,11 +279,41 @@ export function normalizeWorld(world: World): World {
     c.bounty ??= 0
     c.techniques ??= []
   }
-  // Saves from before the general combat system only had the hill fight against the courier.
-  const legacy = world.combat as (Combat & { foes?: Foe[] }) | undefined
-  if (legacy && !legacy.foes) {
-    legacy.place = 'hill'
-    legacy.foes = [{ ...npcFoe('courier', world.minute), hp: world.courierHP }]
-  }
+  dropRemovedContent(world)
   return world
+}
+
+// The original side content (潮燈島, 霧灣島, the 潮汐簿 quest and its five NPCs) was removed; saves that still
+// mention it are moved back into the canon world. Ids are plain strings here because the types no longer know them.
+const removedPlaces = new Set(['lanternPort', 'lighthouse', 'tideCave', 'mistPort', 'netSlope', 'whiteBay'])
+const removedIslands = ['lantern', 'mist']
+const removedNpcs = ['clerk', 'watch', 'courier', 'lamplighter', 'sounder']
+function dropRemovedContent(world: World) {
+  const old = world as World & Record<string, unknown>
+  for (const key of ['quest', 'clue', 'courierHP', 'settled', 'logHolder']) delete old[key]
+  for (const member of world.members) {
+    const c = member.character
+    if (!c) continue
+    if (removedPlaces.has(c.place)) c.place = 'dock'
+    if (c.conversingWith && removedNpcs.includes(c.conversingWith)) c.conversingWith = null
+    delete c.inventory['潮汐簿']
+  }
+  if (world.ship) {
+    if (removedPlaces.has(world.ship.port)) world.ship.port = 'dock'
+    delete (world.ship as { borrowed?: boolean }).borrowed
+  }
+  const sailing = world.sailing
+  if (sailing && (removedIslands.includes(sailing.from) || Object.values(sailing.ballots).some(b => removedIslands.includes(b.to)))) delete world.sailing
+  // Saves from before the general combat system had a fight without foes (against the courier).
+  const combat = world.combat as (Combat & { foes?: Foe[] }) | undefined
+  if (combat && (!combat.foes || removedPlaces.has(combat.place) || combat.foes.some(foe => foe.npc && removedNpcs.includes(foe.npc)) ||
+    (combat.sea && removedIslands.includes(combat.sea.to)))) delete world.combat
+  for (const island of removedIslands) {
+    delete (world.islandTasks as Record<string, unknown> | undefined)?.[island]
+    delete (world.renown?.islandRep as Record<string, unknown> | undefined)?.[island]
+  }
+  for (const npc of removedNpcs) for (const table of [world.memories, world.companions, world.npcDown, world.npcPlaces, world.npcFacts, world.recruitRetry])
+    delete (table as Record<string, unknown> | undefined)?.[npc]
+  if (world.defeated) world.defeated = world.defeated.filter(npc => !removedNpcs.includes(npc))
+  if (world.fruitOffers) world.fruitOffers = world.fruitOffers.filter(offer => !removedNpcs.includes(offer.npc))
 }

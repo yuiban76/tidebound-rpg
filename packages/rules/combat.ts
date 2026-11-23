@@ -5,7 +5,7 @@ import type { AttackStyle, NpcId } from '../shared/protocol.ts'
 import { npcFoe, tierNames, tierXp } from '../world/foes.ts'
 import { crewmates } from '../world/crews.ts'
 import type { Foe } from '../world/foes.ts'
-import { islandAt } from '../world/sea.ts'
+import { boatYard, islandAt } from '../world/sea.ts'
 import { npcFacts, npcPlace, npcsAt, party, paths } from '../world/village.ts'
 import type { Character, Combat, CombatChoice, Member, World } from '../world/village.ts'
 import { bossDefeats } from '../world/canon.ts'
@@ -67,23 +67,6 @@ function npcTarget(world: World, c: Character, target?: string): NpcId | string 
 
 export const isDown = (world: Pick<World, 'npcDown' | 'minute'>, npc: NpcId) => (world.npcDown?.[npc] ?? 0) > world.minute
 
-/** The original hill quest: getting the tide log from the courier by any means settles it. */
-function recoverLog(world: World, c: Character, id: string) {
-  if (world.settled) return
-  world.settled = true
-  world.quest = 'recovered'
-  world.logHolder = id
-  c.inventory['潮汐簿'] = 1
-}
-
-/** Out-of-combat negotiation only exists for the courier's tide log; other talks are ordinary conversation. */
-function negotiateCourier(world: World, actor: Member, roll: Roll, dc: number) {
-  const c = actor.character!
-  const natural = roll(20)
-  const total = natural + c.stats.WIL + (c.skillRanks['說服'] ?? 0) + (world.clue ? 4 : 0)
-  return { natural, total, success: total >= dc }
-}
-
 function useBandage(world: World, actor: Member, target?: string) {
   const c = actor.character!
   const mate = target ? companionByName(world, target) : undefined
@@ -108,11 +91,10 @@ function useBandage(world: World, actor: Member, target?: string) {
   return { text: (patient === c ? c.name + '替自己包紮' : c.name + '替' + patient.name + '包紮') + '，目前 HP ' + patient.hp + '。' }
 }
 
-/** A named NPC as a foe, with what the world has already done to them (lost fruit, the courier's wounds). */
+/** A named NPC as a foe, with what the world has already done to them (a lost fruit). */
 function makeFoe(world: World, npc: NpcId): Foe {
   const foe = npcFoe(npc, world.minute)
   if (world.fruitLost?.[npc]) { delete foe.logia; delete foe.weak }
-  if (npc === 'courier') foe.hp = world.courierHP || foe.maxHp
   return foe
 }
 
@@ -139,15 +121,7 @@ export function resolveCombatAction(world: World, actor: Member, choice: CombatC
       const used = useBandage(world, actor, choice.target)
       return typeof used === 'string' ? stop(used) : { text: used.text, minutes: 5 }
     }
-    if (choice.kind === 'negotiate') {
-      const courierHere = c.place === 'hill' && !world.settled && npcPlace(world, 'courier') === 'hill' && !isDown(world, 'courier')
-      if (!courierHere || (choice.target && !/岬恩/.test(choice.target))) return stop('目前沒有需要交涉的衝突。想和人談，可以直接找對方聊天。')
-      const { natural, total, success } = negotiateCourier(world, actor, roll, 13)
-      if (!success) return { text: '說服 D20 ' + natural + '，合計 ' + total + '／13。岬恩仍握著潮汐簿，你可以調查線索或再交涉。', minutes: 4 }
-      recoverLog(world, c, actor.id)
-      const xp = grantXp(c, 30)
-      return { text: '說服 D20 ' + natural + '，合計 ' + total + '／13。岬恩交還潮汐簿，請你代為轉達漏記的工錢。' + (xp ? '\n' + xp : ''), minutes: 5, announce: true }
-    }
+    if (choice.kind === 'negotiate') return stop('目前沒有需要交涉的衝突。想和人談，可以直接找對方聊天。')
     if (choice.kind !== 'attack') return stop('目前沒有進行中的戰鬥。')
     const target = npcTarget(world, c, choice.target)
     if (!(target in npcs)) return stop(target)
@@ -250,12 +224,6 @@ function resolveRound(world: World, combat: Combat, roll: Roll, opening: string)
     if (choice.kind === 'negotiate') {
       const foe = findFoe(combat, choice.target)
       if (!foe) continue
-      if (foe.npc === 'courier' && !world.settled) {
-        const { natural, total, success } = negotiateCourier(world, member, roll, 15)
-        lines.push(fighter.name + '交涉 D20 ' + natural + '，合計 ' + total + '／15。')
-        if (success) { recoverLog(world, fighter, member.id); foe.surrendered = true; lines.push('岬恩交出潮汐簿，不再抵抗。') }
-        continue
-      }
       if (foe.tier >= 4) { lines.push(foe.name + '對' + fighter.name + '的勸說不為所動。'); continue }
       const dc = 10 + foe.tier * 3
       const natural = roll(20)
@@ -293,7 +261,6 @@ function resolveRound(world: World, combat: Combat, roll: Roll, opening: string)
     }
   }
   allyStrikes(world, combat, roll, lines)
-  syncCourier(world, combat)
   if (!standing(combat).length) return victory(world, combat, lines, lastHit)
 
   // NPC turn: every foe still standing strikes a random fighter on the spot.
@@ -400,11 +367,6 @@ function allyStrikes(world: World, combat: Combat, roll: Roll, lines: string[]) 
   }
 }
 
-function syncCourier(world: World, combat: Combat) {
-  const courier = combat.foes.find(foe => foe.npc === 'courier')
-  if (courier) world.courierHP = courier.hp
-}
-
 /** Loot, bounty, XP and reputation once every foe is down or has given up (spec §9: reputations stay separate). */
 function victory(world: World, combat: Combat, lines: string[], lastHit: Map<string, Member>): Result {
   delete world.combat
@@ -426,12 +388,12 @@ function victory(world: World, combat: Combat, lines: string[], lastHit: Map<str
       renown.marineHeat = Math.min(100, renown.marineHeat + 5 * (foe.tier + 1))
       for (const m of winners) m.character!.bounty += (foe.tier + 1) ** 2 * 1_000_000
     }
-    if (foe.faction === 'civilian' && !isThief(world, foe)) renown.islandRep[island] = (renown.islandRep[island] ?? 0) - 10
+    if (foe.faction === 'civilian') renown.islandRep[island] = (renown.islandRep[island] ?? 0) - 10
     if (['pirate', 'bandit', 'tyrant'].includes(foe.faction) && foe.down) renown.islandRep[island] = (renown.islandRep[island] ?? 0) + 5
   }
   if (combat.foes.some(foe => ['marine', 'government'].includes(foe.faction)))
     lines.push('你們對海軍／世界政府動了手：海軍注意度 ' + renown.marineHeat + '／100，懸賞金提高了。')
-  if (combat.foes.some(foe => foe.faction === 'civilian' && !isThief(world, foe)))
+  if (combat.foes.some(foe => foe.faction === 'civilian'))
     lines.push('欺負平民的事傳開了，' + locations[combat.place] + '一帶的人對你們的評價變差。')
 
   for (const foe of combat.foes) {
@@ -449,10 +411,6 @@ function victory(world: World, combat: Combat, lines: string[], lastHit: Map<str
       const [known, ...recent] = npcFacts(world, npc).split(' 最近：')
       ;(world.npcFacts ??= {})[npc] = [known, ...recent.slice(-2), '被' + (by?.character!.name ?? '旅人') + '一行人打倒過'].join(' 最近：')
     }
-    if (npc === 'courier' && by && !world.settled) {
-      recoverLog(world, by.character!, by.id)
-      lines.push(by.character!.name + '從岬恩身上取回了潮汐簿，帶回港口交給提奧吧。')
-    }
     offerFruit(world, foe, by, lines)
     const boss = foe.down ? bossDefeats[npc] : undefined
     if (boss) {
@@ -467,9 +425,6 @@ function victory(world: World, combat: Combat, lines: string[], lastHit: Map<str
   return { text: lines.join('\n'), announce: true, minutes: 1 }
 }
 
-/** The tide-log thief may be stopped by force without it counting as bullying a civilian. */
-const isThief = (world: World, foe: Foe) => foe.npc === 'courier' && world.quest !== 'done'
-
 /** Everyone on the party side is down or gone. HP 0 is never death (spec §7.3). */
 function defeat(world: World, combat: Combat, lines: string[]): Result {
   delete world.combat
@@ -483,7 +438,7 @@ function defeat(world: World, combat: Combat, lines: string[]): Result {
   } else lines.push('對手沒有追擊，留下倒地的你們離開了。')
   if (combat.sea) {
     const voyage = finishVoyage(world, combat.sea)
-    lines.push('迎潮號在海上漂流，最後還是到了目的地。', voyage.text)
+    lines.push(boatYard.name + '在海上漂流，最後還是到了目的地。', voyage.text)
     return { text: lines.join('\n'), announce: true, minutes: 1 + voyage.minutes }
   }
   return { text: lines.join('\n'), announce: true, minutes: 1 }

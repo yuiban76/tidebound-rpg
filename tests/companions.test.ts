@@ -99,7 +99,7 @@ test('船團含玩家最多 10 人：名額滿了就不能再邀請', () => {
   const { world, member } = setup()
   assert.equal(companionSlots(world), 9)
   world.companions = {}
-  for (const id of ['zoro', 'sanji', 'vivi', 'chopper', 'robin', 'franky', 'brook', 'lamplighter', 'kaya'] as NpcId[])
+  for (const id of ['zoro', 'sanji', 'vivi', 'chopper', 'robin', 'franky', 'brook', 'nojiko', 'kaya'] as NpcId[])
     world.companions[id] = { leader: member.id, since: 0, hp: 5 }
   assert.equal(companionIds(world).length, 9)
   assert.match(act(world, member, { kind: 'recruit', npc: 'usopp' }).text, /船團已滿 10 人/)
@@ -157,7 +157,7 @@ test('除了少數劇情核心，所有 NPC 都能招募；反派要更高等級
   const { cannotJoin, recruitable } = await import('../packages/world/companions.ts')
   const ids = Object.keys(npcs) as NpcId[]
   for (const id of ids) assert.ok(recruitable[id] || cannotJoin[id], id + ' 既不能招募也沒有理由')
-  assert.deepEqual(Object.keys(cannotJoin).sort(), ['ace', 'aokiji', 'akainu', 'courier', 'dragon', 'garp', 'kizaru', 'kuma', 'laboon', 'luffy', 'rayleigh', 'sengoku', 'shanks', 'whitebeard'].sort())
+  assert.deepEqual(Object.keys(cannotJoin).sort(), ['ace', 'aokiji', 'akainu', 'dragon', 'garp', 'kizaru', 'kuma', 'laboon', 'luffy', 'rayleigh', 'sengoku', 'shanks', 'whitebeard'].sort())
   assert.ok(recruitable.arlong?.villain && recruitable.arlong.minLevel! >= 6)
   assert.equal(recruitable.kaya?.villain, undefined)
   assert.ok(recruitable.kureha?.medic)
@@ -176,8 +176,8 @@ test('招募一般居民與反派：居民擲骰成功就加入，反派等級�
   b.world.defeated = ['klahadore']
   assert.match(trust.text, /說服/)
   assert.match(act(b.world, b.member, { kind: 'recruit', npc: 'klahadore' }, dice(14)).text, /服氣你們 \+4|加入了船團/)
-  const courier = setup('courier')
-  assert.match(act(courier.world, courier.member, { kind: 'recruit', npc: 'courier' }).text, /潮汐簿/)
+  const old = setup('rayleigh')
+  assert.match(act(old.world, old.member, { kind: 'recruit', npc: 'rayleigh' }).text, /不會再出海/)
   assert.ok(c.level >= 1)
 })
 

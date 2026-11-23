@@ -77,10 +77,8 @@ test('數值倍率：舊存檔的血量會一次性乘上倍率，之後不再�
   const { world, c } = solo('square')
   delete world.scale
   c.hp = 30
-  world.courierHP = 20
   normalizeWorld(world)
   assert.equal(c.hp, 30 * scale)
-  assert.equal(world.courierHP, 20 * scale)
   normalizeWorld(world)
   assert.equal(c.hp, 30 * scale)
 })
