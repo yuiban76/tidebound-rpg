@@ -8,7 +8,7 @@ import { boatYard, islandAt, islands } from '../../packages/world/sea.ts'
 import { raceSummary, stat } from '../../packages/world/races.ts'
 import { forges, weaponLabel } from '../../packages/world/forge.ts'
 import { canonTimeline } from '../../packages/world/canon.ts'
-import { goods, npcsAt, party, people, shops, weaponItems, weaponNames } from '../../packages/world/village.ts'
+import { fightingStyles, fightingSummary, goods, masteryOf, npcsAt, party, people, shops, weaponItems, weaponNames } from '../../packages/world/village.ts'
 import type { Good } from '../../packages/world/village.ts'
 import type { View } from './network.ts'
 import type { Entry } from '../host/store.ts'
@@ -171,6 +171,7 @@ export function Story({ view, send, history, connected, gap, review }: {
       <section className="subsection first"><h3>{character.name}</h3>
         <p className="hint">{character.race} · 等級 {character.level} · XP {character.xp}／{xpToNext(character.level)}</p>
         <p className="hint">{raceSummary(character.race)}</p>
+        <p className="hint">攻擊方式：{fightingStyles[character.fighting].label}（{fightingSummary(character.fighting)}）</p>
         <dl className="values">
           <div><dt>懸賞金</dt><dd>{character.bounty.toLocaleString('en-US')}</dd></div>
           <div><dt>海軍注意度</dt><dd>{world.renown?.marineHeat ?? 0}／100</dd></div>
@@ -194,7 +195,7 @@ export function Story({ view, send, history, connected, gap, review }: {
     </>,
     bag: <>
       <section className="subsection first"><h3>裝備</h3>
-        <p>目前武器：{weaponLabel(character, weaponNames[character.weapon])}</p>
+        <p>目前武器：{weaponLabel(character, weaponNames[character.weapon])}{masteryOf(character) ? '（擅長：命中 +' + masteryOf(character)!.hit + '、傷害 +' + masteryOf(character)!.damage + '）' : ''}</p>
         <div className="button-row">
           {(Object.keys(weaponItems) as (keyof typeof weaponItems)[]).filter(id => id !== character.weapon && character.inventory[weaponItems[id]])
             .map(id => <button key={id} type="button" className="light" onClick={() => suggest('改用' + weaponItems[id])}>改用{weaponItems[id]}</button>)}

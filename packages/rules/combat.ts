@@ -7,7 +7,7 @@ import { crewmates } from '../world/crews.ts'
 import type { Foe } from '../world/foes.ts'
 import { boatYard, islandAt } from '../world/sea.ts'
 import { raceDefense, raceHit, stat, traitOf } from '../world/races.ts'
-import { npcFacts, npcPlace, npcsAt, party, paths } from '../world/village.ts'
+import { masteryOf, npcFacts, npcPlace, npcsAt, party, paths } from '../world/village.ts'
 import type { Character, Combat, CombatChoice, Member, World } from '../world/village.ts'
 import { bossDefeats } from '../world/canon.ts'
 import { fruitDamage, fruits, isLogia } from '../world/fruits.ts'
@@ -252,7 +252,7 @@ function resolveRound(world: World, combat: Combat, roll: Roll, opening: string)
         continue
       }
       if (solid === 'seastone') lines.push(fighter.name + '握著海樓石十手，' + foe.name + '的身體在這一擊中變得實在。')
-      const hit = attackCheck(roll, { attr, skill: (fighter.skillRanks[skill] ?? 0) + spec.hit + levelHit(fighter.level) + tierHit(tierOf(fighter)) + raceHit(fighter, !!combat.sea), def: foe.def, die, bonus: spec.damage + levelDamage(fighter.level) + tierDamage(tierOf(fighter)) + fruitDamage(fighter.fruit, fighter.level) + (traitOf(fighter).damage ?? 0), armor: foe.armor })
+      const hit = attackCheck(roll, { attr, skill: (fighter.skillRanks[skill] ?? 0) + spec.hit + levelHit(fighter.level) + tierHit(tierOf(fighter)) + raceHit(fighter, !!combat.sea) + (masteryOf(fighter)?.hit ?? 0), def: foe.def, die, bonus: spec.damage + levelDamage(fighter.level) + tierDamage(tierOf(fighter)) + fruitDamage(fighter.fruit, fighter.level) + (traitOf(fighter).damage ?? 0) + (masteryOf(fighter)?.damage ?? 0), armor: foe.armor })
       foe.hp = Math.max(0, foe.hp - hit.damage)
       lines.push(fighter.name + '對' + foe.name + '使出' + move + '，D20 ' + hit.natural + '，合計 ' + hit.total + '／' + foe.def +
         (hit.hit ? '，傷害 ' + hit.damage + '（武器骰 ' + hit.dice.join('+') + '，數值×' + scale + '）。' + foe.name + ' HP ' + foe.hp + '／' + foe.maxHp + '。' : '，未命中。'))

@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { attributeLabels, attributes, characterInput, races, skills } from '../../packages/shared/protocol.ts'
-import type { CharacterInput, Message, Race } from '../../packages/shared/protocol.ts'
+import { attributeLabels, attributes, characterInput, races, skills, weapons } from '../../packages/shared/protocol.ts'
+import type { CharacterInput, Message, Race, Weapon } from '../../packages/shared/protocol.ts'
+import { fightingStyles, fightingSummary } from '../../packages/world/village.ts'
 import { raceSummary } from '../../packages/world/races.ts'
 import type { View } from './network.ts'
 
@@ -15,6 +16,7 @@ const defaults = { STR: 3, AGI: 3, CON: 3, PER: 3, INT: 3, WIL: 3 }
 function CharacterForm({ initial, submit }: { initial?: CharacterInput, submit: (data: CharacterInput) => Promise<void> }) {
   const [stats, setStats] = useState(initial?.stats ?? defaults)
   const [race, setRace] = useState<Race>(initial?.race ?? '人類')
+  const [fighting, setFighting] = useState<Weapon>(initial?.fighting ?? 'sword')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const total = Object.values(stats).reduce((a, b) => a + b, 0)
@@ -22,10 +24,9 @@ function CharacterForm({ initial, submit }: { initial?: CharacterInput, submit: 
     event.preventDefault()
     const form = new FormData(event.currentTarget)
     const payload = {
-      name: form.get('name'), age: Number(form.get('age')), race,
+      name: form.get('name'), race, fighting,
       stats, major: form.get('major'),
       basics: [form.get('basic1'), form.get('basic2')], life: form.get('life'),
-      background: String(form.get('background') ?? '').trim() || undefined,
     }
     const validated = characterInput.safeParse(payload)
     if (!validated.success) return setError(validated.error.issues[0].message)
@@ -41,12 +42,18 @@ function CharacterForm({ initial, submit }: { initial?: CharacterInput, submit: 
     <h2>角色卡</h2>
     <div className="form-grid">
       <Field label="角色姓名"><input name="name" maxLength={24} required defaultValue={initial?.name}/></Field>
-      <Field label="年齡"><input type="number" name="age" min={1} max={400} required defaultValue={initial?.age ?? 20}/></Field>
-      <Field label="種族"><select value={race} onChange={e => setRace(e.target.value as Race)}>
-        {races.map(item => <option key={item}>{item}</option>)}
-      </select></Field>
-      <p className="hint race-note">{raceSummary(race)}{race === '巨人' ? '。巨人角色需要房主核准。' : ''}</p>
-      <Field label="背景（選填）"><textarea name="background" rows={2} maxLength={600} defaultValue={initial?.background}/></Field>
+      <div>
+        <Field label="種族"><select value={race} onChange={e => setRace(e.target.value as Race)}>
+          {races.map(item => <option key={item}>{item}</option>)}
+        </select></Field>
+        <p className="hint race-note">{raceSummary(race)}{race === '巨人' ? '。巨人角色需要房主核准。' : ''}</p>
+      </div>
+      <div>
+        <Field label="攻擊方式"><select value={fighting} onChange={e => setFighting(e.target.value as Weapon)}>
+          {weapons.map(item => <option key={item} value={item}>{fightingStyles[item].label}</option>)}
+        </select></Field>
+        <p className="hint race-note">{fightingSummary(fighting)}</p>
+      </div>
     </div>
     <fieldset><legend>六項屬性 · 已分配 {total}／18</legend>
       <p className="hint">每項 2～4 點，合計 18 點。</p>
@@ -104,7 +111,7 @@ export function Lobby({ view, send, start, review, busy }: {
         await send({ kind: 'character', character })
         setConfirm(false)
       }}/>
-      : <section className="panel"><h2>{me.character?.name}</h2><p>{me.character?.race} · {me.character?.major}</p>
+      : <section className="panel"><h2>{me.character?.name}</h2><p>{me.character?.race} · {me.character && fightingStyles[me.character.fighting].label} · {me.character?.major}</p>
         <button className="light" onClick={() => setEditing(true)}>編輯角色卡</button></section>}
   </div>
 }

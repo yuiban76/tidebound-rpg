@@ -59,7 +59,6 @@ async function create(page: Page, failFirst = false) {
 
 async function fillCharacter(page: Page, name: string) {
   await page.getByLabel('角色姓名').fill(name)
-  await page.getByLabel('背景（選填）').fill('曾在港口工作，想寫一份航海誌')
   await page.getByRole('button', { name: '儲存角色' }).click()
   await expect(page.getByText('角色已存檔。', { exact: false })).toBeVisible()
   await page.getByLabel('我確認這段共同背景').check()

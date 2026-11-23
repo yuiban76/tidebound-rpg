@@ -62,12 +62,10 @@ export const bandageHeal = (healer: Character, patientLevel: number) => (4 + (he
 export const maxSTA = (c: Character) => 10 + 3 * stat(c, 'CON') + 2 * stat(c, 'WIL') + Math.floor((c.level - 1) / 2)
 export const defense = (agi: number, dodge = 0, situational = 0) => 12 + agi + dodge + situational
 export const voteThreshold = (count: number, major: boolean) => major ? count : Math.floor(count / 2) + 1
-export const needsReview = (c: CharacterInput) => c.race === '巨人' ||
-  /三色霸氣|霸王色|惡魔果實|無上大快刀|控制.{0,6}玩家|世界最強/.test((c.background ?? ''))
+export const needsReview = (c: CharacterInput) => c.race === '巨人'
 
 export function makeCharacter(input: CharacterInput): Character {
-  const weapons: Record<string, Character['weapon']> = { 劍術: 'sword', 長兵器: 'spear', 射擊: 'musket' }
-  const weapon = weapons[input.major] ?? 'fist'
+  const weapon = input.fighting
   const kit = input.major === '醫術' ? { 繃帶: 2, 醫療工具: 1 } : {}
   const equipment = { fist: '基礎工具組', sword: '普通武士刀', spear: '普通長槍', musket: '普通火槍' }[weapon]
   const c: Character = {

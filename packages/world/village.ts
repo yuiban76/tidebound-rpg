@@ -91,6 +91,18 @@ export type Good = keyof typeof goods
 /** Inventory item that lets a character wield each weapon. Bare hands need nothing. */
 export const weaponItems: Record<Exclude<Weapon, 'fist'>, string> = { sword: '普通武士刀', spear: '普通長槍', musket: '普通火槍' }
 export const weaponNames: Record<Weapon, string> = { fist: '徒手', ...weaponItems }
+/** The attack method picked at creation: the starting weapon, and a bonus whenever the character fights that way.
+ * Bare hands roll a smaller die (d4), so their mastery adds more damage. */
+export const fightingStyles: Record<Weapon, { label: string, hit: number, damage: number, kit: string }> = {
+  fist: { label: '拳腳', hit: 1, damage: 2, kit: '空手或用腳打，不必帶武器' },
+  sword: { label: '刀劍', hit: 1, damage: 1, kit: '開局帶一把普通武士刀' },
+  spear: { label: '長兵器', hit: 1, damage: 1, kit: '開局帶一把普通長槍' },
+  musket: { label: '火槍', hit: 1, damage: 1, kit: '開局帶一把普通火槍和 5 發彈藥' },
+}
+/** The mastery bonus applies only while the character fights with their own attack method. */
+export const masteryOf = (c: Pick<Character, 'weapon' | 'fighting'>) => c.weapon === c.fighting ? fightingStyles[c.fighting] : undefined
+export const fightingSummary = (style: Weapon) =>
+  fightingStyles[style].kit + '；用這種方式戰鬥時命中 +' + fightingStyles[style].hit + '、傷害 +' + fightingStyles[style].damage
 
 export type Character = CharacterInput & {
   place: LocationId
@@ -284,6 +296,11 @@ export function normalizeWorld(world: World): World {
     c.xpLog ??= {}
     c.bounty ??= 0
     c.techniques ??= []
+    // Age and background were dropped from the character card; the attack method used to follow the main skill.
+    const card = c as Character & { age?: number, background?: string }
+    delete card.age
+    delete card.background
+    c.fighting ??= ({ 劍術: 'sword', 長兵器: 'spear', 射擊: 'musket' } as Record<string, Weapon>)[c.major] ?? 'fist'
     // 「其他」 is no longer a race: custom races become humans.
     const old = c as Character & { otherRace?: string }
     if (!(c.race in raceTraits)) c.race = '人類'

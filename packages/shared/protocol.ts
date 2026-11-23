@@ -36,9 +36,10 @@ const stats = z.strictObject({
 })
 
 export const characterInput = z.strictObject({
-  name: text(24), age: z.number().int().min(1).max(400),
+  name: text(24),
   race: z.enum(races),
-  background: z.string().trim().max(600).optional(),
+  /** 攻擊方式: the starting weapon, and a bonus whenever the character fights that way. */
+  fighting: z.enum(weapons),
   stats, major: z.enum(skills), basics: z.tuple([z.enum(skills), z.enum(skills)]),
   life: z.enum(['航海', '醫術', '工藝', '採集', '烹飪']),
 }).superRefine((value, ctx) => {
