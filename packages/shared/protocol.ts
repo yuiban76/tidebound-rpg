@@ -7,6 +7,7 @@ export const races = ['人類', '魚人', '人魚', '毛皮族', '空島居民',
 export type Race = (typeof races)[number]
 export type Attribute = (typeof attributes)[number]
 export const skills = ['格鬥', '劍術', '長兵器', '射擊', '閃避', '觀察', '說服', '醫術', '航海', '工藝', '採集', '烹飪'] as const
+export type Skill = (typeof skills)[number]
 export const locations = {
   square: '風車村廣場', tavern: '派對酒吧', dock: '風車村港口', road: '村外小路', hill: '科爾波山山道',
   goa: '哥亞王國城下町',
@@ -98,6 +99,7 @@ export const intentSchema = z.discriminatedUnion('kind', [
   // Reforge the held weapon at a forge; use eats or drinks a carried restorative (傷藥).
   z.strictObject({ kind: z.literal('upgrade') }),
   z.strictObject({ kind: z.literal('use'), item: z.string().trim().min(1).max(24) }),
+  z.strictObject({ kind: z.literal('gather') }),
   z.strictObject({ kind: z.literal('wait'), hours: z.number().int().min(1).max(240) }),
   z.strictObject({
     kind: z.literal('give'), to: z.string().trim().min(1).max(24),
@@ -132,6 +134,7 @@ export const messageSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('propose'), type: z.enum(proposals), title: text(60) }),
   z.strictObject({ kind: z.literal('vote'), id: identifier, yes: z.boolean() }),
   z.strictObject({ kind: z.literal('allocate'), attr: z.enum(attributes) }),
+  z.strictObject({ kind: z.literal('train'), skill: z.enum(skills) }),
   z.strictObject({ kind: z.literal('technique'), name: text(12), style: z.enum(['special', 'advanced', 'flurry']) }),
 ])
 export type Message = z.infer<typeof messageSchema>

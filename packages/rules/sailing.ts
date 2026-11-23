@@ -6,6 +6,7 @@ import { party } from '../world/village.ts'
 import { companionIds } from '../world/companions.ts'
 import type { Member, PendingVoyage, World } from '../world/village.ts'
 import { raceSeats, stat } from '../world/races.ts'
+import { navigatorRank } from '../world/skills.ts'
 import { rollSeaEncounter, tierNames } from '../world/foes.ts'
 import { startSeaFight } from './combat.ts'
 import { minuteOf } from '../world/canon.ts'
@@ -83,8 +84,9 @@ export function resolveSailing(world: World, actor: Member, intent: SeaIntent, r
     if (!ship.wood) return stop('需要一份木料。靠港後可輸入「買木料」。')
     ship.wood--
     const before = ship.hull
-    ship.hull = Math.min(100, ship.hull + boatYard.repairGain)
-    return { text: '用一份木料把船體從 ' + before + ' 修到 ' + ship.hull + '／100。', minutes: 25, announce: true }
+    const craft = c.skillRanks['工藝'] ?? 0
+    ship.hull = Math.min(100, ship.hull + boatYard.repairGain + craft * 5)
+    return { text: '用一份木料把船體從 ' + before + ' 修到 ' + ship.hull + '／100' + (craft ? '（工藝 ' + craft + '，多修了 ' + craft * 5 + '）' : '') + '。', minutes: 25, announce: true }
   }
 
   const plan = world.sailing
@@ -132,7 +134,8 @@ export function resolveSailing(world: World, actor: Member, intent: SeaIntent, r
   const score = natural + navigator
   const base = Math.ceil(route.miles * 60 / boatYard.speed)
   const fast = option.pace === 'fast'
-  const minutes = Math.max(20, (fast ? Math.ceil(base * .82) : base + 16) + (score < 9 ? 24 : score >= 18 ? -12 : 0))
+  // Each rank of the best navigator's 航海 trims the voyage by 3%.
+  const minutes = Math.max(20, Math.round(((fast ? Math.ceil(base * .82) : base + 16) + (score < 9 ? 24 : score >= 18 ? -12 : 0)) * (1 - .03 * navigatorRank(world))))
   const damage = (fast ? (score < 9 ? 22 : score < 15 ? 8 : 2) : (score < 9 ? 4 : 0)) + (route.hazard?.damage ?? 0)
   const weather = score < 9 ? '遇見逆風與碎浪' : score >= 18 ? '順著有利的海流' : '越過平穩海面'
   const voyage: PendingVoyage = {

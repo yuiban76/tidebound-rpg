@@ -1,5 +1,5 @@
 import { attributeLabels, locations, npcs } from '../shared/protocol.ts'
-import type { CharacterInput, Intent, NpcId } from '../shared/protocol.ts'
+import type { CharacterInput, Intent, NpcId, Skill } from '../shared/protocol.ts'
 import { asksAboutBoatCrew, asksAboutShipPurchase, dialogueQuestion, directions, routeBetween } from '../world/explore.ts'
 import { forges, maxTier, tierCost, tierDamage, tierHit, tierLevel, tierOf, weaponLabel } from '../world/forge.ts'
 import { scale } from '../world/scale.ts'
@@ -14,6 +14,7 @@ import { companionByName, companionMaxHp, hasMedic, healCompanions, partyLevel, 
 import { isDown, resolveCombatAction } from './combat.ts'
 import type { Character, CombatChoice, Member, World } from '../world/village.ts'
 import { applyRace, stat, traitOf } from '../world/races.ts'
+import { cookAt, crafted, doctorAt, dressingOf, skillCap, wildPlaces } from '../world/skills.ts'
 
 export type Attribute = keyof Character['stats']
 
@@ -61,6 +62,8 @@ export const levelDefense = (level: number) => Math.floor((level - 1) / 3)
 export const bandageHeal = (healer: Character, patientLevel: number) => (4 + (healer.skillRanks['醫術'] ?? 0) + Math.floor((patientLevel - 1) / 2)) * scale
 export const maxSTA = (c: Character) => 10 + 3 * stat(c, 'CON') + 2 * stat(c, 'WIL') + Math.floor((c.level - 1) / 2)
 export const defense = (agi: number, dodge = 0, situational = 0) => 12 + agi + dodge + situational
+/** A recruited ship's doctor, or a party member on the spot with 醫術 2 or more. */
+const medicHere = (world: World, place: Character['place']) => hasMedic(world) || doctorAt(world, place)
 export const voteThreshold = (count: number, major: boolean) => major ? count : Math.floor(count / 2) + 1
 export const needsReview = (c: CharacterInput) => c.race === '巨人'
 
@@ -69,7 +72,7 @@ export function makeCharacter(input: CharacterInput): Character {
   const kit = input.major === '醫術' ? { 繃帶: 2, 醫療工具: 1 } : {}
   const equipment = { fist: '基礎工具組', sword: '普通武士刀', spear: '普通長槍', musket: '普通火槍' }[weapon]
   const c: Character = {
-    ...input, place: 'square', conversingWith: null, money: 2000, level: 1, xp: 0, unspent: 0, xpLog: {}, bounty: 0, techniques: [], hp: 0, sta: 0, weapon,
+    ...input, place: 'square', conversingWith: null, money: 2000, level: 1, xp: 0, unspent: 0, skillPoints: 0, xpLog: {}, bounty: 0, techniques: [], hp: 0, sta: 0, weapon,
     raceReady: false,
     loaded: weapon === 'musket', inventory: { 普通衣物: 1, [equipment]: 1 },
     skillRanks: { [input.major]: 2, [input.basics[0]]: 1, [input.basics[1]]: 1, [input.life]: 1 },
@@ -108,6 +111,8 @@ export function grantXp(c: Character, amount: number, key?: string) {
     if (c.hp > 0) c.hp += maxHP(c) - hp
     c.sta += maxSTA(c) - sta
     text += c.name + '升到等級 ' + c.level + '（HP 上限 ' + maxHP(c) + '、STA 上限 ' + maxSTA(c) + '）。'
+    c.skillPoints++
+    text += '獲得 1 個技能點。'
     if (c.level % 4 === 0) {
       c.unspent++
       text += '獲得 1 點自由屬性點。'
@@ -116,6 +121,17 @@ export function grantXp(c: Character, amount: number, key?: string) {
     if (arts.length) text += c.name + '的果實力量覺醒，學會招式「' + arts.join('」「') + '」。'
   }
   return text
+}
+
+/** Spends one skill point on a skill, up to the cap for the character's level. */
+export function trainSkill(c: Character, skill: Skill): Result {
+  if (!c.skillPoints) return reject('目前沒有技能點，升級時會得到。')
+  const rank = c.skillRanks[skill] ?? 0
+  const cap = skillCap(c.level)
+  if (rank >= cap) return reject(skill + '已達目前上限 ' + cap + '，等級越高上限越高。')
+  c.skillRanks[skill] = rank + 1
+  c.skillPoints--
+  return { text: c.name + '的' + skill + '提升為 ' + (rank + 1) + '。' }
 }
 
 /** Spends one free attribute point. Raised CON/WIL maxima also raise current HP/STA by the same amount. */
@@ -272,11 +288,12 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
       const name = weaponLabel(c, weaponNames[c.weapon])
       if (next > maxTier) return reject(name + '已經強化到這些鐵匠做得出的極限。')
       if (c.level < tierLevel[next]) return reject('強化到' + next + '階需要等級 ' + tierLevel[next] + '，你目前是 ' + c.level + '。')
-      if (c.money < tierCost[next]) return reject('強化到' + next + '階需要 ' + tierCost[next] + ' 貝里。')
-      c.money -= tierCost[next]
+      const cost = crafted(tierCost[next], c)
+      if (c.money < cost) return reject('強化到' + next + '階需要 ' + cost + ' 貝里。')
+      c.money -= cost
       ;(c.gear ??= {})[c.weapon] = next
-      return { text: '鐵匠花了兩個小時重新鍛打，支出 ' + tierCost[next] + ' 貝里。你的武器變成「' + weaponLabel(c, weaponNames[c.weapon]) + '」，命中 +' + tierHit(next) + '、傷害 +' + tierDamage(next) * scale + '。' +
-        (next < maxTier ? '下一階需要等級 ' + tierLevel[next + 1] + '、' + tierCost[next + 1] + ' 貝里。' : ''), minutes: 120 }
+      return { text: '鐵匠花了兩個小時重新鍛打，支出 ' + cost + ' 貝里' + (cost < tierCost[next] ? '（你懂工藝，幫忙省了 ' + (tierCost[next] - cost) + ' 貝里）' : '') + '。你的武器變成「' + weaponLabel(c, weaponNames[c.weapon]) + '」，命中 +' + tierHit(next) + '、傷害 +' + tierDamage(next) * scale + '。' +
+        (next < maxTier ? '下一階需要等級 ' + tierLevel[next + 1] + '、' + crafted(tierCost[next + 1], c) + ' 貝里。' : ''), minutes: 120 }
     }
     case 'use': {
       if (intent.item !== '傷藥') return reject('目前只能這樣使用傷藥；繃帶請用「使用繃帶給某人」。')
@@ -340,7 +357,7 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
         const x = member.character!
         if (!nights) continue
         x.sta = maxSTA(x)
-        if (x.hp > 0) x.hp = Math.min(maxHP(x), x.hp + nights * Math.ceil(maxHP(x) / 4) + (hasMedic(world) ? nights * Math.ceil(maxHP(x) / 8) : 0))
+        if (x.hp > 0) x.hp = Math.min(maxHP(x), x.hp + nights * Math.ceil(maxHP(x) / 4) + (medicHere(world, c.place) ? nights * Math.ceil(maxHP(x) / 8) : 0))
       }
       if (nights) healCompanions(world, 1)
       return {
@@ -361,14 +378,22 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
         const part = (amount: number) => Math.ceil(amount * spent / need)
         if (intent.sleep) {
           c.sta += part(maxSTA(c) - c.sta)
-          c.hp = Math.min(maxHP(c), c.hp + part(Math.ceil(maxHP(c) / 4) + (hasMedic(world) ? Math.ceil(maxHP(c) / 8) : 0)))
+          c.hp = Math.min(maxHP(c), c.hp + part(Math.ceil(maxHP(c) / 4) + (medicHere(world, c.place) ? Math.ceil(maxHP(c) / 8) : 0)))
           healCompanions(world, .5 * spent / need)
         } else {
           c.sta = Math.min(maxSTA(c), c.sta + Math.ceil(maxSTA(c) / 4))
           if (c.hp > 0) c.hp = Math.min(maxHP(c), c.hp + Math.ceil(maxHP(c) / 10))
         }
+        // Whoever can cook feeds everyone resting here: extra STA and a little HP for each rank of 烹飪.
+        const cook = cookAt(world, c.place)
+        const cooking = cook ? cook.skillRanks['烹飪'] ?? 0 : 0
+        if (cooking) {
+          c.sta = Math.min(maxSTA(c), c.sta + cooking * 2)
+          if (c.hp > 0) c.hp = Math.min(maxHP(c), c.hp + cooking * scale)
+        }
         return {
           text: (alert ? '睡到一半被周圍的動靜吵醒了（' + Math.max(1, Math.round(spent / 6) / 10) + ' 小時）。' : intent.sleep ? '睡了一覺（8 小時）。' : '稍作休息（30 分鐘）。') +
+            (cook ? (cook === c ? '你' : cook.name) + '做了一頓飯，多回復了 ' + cooking * 2 + ' STA。' : '') +
             'HP ' + c.hp + '／' + maxHP(c) + '，STA ' + c.sta + '／' + maxSTA(c) + '。', minutes: spent,
         }
       }
@@ -376,19 +401,39 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
       const companion = companionByName(world, intent.patient)
       if (companion && !party(world).some(m => m.character!.name === intent.patient)) {
         const sheet = world.companions![companion]!
-        if (!c.inventory['繃帶'] || npcPlace(world, companion) !== c.place || sheet.hp >= companionMaxHp(world, companion))
-          return reject('治療需要繃帶，以及同地且有傷的角色。')
-        c.inventory['繃帶']--
+        const dressing = dressingOf(c)
+        if (!dressing || npcPlace(world, companion) !== c.place || sheet.hp >= companionMaxHp(world, companion))
+          return reject('治療需要繃帶或草藥，以及同地且有傷的角色。')
+        if (!--c.inventory[dressing]) delete c.inventory[dressing]
         sheet.hp = Math.min(companionMaxHp(world, companion), sheet.hp + bandageHeal(c, partyLevel(world)))
         if (world.npcDown?.[companion]) delete world.npcDown[companion]
         return withXp({ text: npcs[companion] + '接受包紮，目前 HP ' + sheet.hp + '。', minutes: 5 }, grantXp(c, 5, 'aid'))
       }
       const target = party(world).find(m => m.character!.name === intent.patient)?.character
-      if (!target || target.place !== c.place || !c.inventory['繃帶'] || target.hp === maxHP(target))
-        return reject('治療需要繃帶，以及同地且有傷的角色。')
-      c.inventory['繃帶']--
+      const dressing = dressingOf(c)
+      if (!target || target.place !== c.place || !dressing || target.hp === maxHP(target))
+        return reject('治療需要繃帶或草藥，以及同地且有傷的角色。')
+      if (!--c.inventory[dressing]) delete c.inventory[dressing]
       target.hp = Math.min(maxHP(target), target.hp + bandageHeal(c, target.level))
       return withXp({ text: target.name + '接受包紮，目前 HP ' + target.hp + '。', minutes: 5 }, grantXp(c, 5, 'aid'))
+    }
+    case 'gather': {
+      if (!wildPlaces.includes(c.place)) return reject('這裡沒有東西可採集。山道、森林、叢林和海岸可以採草藥與木料。')
+      const day = Math.floor(world.minute / 1440)
+      if (world.gathered?.[c.place] === day) return reject('今天已經有人在' + locations[c.place] + '採集過了，明天再來。')
+      ;(world.gathered ??= {})[c.place] = day
+      const rank = c.skillRanks['採集'] ?? 0
+      const natural = roll(20)
+      const total = natural + stat(c, 'PER') + rank
+      const line = '採集 D20 ' + natural + '，合計 ' + total + '／12，'
+      if (natural === 1 || total < 12) return { text: line + '沒找到能用的東西。', minutes: 30 }
+      const twice = natural === 20 ? 2 : 1
+      const herbs = (1 + Math.floor(rank / 2)) * twice
+      c.inventory['草藥'] = (c.inventory['草藥'] ?? 0) + herbs
+      const wood = world.ship ? twice : 0
+      if (world.ship) world.ship.wood += wood
+      return withXp({ text: line + '採到草藥 × ' + herbs + (wood ? '，也撿到能修船的木料 × ' + wood : '') + '。草藥可以像繃帶一樣包紮。', minutes: 30 },
+        grantXp(c, 5, 'gather:' + c.place))
     }
     case 'social': return { ...freeAction(), minutes: 3 }
     case 'free': return checkedFreeAction(world, c, intent, raw, roll)

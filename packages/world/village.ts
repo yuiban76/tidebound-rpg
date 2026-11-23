@@ -117,6 +117,8 @@ export type Character = CharacterInput & {
   xp: number
   /** Free attribute points earned at levels 4, 8, 12… */
   unspent: number
+  /** Skill points, one per level gained, spent on any skill up to world/skills.ts skillCap. */
+  skillPoints: number
   /** Times each repeatable activity has paid XP, for diminishing returns. */
   xpLog: Record<string, number>
   skillRanks: Record<string, number>
@@ -232,6 +234,8 @@ export type World = {
   calmSeas?: boolean
   /** NPCs who joined the party (see world/companions.ts). Their place follows their leader. */
   companions?: Partial<Record<NpcId, Companion>>
+  /** Day (0-based) each wild spot was last gathered; one gathering per spot per day. */
+  gathered?: Partial<Record<LocationId, number>>
   /** Minute before which an NPC who refused an invitation will not listen to another one. */
   recruitRetry?: Partial<Record<NpcId, number>>
 }
@@ -293,6 +297,8 @@ export function normalizeWorld(world: World): World {
     const c = member.character
     if (!c) continue
     c.unspent ??= 0
+    // Skills grew with levels only after this was added: older characters get the points they would have earned.
+    c.skillPoints ??= c.level - 1
     c.xpLog ??= {}
     c.bounty ??= 0
     c.techniques ??= []

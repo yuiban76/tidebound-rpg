@@ -3,6 +3,7 @@ import type { Intent, IslandId, LocationId, NpcId, Weapon } from '../shared/prot
 import { goods, landmarks, meals, paths, people, shops } from './village.ts'
 import type { Good } from './village.ts'
 import { islandAt, islands, islandStories } from './sea.ts'
+import { wildPlaces } from './skills.ts'
 
 const locationNames: Record<string, LocationId> = {
   ...Object.fromEntries(Object.entries(locations).map(([id, name]) => [name, id as LocationId])),
@@ -100,6 +101,7 @@ export function directions(place: LocationId, { hillClosed = false, inCombat = f
     ...(place === 'tavern' ? ['酒吧有烤麵包 ' + meals.bread.price + ' 貝里、燉肉飯 ' + meals.rice.price + ' 貝里。'] : []),
     ...(wares.length ? [shops[place] + '販售' + wares.map(id => goods[id].label + ' ' + goods[id].price + ' 貝里').join('、') + '。'] : []),
     ...(hillClosed && place === 'road' ? ['山道目前有正在結算的遭遇。'] : []),
+    ...(wildPlaces.includes(place) ? ['這裡可以「採集」草藥和木料（每天一次）。'] : []),
   ].join('\n')
   const suggestions = [
     ...nearby.map(id => '前往' + locations[id]),
@@ -107,6 +109,7 @@ export function directions(place: LocationId, { hillClosed = false, inCombat = f
     ...(place === 'tavern' ? ['點烤麵包'] : place === 'hill' ? ['查看山道上的痕跡'] : []),
     ...(place === 'goa' ? ['買普通武士刀', '買普通火槍', '強化武器'] : []),
     ...(place === 'square' ? ['買傷藥', '強化武器'] : []),
+    ...(wildPlaces.includes(place) ? ['採集'] : []),
   ]
   return { text, suggestions }
 }
@@ -221,8 +224,9 @@ export function familiarIntent(input: string, here?: LocationId): Intent | undef
   if (/^(?:攻擊|出手)$/.test(text)) return { kind: 'attack' }
   if (/^(?:逃跑|逃走|撤離)$/.test(text)) return { kind: 'flee' }
   if (/^(?:裝填|裝彈|裝填火槍)$/.test(text)) return { kind: 'reload' }
-  const bandage = /^(?:使用|用)繃帶(?:給|替|幫)?\s*(.*)$/.exec(text)
-  if (bandage) return { kind: 'useItem', item: '繃帶', ...(bandage[1].trim() && { target: bandage[1].trim() }) }
+  const bandage = /^(?:使用|用)(繃帶|草藥)(?:給|替|幫)?\s*(.*)$/.exec(text)
+  if (bandage) return { kind: 'useItem', item: bandage[1], ...(bandage[2].trim() && { target: bandage[2].trim() }) }
+  if (/^(?:採集|採草藥|採藥|撿木料|找草藥|蒐集木料|收集木料)$/.test(text)) return { kind: 'gather' }
   if (/^(?:吸收|吃下|吃掉|吞下)(?:那顆|這顆|該顆)?(?:惡魔)?果實$/.test(text)) return { kind: 'fruit', take: true }
   if (/^(?:放走|放棄|不吸收|不吃|丟掉|放生)(?:那顆|這顆|該顆)?(?:惡魔)?果實$/.test(text)) return { kind: 'fruit', take: false }
   const absorb = /^(?:吸收|吃下|吃掉|吞下)(.{1,12}果實.*)$/.exec(text)

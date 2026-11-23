@@ -2,7 +2,7 @@ import { randomBytes, randomUUID } from 'node:crypto'
 import { AiFault, AiProvider, IntentFormatFault } from '../../packages/ai/provider.ts'
 import { aiInput, locations, npcs } from '../../packages/shared/protocol.ts'
 import type { Intent, Message, NpcId } from '../../packages/shared/protocol.ts'
-import { allocatePoint, guideFor, makeCharacter, needsReview, resolve, voteThreshold } from '../../packages/rules/engine.ts'
+import { allocatePoint, guideFor, makeCharacter, needsReview, resolve, trainSkill, voteThreshold } from '../../packages/rules/engine.ts'
 import { asksAboutShipPurchase, dialogueQuestion, familiarIntent, sceneQuestion } from '../../packages/world/explore.ts'
 import { npcFacts, npcPlace, npcsAt, opening, party, paths, people, selfMade } from '../../packages/world/village.ts'
 import { advanceTimeline } from '../../packages/world/timeline.ts'
@@ -250,9 +250,9 @@ export class Game {
     }
     demand(world.started && actor.character, '遊戲尚未開始。')
     demand(!actor.pendingJoin, '請先完成創角並準備，與隊伍會合後才能行動。')
-    if (msg.kind === 'allocate') {
-      demand(!world.combat?.participants.includes(id), '戰鬥中無法分配屬性點。')
-      const result = allocatePoint(actor.character, msg.attr)
+    if (msg.kind === 'allocate' || msg.kind === 'train') {
+      demand(!world.combat?.participants.includes(id), msg.kind === 'train' ? '戰鬥中無法分配技能點。' : '戰鬥中無法分配屬性點。')
+      const result = msg.kind === 'train' ? trainSkill(actor.character, msg.skill) : allocatePoint(actor.character, msg.attr)
       demand(!result.rejected, result.text)
       this.store.transaction(() => {
         world.version++

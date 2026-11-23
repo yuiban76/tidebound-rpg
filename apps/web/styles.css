@@ -228,6 +228,11 @@ legend { padding: 0 .3rem; font-weight: 700; }
 .stat-list div { display: flex; justify-content: space-between; border-bottom: 1px solid var(--line); }
 .stat-list dd { margin: 0; font-weight: 700; white-space: nowrap; }
 .race-bonus { color: var(--muted); font-size: .75em; font-weight: 600; }
+.skill-list { list-style: none; margin: .4rem 0 0; padding: 0; display: grid; gap: .2rem; }
+.skill-list li { display: flex; flex-wrap: wrap; gap: .1rem .5rem; font-size: .86rem; }
+.skill-list strong { min-width: 4.5rem; }
+.skill-list span { color: var(--muted); }
+.skill-guide { margin-top: .6rem; }
 
 @media (max-width: 900px) {
   .game-grid { grid-template-columns: 1fr; }

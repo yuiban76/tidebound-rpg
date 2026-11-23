@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
-import { attributes, attributeLabels, locations, npcs } from '../../packages/shared/protocol.ts'
+import { attributes, attributeLabels, locations, npcs, skills } from '../../packages/shared/protocol.ts'
 import type { Message } from '../../packages/shared/protocol.ts'
 import { guideFor, maxHP, maxSTA, voteThreshold, xpToNext } from '../../packages/rules/engine.ts'
 import { sceneQuestion } from '../../packages/world/explore.ts'
 import { boatYard, islandAt, islands } from '../../packages/world/sea.ts'
 import { raceSummary, stat } from '../../packages/world/races.ts'
+import { skillCap, skillUses } from '../../packages/world/skills.ts'
 import { forges, weaponLabel } from '../../packages/world/forge.ts'
 import { canonTimeline } from '../../packages/world/canon.ts'
 import { fightingStyles, fightingSummary, goods, masteryOf, npcsAt, party, people, shops, weaponItems, weaponNames } from '../../packages/world/village.ts'
@@ -121,7 +122,7 @@ export function Story({ view, send, history, connected, gap, review }: {
   const liveScenes = canonTimeline.filter(event => world.phases?.[event.id + ':scene'] !== undefined && !world.timeline?.[event.id]).length
   const fruitWaiting = (world.fruitOffers ?? []).some(offer => offer.to === player)
   const sideBadge: Record<Side, number | boolean> = {
-    map: false, me: character.unspent, bag: fruitWaiting,
+    map: false, me: character.unspent + (character.skillPoints ?? 0), bag: fruitWaiting,
     crew: openVotes + (review ? joining.filter(m => m.character && !m.approved).length : 0), news: liveScenes,
   }
 
@@ -184,11 +185,20 @@ export function Story({ view, send, history, connected, gap, review }: {
           <button key={k} type="button" className="light" disabled={paused || !!combat} onClick={() => post({ kind: 'allocate', attr: k })}>
             {attributeLabels[k]} {character.stats[k]} ＋1</button>)}</div>
       </section>}
+      {character.skillPoints > 0 && <section className="subsection callout" aria-label="技能點">
+        <h3>可分配技能點 {character.skillPoints}</h3>
+        <p className="hint">每項技能上限 {skillCap(character.level)}，等級越高上限越高。</p>
+        <div className="button-row">{skills.map(skill =>
+          <button key={skill} type="button" className="light"
+            disabled={paused || !!combat || (character.skillRanks[skill] ?? 0) >= skillCap(character.level)}
+            onClick={() => post({ kind: 'train', skill })}>{skill} {character.skillRanks[skill] ?? 0} ＋1</button>)}</div>
+      </section>}
       <section className="subsection"><h3>屬性與技能</h3>
         <dl className="stat-list">{attributes.map(k => <div key={k}><dt>{attributeLabels[k]}</dt>
           <dd>{stat(character, k)}{stat(character, k) > character.stats[k] &&
             <small className="race-bonus" title="種族加成"> +{stat(character, k) - character.stats[k]}</small>}</dd></div>)}</dl>
-        <p className="hint">{Object.entries(character.skillRanks).map(([skill, value]) => skill + ' ' + value).join(' · ')}</p>
+        <ul className="skill-list">{skills.filter(skill => character.skillRanks[skill]).map(skill =>
+          <li key={skill}><strong>{skill} {character.skillRanks[skill]}</strong><span>{skillUses[skill]}</span></li>)}</ul>
       </section>
       <section className="subsection"><Techniques character={character} post={post} disabled={paused}/></section>
       <FruitPanel world={world} player={player} suggest={suggest}/>

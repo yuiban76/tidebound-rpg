@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { attributeLabels, attributes, characterInput, races, skills, weapons } from '../../packages/shared/protocol.ts'
 import type { CharacterInput, Message, Race, Weapon } from '../../packages/shared/protocol.ts'
 import { fightingStyles, fightingSummary } from '../../packages/world/village.ts'
+import { skillUses } from '../../packages/world/skills.ts'
 import { raceSummary } from '../../packages/world/races.ts'
 import type { View } from './network.ts'
 
@@ -72,6 +73,10 @@ function CharacterForm({ initial, submit }: { initial?: CharacterInput, submit: 
         ] as const).map(([name, label, value, options]) =>
           <Field key={name} label={label}><select name={name} defaultValue={value}>{options.map(skill => <option key={skill}>{skill}</option>)}</select></Field>)}
       </div>
+      <details className="skill-guide"><summary>每個技能的用途</summary>
+        <ul className="skill-list">{skills.map(skill => <li key={skill}><strong>{skill}</strong><span>{skillUses[skill]}</span></li>)}</ul>
+        <p className="hint">升級時每級得到 1 個技能點，可以再提升任何技能。</p>
+      </details>
     </fieldset>
     {error && <p className="notice" role="status">{error}</p>}
     <button type="submit" disabled={busy || total !== 18}>{busy ? '存檔中' : '儲存角色'}</button>

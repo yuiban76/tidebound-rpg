@@ -7,6 +7,7 @@ import { crewmates } from '../world/crews.ts'
 import type { Foe } from '../world/foes.ts'
 import { boatYard, islandAt } from '../world/sea.ts'
 import { raceDefense, raceHit, stat, traitOf } from '../world/races.ts'
+import { dressingOf } from '../world/skills.ts'
 import { masteryOf, npcFacts, npcPlace, npcsAt, party, paths } from '../world/village.ts'
 import type { Character, Combat, CombatChoice, Member, World } from '../world/village.ts'
 import { bossDefeats } from '../world/canon.ts'
@@ -74,20 +75,20 @@ function useBandage(world: World, actor: Member, target?: string) {
   if (mate && !party(world).some(m => m.character!.name === target)) {
     const sheet = world.companions![mate]!
     if (npcPlace(world, mate) !== c.place) return '找不到在你身邊、名叫「' + target + '」的隊友。'
-    if (!c.inventory['繃帶']) return '你的背包裡沒有繃帶。'
+    const dressing = dressingOf(c)
+    if (!dressing) return '你的背包裡沒有繃帶或草藥。'
     if (sheet.hp >= companionMaxHp(world, mate)) return npcs[mate] + '沒有受傷。'
-    c.inventory['繃帶']--
-    if (!c.inventory['繃帶']) delete c.inventory['繃帶']
+    if (!--c.inventory[dressing]) delete c.inventory[dressing]
     sheet.hp = Math.min(companionMaxHp(world, mate), sheet.hp + bandageHeal(c, partyLevel(world)))
     if (world.npcDown?.[mate]) delete world.npcDown[mate]
     return { text: c.name + '替' + npcs[mate] + '包紮，目前 HP ' + sheet.hp + '。' }
   }
   const patient = target ? party(world).find(m => m.character!.name === target)?.character : c
   if (!patient || patient.place !== c.place) return '找不到在你身邊、名叫「' + target + '」的隊友。'
-  if (!c.inventory['繃帶']) return '你的背包裡沒有繃帶。'
+  const dressing = dressingOf(c)
+  if (!dressing) return '你的背包裡沒有繃帶或草藥。'
   if (patient.hp === maxHP(patient)) return patient.name + '沒有受傷。'
-  c.inventory['繃帶']--
-  if (!c.inventory['繃帶']) delete c.inventory['繃帶']
+  if (!--c.inventory[dressing]) delete c.inventory[dressing]
   patient.hp = Math.min(maxHP(patient), patient.hp + bandageHeal(c, patient.level))
   return { text: (patient === c ? c.name + '替自己包紮' : c.name + '替' + patient.name + '包紮') + '，目前 HP ' + patient.hp + '。' }
 }
@@ -118,7 +119,7 @@ export function resolveCombatAction(world: World, actor: Member, choice: CombatC
   let rally = ''
   if (!combat) {
     if (choice.kind === 'useItem') {
-      if (!/繃帶/.test(choice.item)) return stop('目前只有繃帶能在這裡使用。')
+      if (!/繃帶|草藥/.test(choice.item)) return stop('目前只有繃帶或草藥能在這裡使用。')
       const used = useBandage(world, actor, choice.target)
       return typeof used === 'string' ? stop(used) : { text: used.text, minutes: 5 }
     }
@@ -168,7 +169,7 @@ function validate(combat: Combat, c: Character, choice: CombatChoice) {
     if (tool) {
       if (!c.inventory[tool.label]) return '你的背包裡沒有' + tool.label + '。'
       if (!combat.foes.some(foe => !foe.down && !foe.surrendered && foe.weak?.includes(tool.weakness))) return '這場戰鬥裡沒有' + tool.label + '派得上用場的對手。'
-    } else if (!/繃帶/.test(choice.item) || !c.inventory['繃帶']) return '戰鬥中只能使用背包裡的繃帶、水壺或衝擊貝。'
+    } else if (!/繃帶|草藥/.test(choice.item) || !dressingOf(c)) return '戰鬥中只能使用背包裡的繃帶、草藥、水壺或衝擊貝。'
   }
   if (choice.kind === 'negotiate' && !findFoe(combat, choice.target)) return '找不到可以交涉的對手。'
 }

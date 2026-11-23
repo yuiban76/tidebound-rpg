@@ -30,7 +30,8 @@ test('鐵匠：只有鐵匠鋪能強化，要等級和貝里，最多三階，�
   c.level = 2
   assert.match(act(world, member, { kind: 'upgrade' }).text, /精鋼武士刀/)
   assert.equal(tierOf(c), 1)
-  assert.equal(c.money, 10000 - 400)
+  // The fixture character knows 工藝 1: the smith charges 10% less.
+  assert.equal(c.money, 10000 - 360)
   assert.equal(act(world, member, { kind: 'upgrade' }).rejected, true, '2 階要等級 5')
   c.level = 8
   act(world, member, { kind: 'upgrade' })
