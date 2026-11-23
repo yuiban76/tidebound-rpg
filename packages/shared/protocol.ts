@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { canonIslandIds, canonLocations, canonNpcs, castNpcs } from './atlas.ts'
+import { addedLocations, canonIslandIds, canonLocations, canonNpcs, castNpcs } from './atlas.ts'
 
 export const attributes = ['STR', 'AGI', 'CON', 'PER', 'INT', 'WIL'] as const
 export const attributeLabels = { STR: '力量', AGI: '敏捷', CON: '體魄', PER: '感知', INT: '智識', WIL: '意志' }
@@ -13,6 +13,7 @@ export const locations = {
   shellsPort: '謝爾茲鎮港口', shellsTown: '謝爾茲鎮大街', marineBase: '海軍第153分部',
   orangePort: '橘子鎮港口', orangeStreet: '橘子鎮大街', petShop: '寵物店',
   ...canonLocations,
+  ...addedLocations,
 }
 export const npcs = { keeper: '瑪琪諾', clerk: '提奧', watch: '蘇芮', courier: '岬恩', lamplighter: '蕊卡', sounder: '洛汀', mayor: '村長',
   rika: '莉卡', zoro: '索隆', boodle: '布德鎮長', chouchou: '修修', ...canonNpcs, ...castNpcs }

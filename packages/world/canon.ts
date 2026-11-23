@@ -81,7 +81,7 @@ export const canonIslands: Record<CanonIslandId, { name: string, about: string, 
   baratie: { name: '海上餐廳巴拉蒂', about: '東海：漂在海上的餐廳，廚師個個能打', places: [
     ['baratiePort', '停泊處', '停泊或搭船離開巴拉蒂'], ['baratieHall', '大廳', '找老闆哲夫'], ['baratieKitchen', '廚房', '副料理長香吉士在這裡']] },
   cocoyasi: { name: '可可亞西村', about: '東海：被魚人惡龍統治的村子', places: [
-    ['cocoyasiPort', '港口', '停泊或搭船離開可可亞西村'], ['cocoyasiVillage', '村子', '找駐警阿健或諾琪高'], ['arlongPark', '惡龍樂園', '魚人惡龍的據點']] },
+    ['cocoyasiPort', '港口', '停泊或搭船離開可可亞西村'], ['cocoyasiVillage', '村子', '找駐警阿健，村民都在惡龍的陰影下過日子'], ['arlongPark', '惡龍樂園', '魚人惡龍的據點']] },
   loguetown: { name: '羅格鎮', about: '東海：海賊王羅傑出生與被處決的城鎮，偉大航路前的最後一站', places: [
     ['loguePort', '港口', '停泊或搭船離開羅格鎮'], ['logueSquare', '處刑台', '海賊王被處決的處刑台，海軍斯摩格坐鎮'], ['logueShop', '武器店', '一本松的武器店，賣記錄指針']] },
   twinCape: { name: '雙子岬', about: '偉大航路入口：翻越顛倒山後的第一站', places: [
@@ -121,7 +121,7 @@ export const canonPeople: Record<keyof typeof canonNpcs, { place: LocationId | n
   zeff: { place: 'baratieHall', role: '巴拉蒂的老闆', known: '曾是海賊「紅腳哲夫」，如今經營海上餐廳。他說來者是客，就算是海賊也要讓他吃飽。' },
   sanji: { place: 'baratieKitchen', role: '副料理長', known: '脾氣火爆、對女士格外溫柔的廚師，夢想找到傳說中匯集四海魚群的 ALL BLUE。' },
   genzo: { place: 'cocoyasiVillage', role: '村裡的駐警', known: '惡龍統治可可亞西村八年，每個人每月都得繳「人頭稅」。附近的海軍第16分部對此視而不見。' },
-  nojiko: { place: 'cocoyasiVillage', role: '橘子園的主人', known: '她的妹妹娜美在惡龍手下當測量士，村民都不懂娜美為什麼要幫魚人做事。' },
+  nojiko: { place: 'bellemereGrove', role: '橘子園的主人', known: '她的妹妹娜美在惡龍手下當測量士，村民都不懂娜美為什麼要幫魚人做事。' },
   arlong: { place: 'arlongPark', role: '惡龍海賊團船長', known: '自稱魚人是至高無上的種族，統治著這一帶的村子。' },
   smoker: { place: 'logueSquare', role: '海軍上校', known: '羅格鎮的海軍上校。他說海賊王羅傑就是在這座處刑台被處死，大海賊時代也由此開始。' },
   ipponmatsu: { place: 'logueShop', role: '武器店老闆', known: '他說要進偉大航路，一定得先買記錄指針——那裡的磁場會讓普通羅盤失靈。' },

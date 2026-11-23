@@ -29,6 +29,31 @@ export const canonLocations = {
   marinefordBay: '馬林福特海灣', scaffold: '馬林福特處刑台', hqFortress: '海軍本部要塞',
 } as const
 
+/** Canon landmarks added beyond each island's first three places (layouts in packages/world/sites.ts). */
+export const addedLocations = {
+  shellsDiner: '謝爾茲鎮的餐館', shellsWall: '基地圍牆外',
+  buggyBar: '巴其佔據的酒館', orangeShelter: '鎮外避難所',
+  syrupSlope: '北海岸斜坡', syrupHill: '村外的小山丘',
+  baratieDeck: '巴拉蒂魚鰭甲板', baratieOffice: '哲夫的船長室',
+  bellemereGrove: '貝爾梅爾的橘子園', marine16: '海軍第16分部',
+  logueStreet: '羅格鎮大街', logueBase: '羅格鎮海軍基地',
+  redLineCliff: '紅土大陸峭壁',
+  cactusGraves: '仙人掌墓地',
+  gardenJungle: '小花園叢林', gardenVolcano: '小花園火山',
+  cocoaWeed: '可可亞威德', drumCliff: '磁鼓山山壁',
+  yuba: '尤巴綠洲', katorea: '卡多雷亞', mausoleum: '王家葬祭殿',
+  jayaForest: '加亞叢林',
+  heavenGate: '天國之門', shandiaVillage: '香迪亞村', shandora: '黃金鄉香朵拉',
+  blueStation: '海列車藍色車站', backStreet: '七水之都後街', iceburgMansion: '冰山的宅邸',
+  eniesFront: '司法島前院', courthouse: '司法島法院',
+  thrillerForest: '魔之森林', hogbackLab: '霍古巴克的研究室',
+  coatingYard: '鍍膜工坊', sabaodyPark: '夏波帝遊樂園',
+  kujaVillage: '九蛇村', kujaArena: '九蛇競技場',
+  impelLevel1: '推進城第一層', impelLevel2: '推進城第二層', impelLevel3: '推進城第三層', impelLevel4: '推進城第四層',
+  newkama: '人妖王國',
+  oris: '奧利斯廣場', mfWall: '馬林福特包圍牆',
+} as const
+
 export const canonNpcs = {
   usopp: '騙人布', kaya: '可雅', klahadore: '管家克拉哈德',
   zeff: '哲夫', sanji: '香吉士',

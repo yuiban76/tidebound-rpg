@@ -7,12 +7,17 @@ import { scale } from './scale.ts'
 import { canonIslands, canonPeople } from './canon.ts'
 import { castPeople } from './cast.ts'
 import { npcFoe } from './foes.ts'
+import { addedSites, islandLayouts } from './sites.ts'
 
-/** Canon islands are laid out as port ↔ second place ↔ third place. */
+/** Canon islands default to port ↔ second place ↔ third place; islands in sites.ts bring their own roads. */
 const canonPaths = Object.fromEntries(Object.values(canonIslands).flatMap(({ places: [[a], [b], [c]] }) =>
   [[a, [b]], [b, [a, c]], [c, [b]]])) as Record<string, LocationId[]>
-const canonLandmarks = Object.fromEntries(Object.values(canonIslands).flatMap(island =>
-  island.places.map(([id, , landmark]) => [id, landmark]))) as Record<string, string>
+const roads = Object.values(islandLayouts).flatMap(layout => layout!.roads)
+const roadPaths: Record<string, LocationId[]> = {}
+for (const [a, b] of roads) (roadPaths[a] ??= []).push(b), (roadPaths[b] ??= []).push(a)
+const roadMinutes = new Map(roads.flatMap(([a, b, minutes]) => minutes ? [[a + '|' + b, minutes], [b + '|' + a, minutes]] : []))
+const canonLandmarks = Object.fromEntries([...Object.values(canonIslands).flatMap(island => island.places), ...addedSites]
+  .map(([id, , landmark]) => [id, landmark])) as Record<string, string>
 
 // Canon start snapshot (spec §1.2): the morning Luffy leaves Foosha Village on Dawn Island, before he meets Zoro.
 // Named canon people only appear through facts stated here; the 潮汐簿 side quest and its cast are original.
@@ -28,10 +33,11 @@ export const paths = {
   shellsPort: ['shellsTown'], shellsTown: ['shellsPort', 'marineBase'], marineBase: ['shellsTown'],
   orangePort: ['orangeStreet'], orangeStreet: ['orangePort', 'petShop'], petShop: ['orangeStreet'],
   ...canonPaths,
+  ...roadPaths,
 } as Record<LocationId, LocationId[]>
-/** Game minutes to walk one path segment. The Goa Kingdom lies beyond the forest road. */
+/** Game minutes to walk one path segment. The Goa Kingdom lies beyond the forest road; sites.ts sets longer roads. */
 export function walkMinutes(from: LocationId, to: LocationId) {
-  return from === 'goa' || to === 'goa' ? 40 : 6
+  return from === 'goa' || to === 'goa' ? 40 : roadMinutes.get(from + '|' + to) ?? 6
 }
 /** Starting place (null: away at sea), role and Day-1 knowledge. The timeline can change both via World. */
 export const people: Record<NpcId, { place: LocationId | null, role: string, known: string }> = {

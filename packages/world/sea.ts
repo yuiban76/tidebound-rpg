@@ -3,6 +3,7 @@ import type { IslandId, LocationId, SailingPace } from '../shared/protocol.ts'
 import { canonIslands, canonLanes, canonStories } from './canon.ts'
 import type { canonIslandIds as canonIslandIdList } from '../shared/atlas.ts'
 import type { IslandStory, SeaLane } from './canon.ts'
+import { islandLayouts } from './sites.ts'
 
 // 黎明島 is the canon start; 潮燈島 and 霧灣島 are original East Blue islets (spec §6.3 allows original side content).
 export const islands: Record<IslandId, {
@@ -11,10 +12,11 @@ export const islands: Record<IslandId, {
   wind: { name: '黎明島', port: 'dock', places: ['square', 'tavern', 'dock', 'road', 'hill', 'goa'], about: '風車村、哥亞王國、船塢與潮汐簿委託' },
   lantern: { name: '潮燈島', port: 'lanternPort', places: ['lanternPort', 'lighthouse', 'tideCave'], about: '東海小島：從海蝕洞找回透鏡，讓航道重新亮起' },
   mist: { name: '霧灣島', port: 'mistPort', places: ['mistPort', 'netSlope', 'whiteBay'], about: '東海小島：在潮水上來前救出失聯的探潮人' },
-  shells: { name: '謝爾茲鎮', port: 'shellsPort', places: ['shellsPort', 'shellsTown', 'marineBase'], about: '東海：海軍第153分部所在，基地廣場綁著劍士索隆' },
-  orange: { name: '橘子鎮', port: 'orangePort', places: ['orangePort', 'orangeStreet', 'petShop'], about: '東海：被小丑巴其海賊團佔據的小鎮' },
+  shells: { name: '謝爾茲鎮', port: 'shellsPort', places: ['shellsPort', 'shellsTown', 'marineBase', 'shellsDiner', 'shellsWall'], about: '東海：海軍第153分部所在，基地廣場綁著劍士索隆' },
+  orange: { name: '橘子鎮', port: 'orangePort', places: ['orangePort', 'orangeStreet', 'petShop', 'buggyBar', 'orangeShelter'], about: '東海：被小丑巴其海賊團佔據的小鎮' },
   ...Object.fromEntries(Object.entries(canonIslands).map(([id, island]) => [id, {
-    name: island.name, about: island.about, port: island.places[0][0], places: island.places.map(([place]) => place),
+    name: island.name, about: island.about, port: island.places[0][0],
+    places: [...island.places, ...islandLayouts[id as IslandId]?.add ?? []].map(([place]) => place),
   }])) as Record<(typeof canonIslandIdList)[number], { name: string, port: LocationId, places: LocationId[], about: string }>,
 }
 

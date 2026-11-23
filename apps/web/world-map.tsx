@@ -5,15 +5,17 @@ import { routeBetween } from '../../packages/world/explore.ts'
 import { islandAt, islands, routesFrom } from '../../packages/world/sea.ts'
 import { party, paths } from '../../packages/world/village.ts'
 import { canonIslands } from '../../packages/world/canon.ts'
+import { addedSites, islandLayouts } from '../../packages/world/sites.ts'
 import type { View } from './network.ts'
 import './world-map.css'
 
-// Canon islands share one layout: port bottom-left, then the middle and the far corner.
+// Canon islands without a sites.ts layout share one: port bottom-left, then the middle and the far corner.
 const canonLayout: [number, number][] = [[20, 74], [50, 46], [80, 20]]
 const canonPoints = Object.fromEntries(Object.values(canonIslands).flatMap(island =>
   island.places.map(([id], index) => [id, canonLayout[index]]))) as Record<string, [number, number]>
-const canonShort = Object.fromEntries(Object.values(canonIslands).flatMap(island =>
-  island.places.map(([id, short]) => [id, short]))) as Record<string, string>
+const layoutPoints = Object.assign({}, ...Object.values(islandLayouts).map(layout => layout!.at)) as Record<string, [number, number]>
+const canonShort = Object.fromEntries([...Object.values(canonIslands).flatMap(island => island.places), ...addedSites]
+  .map(([id, short]) => [id, short])) as Record<string, string>
 
 const points = {
   ...canonPoints,
@@ -22,6 +24,7 @@ const points = {
   mistPort: [23, 72], netSlope: [52, 23], whiteBay: [79, 66],
   shellsPort: [20, 74], shellsTown: [50, 50], marineBase: [78, 20],
   orangePort: [20, 74], orangeStreet: [50, 44], petShop: [80, 66],
+  ...layoutPoints,
 } as Record<LocationId, [number, number]>
 const shortNames = {
   ...canonShort,
@@ -31,6 +34,8 @@ const shortNames = {
   shellsPort: '港口', shellsTown: '大街', marineBase: '海軍基地',
   orangePort: '港口', orangeStreet: '大街', petShop: '寵物店',
 } as Record<LocationId, string>
+/** Stops on the way, kept short so a label never grows wider than its neighbours. */
+const via = (stops: LocationId[]) => stops.length > 1 ? '經 ' + stops.length + ' 處' : '經' + shortNames[stops[0]]
 const sites = Object.keys(points) as LocationId[]
 const roads = sites.flatMap((from, index) => paths[from].filter(to => sites.indexOf(to) > index)
   .map(to => [from, to] as const))
@@ -101,7 +106,7 @@ export function WorldMap({ world, player, hideOnMobile, onTravel, onCourse }: {
         </li>
       })}
     </ul>
-    <div className="map-chart" aria-label={islands[island].name + '步行地圖'}>
+    <div className="map-chart" data-dense={islands[island].places.length > 5 || undefined} aria-label={islands[island].name + '步行地圖'}>
       <Routes current={current} moving={moving} hillClosed={hillClosed}/>
       <ul className="map-sites" aria-label={islands[island].name + '的地點'}>
         {islands[island].places.map(place => {
@@ -111,10 +116,10 @@ export function WorldMap({ world, player, hideOnMobile, onTravel, onCourse }: {
           const reachable = route.length > 1
           const visitors = teammates.filter(member => member.character!.place === place)
           const state = here ? '你在這裡' : route.length === 2 ? '可直達'
-            : reachable ? '經' + route.slice(1, -1).map(stop => shortNames[stop]).join('、') : '暫不可達'
+            : reachable ? via(route.slice(1, -1)) : '暫不可達'
           const label = locations[place] + '，' + state
           const contents = <>
-            <strong>{locations[place]}</strong>
+            <strong title={locations[place]}>{shortNames[place] ?? locations[place]}</strong>
             <span className="map-site-status">{state}</span>
             {visitors.length > 0 && <span className="map-occupancy" aria-hidden="true">{visitors.length}</span>}
           </>

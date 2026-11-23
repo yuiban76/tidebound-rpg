@@ -93,7 +93,7 @@ test('地圖在資訊分頁、輸入框不用捲動就看得到，手機也能�
   // The redesign keeps the action box inside the first screen on desktop.
   const input = (await page.getByLabel('輸入行動或聊天').boundingBox())!
   expect(input.y + input.height).toBeLessThanOrEqual(920)
-  await expect(map.locator('[aria-current="location"]')).toContainText('風車村廣場')
+  await expect(map.locator('[aria-current="location"] strong')).toHaveAttribute('title', '風車村廣場')
   await expect(map.getByRole('button', { name: '風車村港口，可直達' })).toBeVisible()
   await expect(map.getByRole('button', { name: '科爾波山山道，經小路' })).toBeVisible()
   await expect(map.getByRole('button', { name: '哥亞王國城下町，經小路' })).toBeVisible()
@@ -110,7 +110,7 @@ test('地圖在資訊分頁、輸入框不用捲動就看得到，手機也能�
   await page.getByRole('button', { name: '送出行動' }).click()
   await expect(page.locator('.entry-result').filter({ hasText: '你抵達風車村港口' })).toBeVisible()
   await openTab(page, '地圖')
-  await expect(map.locator('[aria-current="location"]')).toContainText('風車村港口')
+  await expect(map.locator('[aria-current="location"] strong')).toHaveAttribute('title', '風車村港口')
   await expect(map.getByRole('button', { name: '派對酒吧，經廣場' })).toBeVisible()
 })
 
@@ -199,11 +199,11 @@ test('從船塢購船，出海後地圖更新並顯示登島委託，返航後�
   await expect(voyage).toContainText('迎潮號停在風車村港口')
   await voyage.getByRole('button', { name: '出海', exact: true }).click()
   await page.getByRole('button', { name: '送出行動' }).click()
-  await expect(map.locator('[aria-current="location"]')).toContainText('潮燈碼頭')
+  await expect(map.locator('[aria-current="location"] strong')).toHaveAttribute('title', '潮燈碼頭')
   await expect(page.getByRole('region', { name: '潮燈塔熄滅事件' })).toContainText('找蕊卡接委託')
   await expect(map.getByRole('button', { name: '潮燈塔，可直達' })).toBeVisible()
   await action(page, '返航', '全隊抵達黎明島的風車村港口')
-  await expect(map.locator('[aria-current="location"]')).toContainText('風車村港口')
+  await expect(map.locator('[aria-current="location"] strong')).toHaveAttribute('title', '風車村港口')
 })
 
 for (const count of [2, 3, 4]) test(count + ' 個瀏覽器用 WebRTC 開局與跨窗操作', async ({ browser, page }) => {
@@ -240,7 +240,7 @@ for (const count of [2, 3, 4]) test(count + ' 個瀏覽器用 WebRTC 開局與�
     await expect(page.getByText('你抵達風車村港口。', { exact: true })).toBeVisible()
     const hostMap = page.getByRole('region', { name: '世界地圖' })
     await expect(hostMap.locator('.map-party li').filter({ hasText: '水手0' })).toContainText('風車村港口')
-    await expect(guests[0].getByRole('region', { name: '世界地圖' }).locator('[aria-current="location"]')).toContainText('風車村港口')
+    await expect(guests[0].getByRole('region', { name: '世界地圖' }).locator('[aria-current="location"] strong')).toHaveAttribute('title', '風車村港口')
     if (count === 2) {
       // Spec §1.3: a newcomer can join a running story and meets the party at the port.
       const late = await guestPage()
