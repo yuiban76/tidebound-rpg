@@ -6,6 +6,7 @@ import { queuePaper, setFlag } from '../world/flags.ts'
 import { companionIds, companionMaxHp, companionSlots, maxCrew, partyLevel, recruitBlock, recruitable, retryMinutes } from '../world/companions.ts'
 import { companionPlace, npcFacts, npcPlace, party } from '../world/village.ts'
 import type { Member, World } from '../world/village.ts'
+import { stat } from '../world/races.ts'
 import { isDown } from './combat.ts'
 import type { Result, Roll } from './engine.ts'
 
@@ -39,7 +40,7 @@ export function recruitCompanion(world: World, actor: Member, npc: NpcId, roll: 
   const trusted = !!profile.trustTask && world.islandTasks?.[profile.trustTask]?.stage === 'done'
   // Someone the party has beaten before respects their strength.
   const beaten = !!world.defeated?.includes(npc)
-  const total = natural + c.stats.WIL + (c.skillRanks['說服'] ?? 0) + (trusted ? 4 : 0) + (beaten ? 4 : 0)
+  const total = natural + stat(c, 'WIL') + (c.skillRanks['說服'] ?? 0) + (trusted ? 4 : 0) + (beaten ? 4 : 0)
   const success = natural === 20 || (natural !== 1 && total >= profile.dc)
   const check = '說服 D20 ' + natural + '，合計 ' + total + '／' + profile.dc + (trusted ? '（對方信任你們 +4）' : '') +
     (beaten ? '（被你們打倒過，服氣你們 +4）' : '') + '。'

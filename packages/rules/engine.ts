@@ -13,6 +13,7 @@ import { fruits } from '../world/fruits.ts'
 import { companionByName, companionMaxHp, hasMedic, healCompanions, partyLevel, recruitableAt } from '../world/companions.ts'
 import { isDown, resolveCombatAction } from './combat.ts'
 import type { Character, CombatChoice, Member, World } from '../world/village.ts'
+import { applyRace, stat, traitOf } from '../world/races.ts'
 
 export type Attribute = keyof Character['stats']
 
@@ -32,7 +33,7 @@ function checkedFreeAction(world: World, c: Character, intent: Extract<Intent, {
   const { attr, skill, difficulty } = intent.check
   const dc = freeDc[difficulty]
   const natural = roll(20)
-  const total = natural + c.stats[attr] + (skill ? c.skillRanks[skill] ?? 0 : 0)
+  const total = natural + stat(c, attr) + (skill ? c.skillRanks[skill] ?? 0 : 0) + (skill === '閃避' && /潛|躲|溜/.test(raw) ? traitOf(c).sneak ?? 0 : 0)
   const success = natural === 20 || (natural !== 1 && total >= dc)
   const label = attributeLabels[attr] + (skill ? '・' + skill : '')
   const record = c.name + '在' + locations[c.place] + '嘗試「' + raw.trim().slice(0, 60) + '」，' + (success ? '成功' : '失敗') + '了。'
@@ -50,7 +51,7 @@ const reject = (text: string): Result => ({ text, rejected: true })
 const hoursAndMinutes = (minutes: number) =>
   ((Math.floor(minutes / 60) ? Math.floor(minutes / 60) + ' 小時' : '') + (minutes % 60 ? ' ' + (minutes % 60) + ' 分鐘' : '')).trim()
 
-export const maxHP = (c: Character) => (20 + 5 * c.stats.CON + 4 * (c.level - 1) + (c.fruit && fruits[c.fruit].kind === 'zoan' ? 10 : 0)) * scale
+export const maxHP = (c: Character) => Math.round((20 + 5 * stat(c, 'CON') + 4 * (c.level - 1) + (c.fruit && fruits[c.fruit].kind === 'zoan' ? 10 : 0)) * (traitOf(c).hp ?? 1)) * scale
 // Levels make fighters better, not only tougher: +3 to hit per 4 levels, +1 damage per 2, +1 defense per 3 (all 0 at level 1).
 // Balanced with the Monte Carlo tables in the README: a 2-player party needs about level 5 for a tier-4 foe and level 12 for tier 5.
 export const levelHit = (level: number) => Math.floor(level * .75)
@@ -58,10 +59,10 @@ export const levelDamage = (level: number) => Math.floor(level / 2)
 export const levelDefense = (level: number) => Math.floor((level - 1) / 3)
 /** HP a bandage restores: it keeps up with bigger HP pools (+1 per 2 levels of the patient). */
 export const bandageHeal = (healer: Character, patientLevel: number) => (4 + (healer.skillRanks['醫術'] ?? 0) + Math.floor((patientLevel - 1) / 2)) * scale
-export const maxSTA = (c: Character) => 10 + 3 * c.stats.CON + 2 * c.stats.WIL + Math.floor((c.level - 1) / 2)
+export const maxSTA = (c: Character) => 10 + 3 * stat(c, 'CON') + 2 * stat(c, 'WIL') + Math.floor((c.level - 1) / 2)
 export const defense = (agi: number, dodge = 0, situational = 0) => 12 + agi + dodge + situational
 export const voteThreshold = (count: number, major: boolean) => major ? count : Math.floor(count / 2) + 1
-export const needsReview = (c: CharacterInput) => ['巨人', '其他'].includes(c.race) ||
+export const needsReview = (c: CharacterInput) => c.race === '巨人' ||
   /三色霸氣|霸王色|惡魔果實|無上大快刀|控制.{0,6}玩家|世界最強/.test((c.background ?? ''))
 
 export function makeCharacter(input: CharacterInput): Character {
@@ -71,10 +72,12 @@ export function makeCharacter(input: CharacterInput): Character {
   const equipment = { fist: '基礎工具組', sword: '普通武士刀', spear: '普通長槍', musket: '普通火槍' }[weapon]
   const c: Character = {
     ...input, place: 'square', conversingWith: null, money: 2000, level: 1, xp: 0, unspent: 0, xpLog: {}, bounty: 0, techniques: [], hp: 0, sta: 0, weapon,
+    raceReady: false,
     loaded: weapon === 'musket', inventory: { 普通衣物: 1, [equipment]: 1 },
     skillRanks: { [input.major]: 2, [input.basics[0]]: 1, [input.basics[1]]: 1, [input.life]: 1 },
   }
   Object.assign(c.inventory, kit, weapon === 'musket' ? { 火槍彈藥: 5 } : {})
+  applyRace(c)
   c.hp = maxHP(c)
   c.sta = maxSTA(c)
   return c
@@ -243,7 +246,7 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
       } as const
       const [label, attr, skill, dc] = method[intent.method]
       const natural = roll(20)
-      const total = natural + c.stats[attr] + (c.skillRanks[skill] ?? 0)
+      const total = natural + stat(c, attr) + (c.skillRanks[skill] ?? 0) + (intent.method === 'sneak' ? traitOf(c).sneak ?? 0 : 0)
       const text = label + ' D20 ' + natural + '，合計 ' + total + '／' + dc + '，' + (total >= dc ? '成功。' : '未成功。')
       return withXp({ text, minutes: 5 }, total >= dc ? grantXp(c, 5, 'check:' + intent.method + ':' + c.place) : '')
     }

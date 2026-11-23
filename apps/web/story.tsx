@@ -5,6 +5,7 @@ import type { Message } from '../../packages/shared/protocol.ts'
 import { guideFor, maxHP, maxSTA, voteThreshold, xpToNext } from '../../packages/rules/engine.ts'
 import { sceneQuestion } from '../../packages/world/explore.ts'
 import { boatYard, islandAt, islands } from '../../packages/world/sea.ts'
+import { raceSummary, stat } from '../../packages/world/races.ts'
 import { forges, weaponLabel } from '../../packages/world/forge.ts'
 import { canonTimeline } from '../../packages/world/canon.ts'
 import { goods, npcsAt, party, people, shops, weaponItems, weaponNames } from '../../packages/world/village.ts'
@@ -169,6 +170,7 @@ export function Story({ view, send, history, connected, gap, review }: {
     me: <>
       <section className="subsection first"><h3>{character.name}</h3>
         <p className="hint">{character.race} · 等級 {character.level} · XP {character.xp}／{xpToNext(character.level)}</p>
+        <p className="hint">{raceSummary(character.race)}</p>
         <dl className="values">
           <div><dt>懸賞金</dt><dd>{character.bounty.toLocaleString('en-US')}</dd></div>
           <div><dt>海軍注意度</dt><dd>{world.renown?.marineHeat ?? 0}／100</dd></div>
@@ -182,7 +184,9 @@ export function Story({ view, send, history, connected, gap, review }: {
             {attributeLabels[k]} {character.stats[k]} ＋1</button>)}</div>
       </section>}
       <section className="subsection"><h3>屬性與技能</h3>
-        <dl className="stat-list">{attributes.map(k => <div key={k}><dt>{attributeLabels[k]}</dt><dd>{character.stats[k]}</dd></div>)}</dl>
+        <dl className="stat-list">{attributes.map(k => <div key={k}><dt>{attributeLabels[k]}</dt>
+          <dd>{stat(character, k)}{stat(character, k) > character.stats[k] &&
+            <small className="race-bonus" title="種族加成"> +{stat(character, k) - character.stats[k]}</small>}</dd></div>)}</dl>
         <p className="hint">{Object.entries(character.skillRanks).map(([skill, value]) => skill + ' ' + value).join(' · ')}</p>
       </section>
       <section className="subsection"><Techniques character={character} post={post} disabled={paused}/></section>

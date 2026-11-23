@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import type { Message } from '../../packages/shared/protocol.ts'
 import { tierNames } from '../../packages/world/foes.ts'
 import type { Character } from '../../packages/world/village.ts'
+import { selfMade } from '../../packages/world/village.ts'
 import type { View } from './network.ts'
 import { Field } from './lobby.tsx'
 
@@ -58,11 +59,11 @@ export function Techniques({ character, post, disabled }: { character: Character
     post({ kind: 'technique', name: name.trim(), style })
     setName('')
   }
-  return <details><summary>招式（{character.techniques.filter(move => !move.fruit).length}／6）</summary>
+  return <details><summary>招式（{character.techniques.filter(selfMade).length}／6）</summary>
     {character.techniques.length > 0 && <ul>{character.techniques.map(move =>
       <li key={move.name}>「{move.name}」· {styleLabels[move.style]}</li>)}</ul>}
     <p className="hint">自創招式只決定名稱與等級；傷害和命中由等級與武器決定，華麗的名字不會讓它更強。</p>
-    {character.techniques.filter(move => !move.fruit).length < 6 && <form onSubmit={create}>
+    {character.techniques.filter(selfMade).length < 6 && <form onSubmit={create}>
       <Field label="招式名稱"><input maxLength={12} value={name} onChange={e => setName(e.target.value)} required/></Field>
       <Field label="招式等級"><select value={style} onChange={e => setStyle(e.target.value as typeof style)}>
         {Object.entries(styleLabels).map(([id, label]) => <option key={id} value={id}>{label}</option>)}

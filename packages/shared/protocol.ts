@@ -3,7 +3,9 @@ import { addedLocations, canonIslandIds, canonLocations, canonNpcs, castNpcs } f
 
 export const attributes = ['STR', 'AGI', 'CON', 'PER', 'INT', 'WIL'] as const
 export const attributeLabels = { STR: '力量', AGI: '敏捷', CON: '體魄', PER: '感知', INT: '智識', WIL: '意志' }
-export const races = ['人類', '魚人', '人魚', '毛皮族', '空島居民', '長手族', '長腿族', '小人族', '巨人', '其他'] as const
+export const races = ['人類', '魚人', '人魚', '毛皮族', '空島居民', '長手族', '長腿族', '小人族', '巨人'] as const
+export type Race = (typeof races)[number]
+export type Attribute = (typeof attributes)[number]
 export const skills = ['格鬥', '劍術', '長兵器', '射擊', '閃避', '觀察', '說服', '醫術', '航海', '工藝', '採集', '烹飪'] as const
 export const locations = {
   square: '風車村廣場', tavern: '派對酒吧', dock: '風車村港口', road: '村外小路', hill: '科爾波山山道',
@@ -35,7 +37,7 @@ const stats = z.strictObject({
 
 export const characterInput = z.strictObject({
   name: text(24), age: z.number().int().min(1).max(400),
-  race: z.enum(races), otherRace: z.string().trim().max(32).optional(),
+  race: z.enum(races),
   background: z.string().trim().max(600).optional(),
   stats, major: z.enum(skills), basics: z.tuple([z.enum(skills), z.enum(skills)]),
   life: z.enum(['航海', '醫術', '工藝', '採集', '烹飪']),
@@ -44,8 +46,6 @@ export const characterInput = z.strictObject({
     ctx.addIssue({ code: 'custom', path: ['stats'], message: '六項屬性合計必須是 18。' })
   if (new Set([value.major, ...value.basics, value.life]).size !== 4)
     ctx.addIssue({ code: 'custom', path: ['major'], message: '四項初始技能不可重複。' })
-  if (value.race === '其他' && !value.otherRace)
-    ctx.addIssue({ code: 'custom', path: ['otherRace'], message: '請填寫自訂種族。' })
 })
 export type CharacterInput = z.infer<typeof characterInput>
 export type LocationId = keyof typeof locations

@@ -742,6 +742,9 @@ test('P0-20 本機閘門與公開資料均無 AI 密鑰', async t => {
 
 test('XP 依 100×等級升級，第 4 級得屬性點，重複判定遞減，加點同步提高當前 HP', () => {
   const c = makeCharacter(character('甲'))
+  // Humans start with one free point; spend it so only the level-4 point is counted below.
+  assert.equal(c.unspent, 1)
+  allocatePoint(c, 'INT')
   const hp = maxHP(c)
   assert.match(grantXp(c, 100), /升到等級 2/)
   assert.deepEqual([c.level, c.xp, maxHP(c), c.hp], [2, 0, hp + 4 * scale, hp + 4 * scale])
@@ -759,8 +762,10 @@ test('房主可以透過訊息分配屬性點，戰鬥中或沒有點數時拒�
   const { game, code, ids } = await withGame(t)
   ready(game, code, ids)
   await game.start(code)
-  assert.throws(() => game.message(code, ids[0], { kind: 'allocate', attr: 'AGI' }), /沒有可分配/)
   const world = game.room(code)
+  world.members[0].character!.unspent = 0
+  game.store.save(world)
+  assert.throws(() => game.message(code, ids[0], { kind: 'allocate', attr: 'AGI' }), /沒有可分配/)
   world.members[0].character!.unspent = 1
   game.store.save(world)
   game.message(code, ids[0], { kind: 'allocate', attr: 'AGI' })

@@ -5,6 +5,7 @@ import type { RouteChoice } from '../world/sea.ts'
 import { party } from '../world/village.ts'
 import { companionIds } from '../world/companions.ts'
 import type { Member, PendingVoyage, World } from '../world/village.ts'
+import { raceSeats, stat } from '../world/races.ts'
 import { rollSeaEncounter, tierNames } from '../world/foes.ts'
 import { startSeaFight } from './combat.ts'
 import { minuteOf } from '../world/canon.ts'
@@ -104,7 +105,8 @@ export function resolveSailing(world: World, actor: Member, intent: SeaIntent, r
   if (party(world).some(m => !connected.has(m.id))) return stop('有隊友離線。出航需要所有成員到齊。')
   if (party(world).some(m => m.character?.place !== ship.port)) return stop('請所有隊友到' + locations[ship.port] + '集合後再出海。')
   if (party(world).some(m => !m.character || m.character.hp <= 0)) return stop('有隊友還沒恢復行動能力，請先協助他們。')
-  if (party(world).length > boatYard.seats) return stop(boatYard.name + '的座位不足以載全隊。')
+  // A giant takes two seats.
+  if (party(world).reduce((seats, m) => seats + raceSeats(m.character!), 0) > boatYard.seats) return stop(boatYard.name + '的座位不足以載全隊（巨人佔 2 個座位）。')
   if (!ship.hull) return stop('船體損壞。請先「修船」。')
 
   const solo = party(world).length === 1
@@ -125,7 +127,7 @@ export function resolveSailing(world: World, actor: Member, intent: SeaIntent, r
   if (route.needsTask && world.islandTasks?.[route.needsTask]?.stage !== 'done')
     return stop('這條航線要先完成「' + islandStories[route.needsTask]?.title + '」才能出發。')
 
-  const navigator = Math.max(...party(world).map(m => m.character!.stats.INT + (m.character!.skillRanks['航海'] ?? 0)))
+  const navigator = Math.max(...party(world).map(m => stat(m.character!, 'INT') + (m.character!.skillRanks['航海'] ?? 0)))
   const natural = roll(20)
   const score = natural + navigator
   const base = Math.ceil(route.miles * 60 / boatYard.speed)
@@ -208,7 +210,7 @@ export function resolveIslandTask(world: World, actor: Member, intent: TaskInten
     const dc = story.dc ?? 11
     const minutes = story.searchMinutes ?? 10
     const die = roll(20)
-    const check = die + c.stats[attr] + (c.skillRanks[skill] ?? 0) + (task.attempts ?? 0) * (story.retry ?? 3)
+    const check = die + stat(c, attr) + (c.skillRanks[skill] ?? 0) + (task.attempts ?? 0) * (story.retry ?? 3)
     const line = '判定 D20 ' + die + '，合計 ' + check + '／' + dc + '。'
     if (check >= dc) {
       task.stage = 'found'

@@ -4,12 +4,13 @@ import { aiInput, locations, npcs } from '../../packages/shared/protocol.ts'
 import type { Intent, Message, NpcId } from '../../packages/shared/protocol.ts'
 import { allocatePoint, guideFor, makeCharacter, needsReview, resolve, voteThreshold } from '../../packages/rules/engine.ts'
 import { asksAboutShipPurchase, dialogueQuestion, familiarIntent, sceneQuestion } from '../../packages/world/explore.ts'
-import { npcFacts, npcPlace, npcsAt, opening, party, paths, people } from '../../packages/world/village.ts'
+import { npcFacts, npcPlace, npcsAt, opening, party, paths, people, selfMade } from '../../packages/world/village.ts'
 import { advanceTimeline } from '../../packages/world/timeline.ts'
 import { companionIds, companionMaxHp, isCompanion, recruitable } from '../../packages/world/companions.ts'
 import { islandAt, islands, routesFrom, shipPurchaseInfo } from '../../packages/world/sea.ts'
 import { sellMainShip, shipSaleBlock } from '../../packages/rules/sailing.ts'
 import type { Member, World } from '../../packages/world/village.ts'
+import { traitOf } from '../../packages/world/races.ts'
 import type { Store } from './store.ts'
 
 export class GameError extends Error {}
@@ -263,7 +264,7 @@ export class Game {
     if (msg.kind === 'technique') {
       // Spec §7.6: a self-made move becomes a rules card with a name and a cost tier; the name adds no power.
       const c = actor.character
-      demand(c.techniques.filter(move => !move.fruit).length < 6, '最多建立 6 個招式。')
+      demand(c.techniques.filter(selfMade).length < 6, '最多建立 6 個招式。')
       demand(!c.techniques.some(move => move.name === msg.name), '已經有同名的招式。')
       c.techniques.push({ name: msg.name, style: msg.style })
       const tier = { special: '基礎特殊招式（3 STA）', advanced: '進階招式（5 STA）', flurry: '高強度連續攻擊（7 STA）' }[msg.style]
@@ -412,7 +413,7 @@ export class Game {
       techniques: c.techniques.map(move => move.name),
     }
     return {
-      actor: c.name, place: locations[c.place], ...navigation,
+      actor: c.name, race: c.race + '（' + traitOf(c).perk + '）', place: locations[c.place], ...navigation,
       local,
       combat: world.combat && { foes: world.combat.foes.map(foe => ({ name: foe.name, hp: foe.hp, maxHp: foe.maxHp, down: !!foe.down })), atSea: !!world.combat.sea },
       speaker: intent?.kind === 'talk' ? npcs[intent.npc] : undefined,

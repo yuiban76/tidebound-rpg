@@ -6,6 +6,7 @@ import { npcFoe, tierNames, tierXp } from '../world/foes.ts'
 import { crewmates } from '../world/crews.ts'
 import type { Foe } from '../world/foes.ts'
 import { boatYard, islandAt } from '../world/sea.ts'
+import { raceDefense, raceHit, stat, traitOf } from '../world/races.ts'
 import { npcFacts, npcPlace, npcsAt, party, paths } from '../world/village.ts'
 import type { Character, Combat, CombatChoice, Member, World } from '../world/village.ts'
 import { bossDefeats } from '../world/canon.ts'
@@ -32,8 +33,8 @@ export const styles: Record<AttackStyle, { label: string, sta: number, hit: numb
 
 function weaponOf(c: Character) {
   const table = {
-    fist: [4, '格鬥', c.stats.STR], sword: [6, '劍術', c.stats.STR],
-    spear: [8, '長兵器', c.stats.STR], musket: [8, '射擊', c.stats.PER],
+    fist: [4, '格鬥', stat(c, 'STR')], sword: [6, '劍術', stat(c, 'STR')],
+    spear: [8, '長兵器', stat(c, 'STR')], musket: [8, '射擊', stat(c, 'PER')],
   } as const
   return table[c.weapon]
 }
@@ -175,7 +176,7 @@ function validate(combat: Combat, c: Character, choice: CombatChoice) {
 function resolveRound(world: World, combat: Combat, roll: Roll, opening: string): Result {
   const lines = [opening + '第 ' + combat.round + ' 回合']
   const fighters = world.members.filter(m => combat.participants.includes(m.id))
-    .sort((a, b) => b.character!.stats.AGI - a.character!.stats.AGI)
+    .sort((a, b) => stat(b.character!, 'AGI') - stat(a.character!, 'AGI'))
   const guarding = new Set<string>()
   const lastHit = new Map<string, Member>()
   let escaped = false
@@ -197,7 +198,9 @@ function resolveRound(world: World, combat: Combat, roll: Roll, opening: string)
     }
     if (choice.kind === 'flee') {
       if (combat.sea) {
-        const navigator = Math.max(...party(world).map(m => m.character!.stats.INT + (m.character!.skillRanks['航海'] ?? 0)))
+        // The best sailor steers; a merfolk or long-leg aboard helps the boat slip away.
+        const navigator = Math.max(...party(world).map(m => stat(m.character!, 'INT') + (m.character!.skillRanks['航海'] ?? 0))) +
+          Math.max(0, ...party(world).map(m => traitOf(m.character!).seaEscape ?? 0))
         const dc = 12 + Math.max(...standing(combat).map(foe => foe.tier))
         const natural = roll(20)
         escaped = natural + navigator >= dc
@@ -227,7 +230,7 @@ function resolveRound(world: World, combat: Combat, roll: Roll, opening: string)
       if (foe.tier >= 4) { lines.push(foe.name + '對' + fighter.name + '的勸說不為所動。'); continue }
       const dc = 10 + foe.tier * 3
       const natural = roll(20)
-      const total = natural + fighter.stats.WIL + (fighter.skillRanks['說服'] ?? 0)
+      const total = natural + stat(fighter, 'WIL') + (fighter.skillRanks['說服'] ?? 0) + (traitOf(fighter).negotiate ?? 0)
       const success = natural !== 1 && total >= dc
       lines.push(fighter.name + '勸' + foe.name + '住手：說服 D20 ' + natural + '，合計 ' + total + '／' + dc + '，' + (success ? foe.name + '收手了。' : '對方不肯罷休。'))
       if (success) foe.surrendered = true
@@ -249,7 +252,7 @@ function resolveRound(world: World, combat: Combat, roll: Roll, opening: string)
         continue
       }
       if (solid === 'seastone') lines.push(fighter.name + '握著海樓石十手，' + foe.name + '的身體在這一擊中變得實在。')
-      const hit = attackCheck(roll, { attr, skill: (fighter.skillRanks[skill] ?? 0) + spec.hit + levelHit(fighter.level) + tierHit(tierOf(fighter)), def: foe.def, die, bonus: spec.damage + levelDamage(fighter.level) + tierDamage(tierOf(fighter)) + fruitDamage(fighter.fruit, fighter.level), armor: foe.armor })
+      const hit = attackCheck(roll, { attr, skill: (fighter.skillRanks[skill] ?? 0) + spec.hit + levelHit(fighter.level) + tierHit(tierOf(fighter)) + raceHit(fighter, !!combat.sea), def: foe.def, die, bonus: spec.damage + levelDamage(fighter.level) + tierDamage(tierOf(fighter)) + fruitDamage(fighter.fruit, fighter.level) + (traitOf(fighter).damage ?? 0), armor: foe.armor })
       foe.hp = Math.max(0, foe.hp - hit.damage)
       lines.push(fighter.name + '對' + foe.name + '使出' + move + '，D20 ' + hit.natural + '，合計 ' + hit.total + '／' + foe.def +
         (hit.hit ? '，傷害 ' + hit.damage + '（武器骰 ' + hit.dice.join('+') + '，數值×' + scale + '）。' + foe.name + ' HP ' + foe.hp + '／' + foe.maxHp + '。' : '，未命中。'))
@@ -271,7 +274,7 @@ function resolveRound(world: World, combat: Combat, roll: Roll, opening: string)
         const x = m.character!
         return {
           // A fruit user cannot swim: at sea a fall overboard costs defense. A logia body halves blows from ordinary foes.
-          name: x.name, def: defense(x.stats.AGI, x.skillRanks['閃避'] ?? 0, (guarding.has(m.id) ? 2 : 0) + levelDefense(x.level) - (x.fruit && combat.sea ? 2 : 0)),
+          name: x.name, def: defense(stat(x, 'AGI'), x.skillRanks['閃避'] ?? 0, (guarding.has(m.id) ? 2 : 0) + levelDefense(x.level) - (x.fruit && combat.sea ? 2 : 0) + raceDefense(x, !!combat.sea)),
           hurt: (damage: number) => { x.hp = Math.max(0, x.hp - (isLogia(x.fruit) && !foe.logia ? Math.ceil(damage / 2) : damage)); return x.hp ? undefined : x.name + '倒下，仍可接受救援。' },
         }
       }),
@@ -322,8 +325,9 @@ function useSoak(combat: Combat, fighter: Character, tool: (typeof soakTools)[nu
   fighter.inventory[tool.label]--
   if (!fighter.inventory[tool.label]) delete fighter.inventory[tool.label]
   if (!foe.weak?.includes(tool.weakness)) return fighter.name + tool.verb + foe.name + '，沒有任何效果。'
-  foe.exposed = Math.max(foe.exposed ?? 0, tool.rounds)
-  return fighter.name + tool.verb + foe.name + '！他的身體變得實在，接下來 ' + tool.rounds + ' 回合大家的攻擊都打得到。'
+  const rounds = tool.rounds + (tool.weakness === 'dial' ? traitOf(fighter).dialRounds ?? 0 : 0)
+  foe.exposed = Math.max(foe.exposed ?? 0, rounds)
+  return fighter.name + tool.verb + foe.name + '！他的身體變得實在，接下來 ' + rounds + ' 回合大家的攻擊都打得到。'
 }
 
 /** Whether a blow can hurt this foe: true, false, or 'seastone' when the attacker's sea-stone jitte is what makes it land. */

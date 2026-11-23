@@ -7,6 +7,7 @@ import { scale } from './scale.ts'
 import { canonIslands, canonPeople } from './canon.ts'
 import { castPeople } from './cast.ts'
 import { addedSites, islandLayouts } from './sites.ts'
+import { applyRace, raceTraits } from './races.ts'
 
 /** Canon islands default to port ↔ second place ↔ third place; islands in sites.ts bring their own roads. */
 const canonPaths = Object.fromEntries(Object.values(canonIslands).flatMap(({ places: [[a], [b], [c]] }) =>
@@ -113,10 +114,15 @@ export type Character = CharacterInput & {
   techniques: Technique[]
   /** The devil fruit this character ate, if any (only one may be eaten). */
   fruit?: FruitId
+  /** The race's one-time gifts (a human's extra point, a mink's Electro) were handed out. */
+  raceReady?: boolean
   /** Forge tier (0–3) of each weapon kind, from reforging at a forge (see world/forge.ts). */
   gear?: Partial<Record<Weapon, number>>
 }
-export type Technique = { name: string, style: 'special' | 'advanced' | 'flurry', /** Granted by a devil fruit; does not count toward the six self-made moves. */ fruit?: true }
+export type Technique = { name: string, style: 'special' | 'advanced' | 'flurry', /** Granted by a devil fruit; does not count toward the six self-made moves. */ fruit?: true,
+  /** Born with it (a race's move); does not count either. */ innate?: true }
+/** Moves the player made up themselves (at most six). */
+export const selfMade = (move: Technique) => !move.fruit && !move.innate
 export type CombatChoice = Extract<Intent, { kind: 'attack' | 'guard' | 'flee' | 'negotiate' | 'reload' | 'useItem' }>
 /** A voyage interrupted by a sea encounter; it resumes once the fight is over. */
 export type PendingVoyage = RouteChoice & { from: IslandId, miles: number, minutes: number, damage: number, text: string, landfallXp: number }
@@ -278,6 +284,11 @@ export function normalizeWorld(world: World): World {
     c.xpLog ??= {}
     c.bounty ??= 0
     c.techniques ??= []
+    // 「其他」 is no longer a race: custom races become humans.
+    const old = c as Character & { otherRace?: string }
+    if (!(c.race in raceTraits)) c.race = '人類'
+    delete old.otherRace
+    applyRace(c)
   }
   dropRemovedContent(world)
   return world

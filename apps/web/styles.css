@@ -226,7 +226,8 @@ legend { padding: 0 .3rem; font-weight: 700; }
 .plain li { padding-block: .15rem; }
 .stat-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .3rem .8rem; margin-top: .4rem; }
 .stat-list div { display: flex; justify-content: space-between; border-bottom: 1px solid var(--line); }
-.stat-list dd { margin: 0; font-weight: 700; }
+.stat-list dd { margin: 0; font-weight: 700; white-space: nowrap; }
+.race-bonus { color: var(--muted); font-size: .75em; font-weight: 600; }
 
 @media (max-width: 900px) {
   .game-grid { grid-template-columns: 1fr; }
