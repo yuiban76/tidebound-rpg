@@ -2,7 +2,7 @@
 // and where the canon calendar takes them afterwards. Positions follow the same days as luffyRoute and
 // canonTimeline (Day 1 = the morning Luffy leaves Dawn Island). Every stop is a present state, not a script:
 // the players can meet, fight or recruit anyone, and a recruited companion is never moved by this calendar.
-import type { LocationId } from '../shared/protocol.ts'
+import type { LocationId, NpcId } from '../shared/protocol.ts'
 import type { castNpcs } from '../shared/atlas.ts'
 import type { Faction } from './foes.ts'
 
@@ -10,7 +10,9 @@ export type CastId = keyof typeof castNpcs
 export type CastPerson = { place: LocationId | null, role: string, known: string }
 export type CastProfile = { tier: number, faction: Faction, bounty?: number, logia?: boolean }
 /** From [day, hour] on, the character is at `place` (null: away at sea) and knows `facts`. Stops are sorted by time. */
-export type CastStop = { at: [number, number], place: LocationId | null, facts?: string }
+export type CastStop = { at: [number, number], place: LocationId | null, facts?: string,
+  /** The stop is skipped when every flag holds (see flags.ts), e.g. no war after the Impel Down breakout. */
+  unless?: string[] }
 
 export const castPeople: Record<CastId, CastPerson> = {
   // East Blue
@@ -78,6 +80,8 @@ export const castPeople: Record<CastId, CastPerson> = {
   sandersonia: { place: 'kujaArena', role: '九蛇海賊團的副船長', known: '漢考克的妹妹，身材高大，常在競技場上和戰士們比試，背上藏著一個不能讓人看見的秘密。' },
   marigold: { place: 'kujaArena', role: '九蛇海賊團的副船長', known: '漢考克的另一個妹妹，在競技場上和姊姊一起看守著九蛇的戰士。' },
   hannyabal: { place: 'impelLevel4', role: '推進城副典獄長', known: '整天說要把典獄長的位子搶過來的副典獄長，嘴上囂張，守起監獄來卻從不偷懶。' },
+  daz: { place: null, role: 'Mr.1・刀刃人', known: '巴洛克工作社的頭號殺手，全身都能變成刀刃；沉默寡言，只對克洛克達爾忠心。' },
+  tsuru: { place: 'hqFortress', role: '海軍中將「大參謀」', known: '和戰國、卡普同一輩的老中將，說話溫和，卻能用洗洗果實把海賊「洗乾淨」。' },
   squard: { place: null, role: '白鬍子傘下的海賊船長', known: '人稱「大渦蜘蛛」的船長，把白鬍子當成父親；他的同伴多年前被海賊王的手下殺光，他至今恨著羅傑的一切。' },
   oarsJr: { place: null, role: '白鬍子傘下的巨人船長', known: '比普通巨人還大上好幾倍的小奧茲Jr.，說話慢吞吞的，對艾斯敬重得像對親大哥。' },
   izo: { place: null, role: '白鬍子海賊團第十六隊隊長', known: '穿著和服、拿著兩把短槍的隊長，舉止優雅，開槍時從不猶豫。' },
@@ -121,12 +125,21 @@ export const castProfiles: Record<CastId, CastProfile> = {
   disco: { tier: 1, faction: 'tyrant' }, charloss: { tier: 1, faction: 'government' }, camie: { tier: 0, faction: 'civilian' },
   marguerite: { tier: 3, faction: 'pirate' }, sandersonia: { tier: 4, faction: 'pirate' }, marigold: { tier: 4, faction: 'pirate' },
   hannyabal: { tier: 4, faction: 'government' },
+  daz: { tier: 4, faction: 'pirate' }, tsuru: { tier: 5, faction: 'marine' },
   squard: { tier: 4, faction: 'pirate' }, oarsJr: { tier: 5, faction: 'pirate' }, izo: { tier: 4, faction: 'pirate' },
   namur: { tier: 4, faction: 'pirate' }, rakuyo: { tier: 4, faction: 'pirate' }, curiel: { tier: 4, faction: 'pirate' }, blenheim: { tier: 4, faction: 'pirate' },
 }
 
+/** The Impel Down breakout (an island quest the players can finish) calls the war off. */
+const noWar = ['task:impelDown']
+/** On the Summit War battlefield from `hour` on Day 72 until the evening. */
 const war = (hour: number, place: LocationId, facts: string): CastStop[] =>
-  [{ at: [72, hour], place, facts }, { at: [72, 21], place: null }]
+  [{ at: [72, hour], place, facts, unless: noWar }, { at: [72, 21], place: null }]
+/** The breakout on Day 70, and the fall from the sky onto Oris Plaza at 15:00 with Luffy. */
+const breakout = (facts: string): CastStop[] => [
+  { at: [70, 6], place: null, facts: '他趁著大暴動逃出了推進城，和一群逃犯搶了一艘軍艦。' },
+  ...war(15, 'oris', facts),
+]
 
 /** Where each character goes after Day 1. Only people who actually move have an entry. */
 export const castRoutes: Partial<Record<CastId, CastStop[]>> = {
@@ -145,6 +158,8 @@ export const castRoutes: Partial<Record<CastId, CastStop[]>> = {
     { at: [3, 16], place: null, facts: '被趕出橘子鎮後乘著小船逃走，嘴裡仍在揚言報仇。' },
     { at: [9, 12], place: 'logueSquare', facts: '他把一個戴草帽的少年綁上處刑台，打算親手處刑。' },
     { at: [9, 20], place: null, facts: '處刑失敗後，他灰頭土臉地逃走了。' },
+    { at: [60, 6], place: 'impelLevel1', facts: '他不知怎麼被海軍抓住，關在推進城第一層，嘴上還吹噓自己是大海賊。' },
+    ...breakout('他從天而降，掉進了頂上戰場，嚷著要搶白鬍子的財寶。'),
   ],
   tashigi: [
     { at: [9, 19], place: null, facts: '她跟著上校追向偉大航路。' },
@@ -170,6 +185,8 @@ export const castRoutes: Partial<Record<CastId, CastStop[]>> = {
   galdino: [
     { at: [13, 6], place: 'waxHouse', facts: '他把小花園的蠟燭屋當成據點，專門埋伏路過的海賊。' },
     { at: [14, 16], place: null, facts: '陷阱被識破後，他不知逃到了哪裡。' },
+    { at: [60, 6], place: 'impelLevel1', facts: '他被關在推進城第一層，和巴其關在一起。' },
+    ...breakout('他和巴其一起從天而降，用蠟替同伴擋下了攻擊。'),
   ],
   wapol: [
     { at: [17, 6], place: 'bighorn', facts: '他帶著手下回到磁鼓島，要把城堡奪回去。' },
@@ -179,7 +196,7 @@ export const castRoutes: Partial<Record<CastId, CastStop[]>> = {
     { at: [21, 12], place: 'nanohana', facts: '他在阿拉巴斯坦的港口露面，替巴洛克工作社辦事。' },
     { at: [25, 18], place: null, facts: '任務結束後，他不告而別地消失了。' },
     { at: [64, 6], place: 'impelLevel5', facts: '他在推進城裡替落難者打氣，說只要夠熱情，監獄也能變成舞台。' },
-    ...war(12, 'marinefordBay', '他和朋友們一起趕到頂上戰爭。'),
+    { at: [70, 6], place: 'impelGate', facts: '他留在推進城的正義之門控制室，替大家打開了門，自己被留了下來。' },
   ],
   kaku: [
     { at: [46, 12], place: 'justiceTower', facts: '他撤回了司法塔，不再裝成木匠。' },
@@ -200,7 +217,7 @@ export const castRoutes: Partial<Record<CastId, CastStop[]>> = {
   law: [
     { at: [57, 8], place: 'sabaodyGrove', facts: '他在夏波帝的樹下靜靜觀察，不插手眼前的騷動。' },
     { at: [60, 6], place: null, facts: '他離開了群島。' },
-    ...war(10, 'marinefordBay', '他站在戰場邊緣，平靜地觀察這場戰爭。'),
+    ...war(19, 'marinefordBay', '他開著潛水艇衝進戰場，說要把戴草帽的小子帶走治療。'),
   ],
   kid: [
     { at: [57, 6], place: 'sabaodyGrove', facts: '他在夏波帝找人晦氣，周圍的人都躲著走。' },
@@ -231,13 +248,14 @@ export const castRoutes: Partial<Record<CastId, CastStop[]>> = {
   ],
   jinbe: [
     { at: [61, 12], place: 'impelLevel6', facts: '他拒絕對白鬍子出兵，被關進推進城的最底層。' },
-    { at: [70, 6], place: null, facts: '他逃出了推進城。' },
-    ...war(12, 'marinefordBay', '他趕到頂上戰場，站在艾斯與魯夫身旁。'),
+    ...breakout('他和魯夫一起從天而降，站在艾斯與魯夫身旁。'),
   ],
   teach: [
     { at: [52, 8], place: 'impelGate', facts: '他把艾斯交給海軍，換取七武海的位子。' },
     { at: [52, 20], place: null, facts: '離開了推進城，沒有人知道他的下一步。' },
-    ...war(12, 'marinefordBay', '他成了七武海，在戰場上與白鬍子正面對決。'),
+    { at: [69, 12], place: 'impelLevel6', facts: '他趁亂闖進推進城最底層，招攬最兇惡的犯人當同伴。' },
+    { at: [70, 4], place: null, facts: '他帶著新同伴離開了推進城。' },
+    ...war(18, 'marinefordBay', '他在白鬍子最後一戰時現身，咧著嘴笑，說自己是來收東西的。'),
   ],
   shanks: [
     { at: [72, 19], place: 'marinefordBay', facts: '他在戰爭的最後一刻現身，一句話就讓雙方停了手。' },
@@ -255,6 +273,11 @@ export const castRoutes: Partial<Record<CastId, CastStop[]>> = {
   marco: war(9, 'marinefordBay', '他隨白鬍子艦隊趕來，站在戰場最前線。'),
   jozu: war(9, 'marinefordBay', '他隨白鬍子艦隊趕來，擋在老爹身前。'),
   vista: war(9, 'marinefordBay', '他隨白鬍子艦隊趕來，雙劍已經出鞘。'),
+  daz: [
+    { at: [27, 6], place: 'impelLevel4', facts: '輸給一個綠髮劍士後被押進推進城，關在第四層的焦熱地獄。' },
+    ...breakout('他跟著老闆克洛克達爾從天而降，兩隻手臂已經變成了刀刃。'),
+  ],
+  tsuru: war(12, 'marinefordBay', '她在海灣前線指揮艦隊，洗洗果實讓衝上來的海賊一個個軟倒。'),
   squard: war(12, 'marinefordBay', '他帶著自己的艦隊跟在老爹身後，卻一直盯著處刑台，臉色很難看。'),
   oarsJr: war(12, 'mfWall', '他拖著一整艘船往處刑台前進，說一定要把艾斯救出來。'),
   izo: war(9, 'marinefordBay', '他隨白鬍子艦隊趕來，兩把短槍都已經上膛。'),
@@ -289,5 +312,27 @@ export const castRoutes: Partial<Record<CastId, CastStop[]>> = {
   ],
 }
 
+/** Main canon characters (canon.ts) on the same kind of calendar, for Impel Down and the Summit War. */
+export const canonRoutes: Partial<Record<NpcId, CastStop[]>> = {
+  crocodile: [
+    { at: [27, 6], place: 'impelLevel6', facts: '他失去七武海的頭銜，被關進推進城最底層的無限地獄。' },
+    ...breakout('他從天而降，說自己不是來救人的，只是要取白鬍子的命。'),
+  ],
+  ivankov: breakout('他帶著人妖王國的同伴從天而降，大喊要為革命軍的未來出一份力。'),
+  hancock: [
+    { at: [63, 8], place: null, facts: '她以七武海的身分出航，船上偷偷藏著一個戴草帽的少年。' },
+    { at: [64, 10], place: 'impelGate', facts: '她在推進城正門的船上等著，說是奉命來看看囚犯艾斯。' },
+    { at: [66, 6], place: null },
+    ...war(12, 'marinefordBay', '身為七武海，她站在海軍陣營，眼睛卻一直在找一個戴草帽的少年。'),
+    { at: [73, 12], place: 'kujaCastle', facts: '她回到女兒島，常常望著海平線發呆。' },
+  ],
+  moria: war(12, 'marinefordBay', '身為七武海，他被召來頂上戰場，影子在冰面上蠕動。'),
+  smoker: war(12, 'oris', '他在奧利斯廣場攔截衝向處刑台的海賊，十手一直沒離手。'),
+  sengoku: [
+    { at: [72, 9], place: 'scaffold', facts: '他站在處刑台上，親自向全世界宣讀艾斯的身世與罪狀。', unless: noWar },
+    { at: [72, 21], place: 'hqFortress', facts: '戰爭結束了，他說自己會辭去元帥的職位。' },
+  ],
+}
+
 /** Who is on the Summit War battlefield from the Day 72 morning: used by the final-day guard in the tests. */
-export const warCast: CastId[] = ['koby', 'tashigi', 'mihawk', 'bonclay', 'law', 'kuma', 'jinbe', 'teach', 'doflamingo', 'garp', 'akainu', 'aokiji', 'kizaru', 'marco', 'jozu', 'vista', 'squard', 'oarsJr', 'izo', 'namur', 'rakuyo', 'curiel', 'blenheim']
+export const warCast: CastId[] = ['koby', 'tashigi', 'mihawk', 'bonclay', 'law', 'kuma', 'jinbe', 'teach', 'doflamingo', 'garp', 'akainu', 'aokiji', 'kizaru', 'marco', 'jozu', 'vista', 'squard', 'oarsJr', 'izo', 'namur', 'rakuyo', 'curiel', 'blenheim', 'tsuru']

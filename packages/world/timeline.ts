@@ -2,8 +2,8 @@ import type { IslandId, LocationId, NpcId } from '../shared/protocol.ts'
 import { canonTimeline, bossDefeats, luffyRoute, minuteOf } from './canon.ts'
 import type { CanonEvent, RouteStop, WorldEffect } from './canon.ts'
 import { expireOffers } from '../rules/fruits.ts'
-import { castRoutes } from './cast.ts'
-import type { CastId } from './cast.ts'
+import { canonRoutes, castRoutes } from './cast.ts'
+import type { CastStop } from './cast.ts'
 import { eventPhases } from './phases.ts'
 import { flagsHold, hasFlag, queuePaper } from './flags.ts'
 import { locations, npcs } from '../shared/protocol.ts'
@@ -192,13 +192,14 @@ function followLuffy(world: World, news: { minute: number, text: string }[], her
 function followCast(world: World, news: { minute: number, text: string }[], here: Set<IslandId>) {
   // People arriving at the same spot at the same time make one sighting (a whole fleet lands at Marineford at once).
   const sightings = new Map<string, { minute: number, place: LocationId, names: string[] }>()
-  for (const npc of Object.keys(castRoutes) as CastId[]) {
-    for (const stop of castRoutes[npc]!) {
+  const routes = { ...castRoutes, ...canonRoutes } as Partial<Record<NpcId, CastStop[]>>
+  for (const npc of Object.keys(routes) as NpcId[]) {
+    for (const stop of routes[npc]!) {
       const at = minuteOf(stop.at)
       const key = 'cast:' + npc + '@' + stop.at.join('-')
       if (at > world.minute || world.timeline?.[key]) continue
       ;(world.timeline ??= {})[key] = 'canon'
-      if (world.companions?.[npc]) continue
+      if (world.companions?.[npc] || flagsHold(world, stop.unless)) continue
       applyEffect(world, { move: { [npc]: stop.place }, ...(stop.facts && { facts: { [npc]: stop.facts } }) })
       if (stop.place && here.has(islandAt(stop.place)) && world.minute - at <= 360) {
         const spot = sightings.get(at + '|' + stop.place) ?? { minute: at, place: stop.place, names: [] }

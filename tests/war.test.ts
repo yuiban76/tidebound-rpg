@@ -119,3 +119,38 @@ test('戰爭期間白鬍子海賊團的人不跟玩家走', () => {
   world.crew = true
   assert.match(act(world, member, { kind: 'recruit', npc: 'izo' }).text, /只想救出艾斯/)
 })
+
+test('點名：推進城關著原作的犯人，戰爭當天每個人照原作的時間出現在原作的位置', () => {
+  const world = newWorld('ROLLCALL01', 'host')
+  const at = (day: number, hour: number) => { world.minute = (day - 1) * 1440 + hour * 60; advanceTimeline(world) }
+  const where = (npc: Parameters<typeof npcPlace>[1]) => npcPlace(world, npc)
+  at(65, 12)
+  assert.deepEqual([where('buggy'), where('galdino'), where('daz'), where('ivankov'), where('crocodile'), where('jinbe'), where('bonclay')],
+    ['impelLevel1', 'impelLevel1', 'impelLevel4', 'impelLevel5', 'impelLevel6', 'impelLevel6', 'impelLevel5'])
+  at(72, 12)
+  assert.equal(where('sengoku'), 'scaffold')
+  for (const npc of ['whitebeard', 'hancock', 'moria', 'mihawk', 'doflamingo', 'kuma', 'tsuru', 'aokiji', 'kizaru'] as const) assert.equal(where(npc), 'marinefordBay', npc)
+  assert.equal(where('smoker'), 'oris')
+  for (const npc of ['luffy', 'jinbe', 'crocodile', 'buggy', 'galdino', 'ivankov', 'daz', 'teach', 'law'] as const) assert.equal(where(npc), null, npc + ' 還沒到')
+  assert.equal(where('bonclay'), 'impelGate', '邦・克雷留在推進城，沒有到馬林福特')
+  at(72, 15)
+  for (const npc of ['luffy', 'jinbe', 'crocodile', 'buggy', 'galdino', 'ivankov', 'daz'] as const) assert.equal(where(npc), 'oris', npc)
+  at(72, 17)
+  assert.equal(where('luffy'), 'scaffold')
+  at(72, 18)
+  assert.equal(where('teach'), 'marinefordBay')
+  at(72, 19)
+  assert.equal(where('law'), 'marinefordBay')
+  assert.equal(where('shanks'), 'marinefordBay')
+})
+
+test('推進城大脫獄後沒有戰爭：逃犯和七武海都不會跑去馬林福特', () => {
+  const world = newWorld('ROLLCALL02', 'host')
+  world.islandTasks = { impelDown: { stage: 'done' } }
+  world.minute = 71 * 1440 + 16 * 60
+  advanceTimeline(world)
+  for (const npc of ['crocodile', 'jinbe', 'hancock', 'moria', 'teach', 'sengoku'] as const) {
+    const place = npcPlace(world, npc)
+    assert.ok(!place || !['marinefordBay', 'oris', 'scaffold'].includes(place), npc + ' 不該在戰場')
+  }
+})

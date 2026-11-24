@@ -82,9 +82,10 @@ test('時間線一路走下來：娜美、鷹眼、黃猿、馬可會在原作�
 
 test('一路跳過很多天也不會漏掉：直接睡到戰爭那天，每個人都在最後該在的地方', () => {
   const world = party()
-  world.minute = at(72, 13)
+  world.minute = at(72, 16)
   advanceTimeline(world)
-  assert.equal(npcPlace(world, 'jinbe'), 'marinefordBay')
+  // Jinbe escaped Impel Down with Luffy and fell onto Oris Plaza at 15:00.
+  assert.equal(npcPlace(world, 'jinbe'), 'oris')
   assert.equal(npcPlace(world, 'nami'), null)
   assert.equal(npcPlace(world, 'koby'), 'marinefordBay')
 })

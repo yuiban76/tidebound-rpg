@@ -126,6 +126,7 @@ export const cannotJoin: Partial<Record<NpcId, string>> = {
   laboon: '拉布是一頭巨大的鯨魚，上不了你們的船，何況他還在等一個約定。',
   dragon: '革命軍總司令有他自己的戰場，不會讓任何人把他帶上船。',
   charloss: '天龍人只會叫人跪下，不可能跟任何人一起出海。',
+  tsuru: '鶴中將是海軍的大參謀，不可能加入海賊團。',
   shanks: '香克斯是四皇，有自己的海賊團和船，不會加入別人的船團。',
   garp: '卡普是海軍中將，不會跟海賊同船。',
   akainu: '赤犬信奉「徹底的正義」，絕不會跟海賊並肩。',
@@ -143,6 +144,7 @@ const tierFight = [
   { hp: 100, def: 17, attr: 4, skill: 5, die: 10, bonus: 4 },
 ]
 const moves: Partial<Record<NpcId, string>> = {
+  daz: '斬擊', tsuru: '洗洗果實',
   squard: '大渦旋斬', oarsJr: '巨人鐵拳', izo: '雙槍連射', namur: '鯊魚大刀', rakuyo: '鐵球錘', curiel: '火槍掃射', blenheim: '巨掌',
   morgan: '斧頭右手', helmeppo: '雙刀亂揮', cabaji: '雜技劍術', mohji: '猛獸突擊', jango: '圓環催眠', patty: '料理重拳', carne: '料理重拳',
   nezumi: '指揮刀', kohza: '叛亂軍軍刀', wyper: '燃燒砲', ohm: '鐵雲劍', zambai: '鐵鏈甩擊', baskerville: '三頭長槍', hogback: '手術刀',

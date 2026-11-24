@@ -409,7 +409,8 @@ export const luffyRoute: RouteStop[] = [
   { at: [64, 10], place: 'impelGate', unless: 'impelDown' },
   { at: [66, 8], place: 'impelLevel5', unless: 'impelDown' },
   { at: [70, 6], place: null },
-  { at: [72, 12], place: 'scaffold', unless: 'impelDown' },
+  { at: [72, 15], place: 'oris', unless: 'impelDown', facts: '他和推進城的逃犯們從天而降，一路喊著哥哥的名字衝向處刑台。' },
+  { at: [72, 17], place: 'scaffold', unless: 'impelDown' },
   { at: [72, 20], place: null, facts: '頂上戰爭結束後，他的消息暫時斷了。' },
 ]
 
