@@ -47,9 +47,9 @@ test('行程依時間排序，地點都存在，且不會一天到晚瞬間移�
   }
 })
 
-test('Day 1 的位置：巴其占著橘子鎮、達丹在山上、娜美還在海上', () => {
+test('Day 1 的位置：巴其占著橘子鎮的酒館、達丹在山上、娜美還在海上', () => {
   const world = party()
-  assert.equal(npcPlace(world, 'buggy'), 'orangeStreet')
+  assert.equal(npcPlace(world, 'buggy'), 'buggyBar')
   assert.equal(npcPlace(world, 'dadan'), 'hill')
   assert.equal(npcPlace(world, 'nami'), null)
 })

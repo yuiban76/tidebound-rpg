@@ -58,6 +58,8 @@ export type CanonEvent = {
 
 /** What happens to the world right away when the players beat a canon villain in a fight. */
 export const bossDefeats: Partial<Record<NpcId, { text: string, effect: WorldEffect }>> = {
+  morgan: { text: '斧手蒙卡倒下了！謝爾茲鎮的人們終於不用再看上校的臉色過日子。',
+    effect: { move: { morgan: null }, facts: { rika: '蒙卡上校被打倒了！鎮上的大人們都在偷偷笑。' } } },
   klahadore: { text: '管家克拉哈德的真面目——海賊「百計的克洛」——被打倒了，他再也無法威脅西羅布村。',
     effect: { move: { klahadore: null }, facts: { kaya: '原來克拉哈德是海賊……謝謝你們保護了這個村子。' } } },
   arlong: { text: '惡龍倒下了！可可亞西村的人們不敢相信八年的統治就這樣結束。',
@@ -412,8 +414,13 @@ export const canonTimeline: CanonEvent[] = [
   { id: 'shells', at: [2, 12], island: 'shells', title: '謝爾茲鎮的海軍上校倒下',
     text: '戴草帽的少年在謝爾茲鎮擊敗了海軍上校蒙卡，被綁在基地廣場的劍士索隆成為他的第一個夥伴。',
     effect: { move: { zoro: null }, facts: { rika: '蒙卡上校被打倒了！索隆哥哥跟著一個戴草帽的人出海了。' }, close: ['shells'] },
-    changed: [{ when: ['recruited:zoro'], text: '戴草帽的少年在謝爾茲鎮擊敗了海軍上校蒙卡；被綁在廣場的劍士索隆早已被一群旅人帶走，少年只能繼續獨自找夥伴。',
-      effect: { facts: { rika: '蒙卡上校被打倒了！索隆哥哥早就跟著別的旅人走了。' }, close: ['shells'] } }] },
+    changed: [
+      { when: ['defeated:morgan', 'recruited:zoro'], text: '戴草帽的少年來到謝爾茲鎮時，蒙卡上校早已被一群旅人打倒，劍士索隆也跟他們走了；少年吃了頓飯，又獨自出海找夥伴。',
+        effect: { facts: { rika: '那個戴草帽的人來晚了，上校和索隆哥哥的事，都是先來的那群旅人解決的。' }, close: ['shells'] } },
+      { when: ['defeated:morgan'], text: '戴草帽的少年來到謝爾茲鎮時，蒙卡上校早已被一群旅人打倒；他替被綁在廣場的劍士索隆鬆了綁，兩人一起出海。',
+        effect: { move: { zoro: null }, facts: { rika: '上校早就被旅人們打倒了！索隆哥哥跟著一個戴草帽的人出海了。' }, close: ['shells'] } },
+      { when: ['recruited:zoro'], text: '戴草帽的少年在謝爾茲鎮擊敗了海軍上校蒙卡；被綁在廣場的劍士索隆早已被一群旅人帶走，少年只能繼續獨自找夥伴。',
+        effect: { facts: { rika: '蒙卡上校被打倒了！索隆哥哥早就跟著別的旅人走了。' }, close: ['shells'] } }] },
   { id: 'orange', at: [3, 15], island: 'orange', title: '小丑巴其海賊團敗走',
     text: '小丑巴其海賊團在橘子鎮被草帽少年擊敗，鎮民陸續回到家園。',
     effect: { facts: { boodle: '海賊被趕走了！鎮子雖然破破爛爛，但總能重建。修修還守著寵物店。' } },

@@ -47,10 +47,11 @@ test('被玩家先招募的夥伴不會站在對面，被打倒昏迷的人也�
   assert.deepEqual(foeNames(world).sort(), ['魯夫', '騙人布', '香吉士'].sort())
 })
 
-test('攻擊團員時船長和雜兵一起上：巴其在橘子鎮帶著手下', () => {
-  const { world, member } = scene('orangeStreet', at(1, 9))
+test('攻擊團員時船長和雜兵一起上：巴其在橘子鎮的酒館帶著卡巴吉、摩奇和手下', () => {
+  const { world, member } = scene('buggyBar', at(1, 9))
   resolve(world, member, { kind: 'attack', target: '巴其' }, '攻擊巴其', misses, online)
   assert.equal(foeNames(world)[0], '巴其')
+  assert.ok(foeNames(world).includes('卡巴吉') && foeNames(world).includes('摩奇'))
   assert.equal(world.combat?.foes.filter(foe => foe.name.startsWith('巴其海賊團團員')).length, 2)
 })
 

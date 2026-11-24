@@ -87,4 +87,11 @@ export const castNpcs = {
   jinbe: '甚平', teach: '黑鬍子', doflamingo: '多佛朗明哥',
   garp: '卡普', akainu: '赤犬', aokiji: '青雉', kizaru: '黃猿',
   marco: '馬可', jozu: '喬茲', vista: '比斯塔',
+  // The people who live at each island's important places.
+  morgan: '斧手蒙卡', helmeppo: '貝魯梅柏', cabaji: '卡巴吉', mohji: '摩奇',
+  jango: '詹哥', merry: '梅利', usoppKids: '騙人布海賊團三人組', patty: '派迪', carne: '卡爾涅', nezumi: '老鼠上校',
+  toto: '托多', kohza: '寇沙', amazon: '阿瑪佐尼亞', wyper: '瓦伊巴', ohm: '歐姆',
+  zambai: '札姆巴', baskerville: '巴斯卡比魯', hogback: '霍古巴克', absalom: '阿布薩羅姆',
+  disco: '迪士可', charloss: '查爾羅斯聖', camie: '凱米',
+  marguerite: '瑪格麗特', sandersonia: '桑達索尼亞', marigold: '馬里哥爾特', hannyabal: '漢尼巴爾',
 } as const

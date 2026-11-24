@@ -37,7 +37,9 @@ test('單人成立船團不用投票', () => {
 })
 
 test('成功撤退不會被說成被搶；倒下時的指引會提到睡覺', () => {
-  const { world, member, c } = solo('orangeStreet')
+  const { world, member, c } = solo('buggyBar')
+  // Buggy fights with his officers now, so the hero needs to survive one round to try running.
+  c.hp = 99_999
   act(world, member, { kind: 'attack', target: '巴其' }, dice(1, 1))
   const money = c.money
   const retreat = act(world, member, { kind: 'flee' }, dice(1))
