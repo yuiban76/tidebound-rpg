@@ -13,7 +13,7 @@ export function VoyagePanel({ world, player, suggest }: Props) {
   const crew = party(world)
   if (!ship) return <section className="panel sea-panel" aria-labelledby={title}>
     <h2 id={title}>航海</h2>
-    <p>{locations.dock}的船塢販售{boatYard.name}，可載全隊出海。售價 {boatYard.price} 貝里。</p>
+    <p>{locations.dock}的船塢販售{boatYard.name}，可載全隊出海。售價 {boatYard.price.toLocaleString('en-US')} 貝里。</p>
     <div className="button-row">
       {character.place === 'dock' ? <button type="button" onClick={() => suggest('買船')}>買船</button> : <button type="button" className="light" onClick={() => suggest('前往' + locations.dock)}>前往船塢</button>}
     </div>

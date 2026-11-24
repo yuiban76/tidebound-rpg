@@ -5,6 +5,7 @@ import { setFlag, hasFlag } from '../world/flags.ts'
 import { stat } from '../world/races.ts'
 import { islandAt } from '../world/sea.ts'
 import { npcPlace, party } from '../world/village.ts'
+import { beli } from '../world/scale.ts'
 import type { Member, World } from '../world/village.ts'
 import { goalById, sideAllies, warFlag, warGoals, warMinute, warOn, warSides } from '../world/war.ts'
 import { grantXp, maxHP } from './engine.ts'
@@ -14,7 +15,7 @@ type WarIntent = Extract<Intent, { kind: 'war' }>
 const stop = (text: string) => ({ text, rejected: true as const })
 const clock = ([hour, minute]: [number, number]) => String(hour).padStart(2, '0') + ':' + String(minute).padStart(2, '0')
 /** The Marines pay helpers for each goal they reach. */
-const marinePay = 1000
+const marinePay = 50_000
 
 export function resolveWar(world: World, actor: Member, intent: WarIntent, roll: Roll) {
   const c = actor.character!
@@ -66,7 +67,7 @@ export function resolveWar(world: World, actor: Member, intent: WarIntent, roll:
     return grantXp(m.character!, 150, 'war:' + goal.id)
   }).filter(Boolean)
   return {
-    text: line + goal.done + (goal.side === 'marine' ? '海軍發給在場的每個人 ' + marinePay + ' 貝里。' : '') + (rewards.length ? '\n' + rewards.join('\n') : ''),
+    text: line + goal.done + (goal.side === 'marine' ? '海軍發給在場的每個人 ' + beli(marinePay) + '。' : '') + (rewards.length ? '\n' + rewards.join('\n') : ''),
     minutes: 30, announce: true,
   }
 }

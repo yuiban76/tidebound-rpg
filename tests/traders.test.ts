@@ -16,7 +16,7 @@ function solo(place: LocationId) {
   const member = world.members[0] as Member
   member.character = makeCharacter(character('旅人'))
   member.character.place = place
-  member.character.money = 5000
+  member.character.money = 500_000
   return { world, member, c: member.character }
 }
 
@@ -34,9 +34,9 @@ test('在行商面前能買武器和道具，不會賣完；行商不肯加入�
   const { world, member, c } = solo('syrupPort')
   const swords = c.inventory['普通武士刀'] ?? 0
   const bought = resolve(world, member, { kind: 'buy', item: 'sword' }, '', () => 10, online)
-  assert.match(bought.text, /行商歐蘭把普通武士刀交給你。購入普通武士刀，支出 600 貝里/)
+  assert.match(bought.text, /行商歐蘭把普通武士刀交給你。購入普通武士刀，支出 50,000 貝里/)
   assert.equal(c.inventory['普通武士刀'], swords + 1)
-  assert.equal(c.money, 4400)
+  assert.equal(c.money, 450_000)
   for (let i = 0; i < 3; i++) assert.ok(!resolve(world, member, { kind: 'buy', item: 'musket' }, '', () => 10, online).rejected)
   assert.ok((c.inventory['普通火槍'] ?? 0) >= 3)
   assert.match(resolve(world, member, { kind: 'buy', item: 'logPose' }, '', () => 10, online).text, /一本松武器店/)
@@ -55,5 +55,5 @@ test('離開行商的地方就買不到', () => {
 test('到港口看看四周，會看到行商和他賣的東西', () => {
   const { text } = directions('syrupPort')
   assert.match(text, /這裡有行商歐蘭（潮行商會的行商）/)
-  assert.match(text, /行商歐蘭販售普通武士刀 600 貝里.*傷藥 120 貝里/)
+  assert.match(text, /行商歐蘭販售普通武士刀 50,000 貝里.*傷藥 6,000 貝里/)
 })

@@ -3,6 +3,7 @@
 // so characters made before races mattered get them too.
 import type { Attribute, Race, Weapon } from '../shared/protocol.ts'
 import type { Character } from './village.ts'
+import { armorOf } from './market.ts'
 
 export type RaceTrait = {
   /** Attribute added on top of the character's own points. */
@@ -51,7 +52,8 @@ export const raceTraits: Record<Race, RaceTrait> = {
 export const traitOf = (c: Pick<Character, 'race'>): RaceTrait => raceTraits[c.race] ?? raceTraits.人類
 
 /** An attribute with the race's bonus. Use this everywhere a roll or number reads an attribute. */
-export const stat = (c: Pick<Character, 'race' | 'stats'>, attr: Attribute) => c.stats[attr] + (traitOf(c).bonus?.[attr] ?? 0)
+export const stat = (c: Pick<Character, 'race' | 'stats'> & Partial<Pick<Character, 'inventory'>>, attr: Attribute) =>
+  c.stats[attr] + (traitOf(c).bonus?.[attr] ?? 0) + (attr === 'AGI' && c.inventory ? armorOf({ inventory: c.inventory })?.agi ?? 0 : 0)
 
 export const raceHit = (c: Character, sea: boolean) =>
   (sea ? traitOf(c).seaHit ?? 0 : 0) + (traitOf(c).reach?.weapons.includes(c.weapon) ? traitOf(c).reach!.hit : 0)

@@ -66,13 +66,13 @@ test('不吸收就流到外面：三天後出現在夏波帝拍賣所，花錢�
   assert.match(world.paperQueue?.at(-1)?.text ?? '', /煙煙果實流落在外/)
 
   c.place = 'auctionHouse'
-  c.money = 99_000_000
+  c.money = 999_000_000
   assert.match(act(world, member, { kind: 'buyFruit' }).text, /沒有惡魔果實/)
   world.minute += 72 * 60
   const bought = act(world, member, { kind: 'buyFruit', fruit: '煙煙果實' })
   assert.match(bought.text, /標下煙煙果實/)
   assert.equal(c.fruit, 'moku')
-  assert.equal(c.money, 99_000_000 - 12_000_000)
+  assert.equal(c.money, 999_000_000 - 300_000_000)
   assert.equal(world.fruitStalls?.length, 0)
   world.fruitStalls = [{ fruit: 'hana', from: 'robin', ready: 0 }]
   assert.match(act(world, member, { kind: 'buyFruit' }).text, /已經吃過惡魔果實/)

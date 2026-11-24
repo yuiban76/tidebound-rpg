@@ -6,7 +6,7 @@ import type { Character } from './village.ts'
 export const forges: Partial<Record<LocationId, string>> = { square: '風車村鐵匠鋪', goa: '城下町武器鋪', logueShop: '一本松武器店' }
 export const maxTier = 3
 /** Money, and the character level needed, for each step (index = the tier being made). */
-export const tierCost = [0, 400, 1200, 3000] as const
+export const tierCost = [0, 100_000, 500_000, 2_000_000] as const
 export const tierLevel = [0, 2, 5, 8] as const
 /** Each tier adds +1 to hit and +1 damage (before the number scale), on top of level and weapon dice. */
 export const tierHit = (tier: number) => tier

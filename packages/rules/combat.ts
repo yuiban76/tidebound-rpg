@@ -3,11 +3,13 @@
 import { locations, npcs } from '../shared/protocol.ts'
 import type { AttackStyle, NpcId } from '../shared/protocol.ts'
 import { npcFoe, tierNames, tierXp } from '../world/foes.ts'
-import { crewmates } from '../world/crews.ts'
+import { crewmates, crews } from '../world/crews.ts'
 import type { Foe } from '../world/foes.ts'
 import { boatYard, islandAt } from '../world/sea.ts'
 import { raceDefense, raceHit, stat, traitOf } from '../world/races.ts'
 import { dressingOf } from '../world/skills.ts'
+import { armorOf, crewTreasure, slipName, specialByLabel, specials } from '../world/market.ts'
+import type { SpecialId } from '../world/market.ts'
 import { masteryOf, npcFacts, npcPlace, npcsAt, party, paths } from '../world/village.ts'
 import type { Character, Combat, CombatChoice, Member, World } from '../world/village.ts'
 import { bossDefeats } from '../world/canon.ts'
@@ -175,7 +177,9 @@ function validate(combat: Combat, c: Character, choice: CombatChoice) {
     if (tool) {
       if (!c.inventory[tool.label]) return '你的背包裡沒有' + tool.label + '。'
       if (!combat.foes.some(foe => !foe.down && !foe.surrendered && foe.weak?.includes(tool.weakness))) return '這場戰鬥裡沒有' + tool.label + '派得上用場的對手。'
-    } else if (!/繃帶|草藥/.test(choice.item) || !dressingOf(c)) return '戰鬥中只能使用背包裡的繃帶、草藥、水壺或衝擊貝。'
+    } else if (battleItem(choice.item)) {
+      if (!c.inventory[specials[battleItem(choice.item)!].label]) return '你的背包裡沒有' + specials[battleItem(choice.item)!].label + '。'
+    } else if (!/繃帶|草藥/.test(choice.item) || !dressingOf(c)) return '戰鬥中只能使用背包裡的繃帶、草藥、水壺、衝擊貝、火藥星、煙霧彈、火焰貝或鹽。'
   }
   if (choice.kind === 'negotiate' && !findFoe(combat, choice.target)) return '找不到可以交涉的對手。'
 }
@@ -187,6 +191,7 @@ function resolveRound(world: World, combat: Combat, roll: Roll, opening: string)
   const guarding = new Set<string>()
   const lastHit = new Map<string, Member>()
   let escaped = false
+  let smoke = false
 
   // Movement and support first; then attacks in speed order (spec §7.5).
   for (const member of fighters) {
@@ -199,7 +204,11 @@ function resolveRound(world: World, combat: Combat, roll: Roll, opening: string)
       lines.push(fighter.name + '裝填火槍。')
     }
     if (choice.kind === 'useItem' && soakTool(choice.item)) lines.push(useSoak(combat, fighter, soakTool(choice.item)!, choice.target))
-    else if (choice.kind === 'useItem') {
+    else if (choice.kind === 'useItem' && battleItem(choice.item)) {
+      const used = useBattleItem(combat, member, battleItem(choice.item)!, choice.target, lastHit)
+      lines.push(used.text)
+      if (used.escape) smoke = true
+    } else if (choice.kind === 'useItem') {
       const used = useBandage(world, member, choice.target)
       lines.push(typeof used === 'string' ? fighter.name + '想用繃帶，但' + used : used.text)
     }
@@ -221,6 +230,14 @@ function resolveRound(world: World, combat: Combat, roll: Roll, opening: string)
       }
     }
   }
+  if (smoke && !combat.sea) {
+    const exit = paths[combat.place][0]
+    for (const member of fighters) if (member.character!.place === combat.place) { member.character!.place = exit; member.character!.conversingWith = null }
+    delete world.combat
+    lines.push('煙霧散去時，你們已經撤到' + locations[exit] + '。')
+    return { text: lines.join('\n'), minutes: 1, announce: true }
+  }
+  if (smoke) escaped = true
   if (escaped) {
     delete world.combat
     const voyage = finishVoyage(world, combat.sea!)
@@ -275,13 +292,14 @@ function resolveRound(world: World, combat: Combat, roll: Roll, opening: string)
 
   // NPC turn: every foe still standing strikes a random fighter on the spot.
   for (const foe of standing(combat)) {
+    if (foe.blind) { lines.push(foe.name + '被火藥星嗆得睜不開眼，沒能出手。'); continue }
     // Companions on the spot draw fire too, so a foe may pick a player or an NPC companion.
     const targets: Victim[] = [
       ...fighters.filter(m => m.character!.place === combat.place && m.character!.hp > 0).map(m => {
         const x = m.character!
         return {
           // A fruit user cannot swim: at sea a fall overboard costs defense. A logia body halves blows from ordinary foes.
-          name: x.name, def: defense(stat(x, 'AGI'), x.skillRanks['閃避'] ?? 0, (guarding.has(m.id) ? 2 : 0) + levelDefense(x.level) - (x.fruit && combat.sea ? 2 : 0) + raceDefense(x, !!combat.sea)),
+          name: x.name, def: defense(stat(x, 'AGI'), x.skillRanks['閃避'] ?? 0, (guarding.has(m.id) ? 2 : 0) + levelDefense(x.level) - (x.fruit && combat.sea ? 2 : 0) + raceDefense(x, !!combat.sea) + (armorOf(x)?.def ?? 0)),
           hurt: (damage: number) => { x.hp = Math.max(0, x.hp - (isLogia(x.fruit) && !foe.logia ? Math.ceil(damage / 2) : damage)); return x.hp ? undefined : x.name + '倒下，仍可接受救援。' },
         }
       }),
@@ -307,7 +325,7 @@ function resolveRound(world: World, combat: Combat, roll: Roll, opening: string)
     if (fallen) lines.push(fallen)
   }
 
-  for (const foe of combat.foes) if (foe.exposed) foe.exposed--
+  for (const foe of combat.foes) { if (foe.exposed) foe.exposed--; if (foe.blind) foe.blind-- }
   combat.participants = combat.participants.filter(id => {
     const fighter = world.members.find(m => m.id === id)!.character!
     return fighter.hp > 0 && fighter.place === combat.place
@@ -389,10 +407,26 @@ function victory(world: World, combat: Combat, lines: string[], lastHit: Map<str
   lines.push('戰鬥結束。')
 
   const loot = beaten.reduce((sum, foe) => sum + foe.loot, 0)
-  const reward = beaten.filter(foe => ['pirate', 'bandit', 'tyrant'].includes(foe.faction)).reduce((sum, foe) => sum + (foe.bounty ?? 0), 0)
-  if (loot + reward && winners.length) {
-    for (const m of winners) m.character!.money += share(loot + reward)
-    lines.push('戰利品' + (reward ? '與賞金' : '') + '共 ' + (loot + reward).toLocaleString('en-US') + ' 貝里，每人分得 ' + share(loot + reward).toLocaleString('en-US') + '。')
+  if (loot && winners.length) {
+    for (const m of winners) m.character!.money += share(loot)
+    lines.push('戰利品共 ' + loot.toLocaleString('en-US') + ' 貝里，每人分得 ' + share(loot).toLocaleString('en-US') + '。')
+  }
+  // A bounty is paid against its slip: in full by the Marines to people who are not wanted, or in part by a broker.
+  for (const foe of beaten.filter(foe => ['pirate', 'bandit', 'tyrant'].includes(foe.faction) && foe.bounty)) {
+    const holder = (lastHit.get(foe.id) ?? winners[0])?.character
+    if (!holder) continue
+    const slip = slipName(foe.name, foe.bounty!)
+    holder.inventory[slip] = (holder.inventory[slip] ?? 0) + 1
+    lines.push(holder.name + '拿到' + slip + '。沒有懸賞金的人可以到海軍基地領全額；有懸賞金的人只能找地下掮客換錢。')
+  }
+  // The first party to beat a captain finds the crew's treasure.
+  for (const foe of beaten) {
+    const crew = foe.npc && (Object.keys(crews) as string[]).find(id => crews[id].captain === foe.npc)
+    const treasure = crew ? crewTreasure[crew] : undefined
+    if (!crew || !treasure || world.treasures?.includes(crew) || !winners.length) continue
+    ;(world.treasures ??= []).push(crew)
+    for (const m of winners) m.character!.money += share(treasure.amount)
+    lines.push('你們找到了' + treasure.text + '：共 ' + treasure.amount.toLocaleString('en-US') + ' 貝里，每人分得 ' + share(treasure.amount).toLocaleString('en-US') + '。')
   }
   for (const foe of combat.foes) {
     if (['marine', 'government'].includes(foe.faction) && (foe.down || foe.surrendered)) {
@@ -453,4 +487,35 @@ function defeat(world: World, combat: Combat, lines: string[]): Result {
     return { text: lines.join('\n'), announce: true, minutes: 1 + voyage.minutes }
   }
   return { text: lines.join('\n'), announce: true, minutes: 1 }
+}
+
+/** A merchant's combat item named in the action, if it is one. */
+function battleItem(item: string): SpecialId | undefined {
+  const id = specialByLabel(item) ?? (Object.keys(specials) as SpecialId[]).find(key => item.includes(specials[key].label))
+  return id && (specials[id] as { kind: string }).kind === 'combat' ? id : undefined
+}
+
+/** 火藥星 blinds a foe for the round, 火焰貝 burns one, 鹽 drops a zombie, 煙霧彈 gets the whole party away. */
+function useBattleItem(combat: Combat, member: Member, id: SpecialId, target: string | undefined, lastHit: Map<string, Member>) {
+  const c = member.character!
+  const ware = specials[id] as { label: string, effect?: string }
+  if (!--c.inventory[ware.label]) delete c.inventory[ware.label]
+  if (ware.effect === 'escape') return { text: c.name + '把煙霧彈摔在地上，白煙瞬間吞沒了整個戰場！', escape: true }
+  const foe = findFoe(combat, target) ?? standing(combat)[0]
+  if (!foe) return { text: c.name + '想用' + ware.label + '，但已經沒有對手了。' }
+  if (ware.effect === 'blind') {
+    foe.blind = 1
+    return { text: c.name + '把火藥星砸在' + foe.name + '臉上，' + foe.name + '咳個不停、睜不開眼！' }
+  }
+  if (ware.effect === 'salt') {
+    if (!foe.name.includes('殭屍')) return { text: c.name + '把鹽撒向' + foe.name + '，對方只是皺了皺眉。鹽只對殭屍有用。' }
+    foe.down = true
+    lastHit.set(foe.id, member)
+    return { text: c.name + '把鹽塞進' + foe.name + '嘴裡，影子從它身上飛走，殭屍當場倒下了！' }
+  }
+  if (canHurt(foe, c) === false) return { text: c.name + '的火焰穿過了' + foe.name + '的身體，自然系讓這一擊落空。' + weakHint(foe) }
+  const damage = (15 + c.level) * scale
+  foe.hp = Math.max(0, foe.hp - damage)
+  if (!foe.hp) { foe.down = true; lastHit.set(foe.id, member) }
+  return { text: c.name + '按下火焰貝，一道火柱噴向' + foe.name + '，傷害 ' + damage + '。' + foe.name + ' HP ' + foe.hp + '／' + foe.maxHp + '。' + (foe.hp ? '' : foe.name + '倒下了。') }
 }

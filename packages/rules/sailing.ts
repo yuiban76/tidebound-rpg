@@ -10,6 +10,7 @@ import { navigatorRank } from '../world/skills.ts'
 import { rollSeaEncounter, tierNames } from '../world/foes.ts'
 import { startSeaFight } from './combat.ts'
 import { minuteOf } from '../world/canon.ts'
+import { beli } from '../world/scale.ts'
 import { setFlag } from '../world/flags.ts'
 import { warFlag } from '../world/war.ts'
 import { applyEffect } from '../world/timeline.ts'
@@ -32,7 +33,7 @@ export function sellMainShip(world: World) {
   buyer.money += boatYard.sale
   delete world.ship
   delete world.sailing
-  return '船塢收購了' + boatYard.name + '。' + buyer.name + '收到 ' + boatYard.sale + ' 貝里。'
+  return '船塢收購了' + boatYard.name + '。' + buyer.name + '收到 ' + beli(boatYard.sale) + '。'
 }
 
 function logVote(world: World, actor: Member, choice: RouteChoice) {
@@ -51,10 +52,10 @@ export function resolveSailing(world: World, actor: Member, intent: SeaIntent, r
   if (intent.order === 'buy') {
     if (c.place !== 'dock') return stop(shipPurchaseInfo)
     if (ship) return stop('隊伍已有' + boatYard.name + '，可查看航海面板。')
-    if (c.money < boatYard.price) return stop('購船需要 ' + boatYard.price + ' 貝里。')
+    if (c.money < boatYard.price) return stop('購船需要 ' + beli(boatYard.price) + '。')
     c.money -= boatYard.price
     world.ship = { owner: actor.id, port: 'dock', hull: 100, wood: 2, trips: 0 }
-    return { text: '你花了 ' + boatYard.price + ' 貝里買下' + boatYard.name + '，登記為隊伍共用主船。' +
+    return { text: '你花了 ' + beli(boatYard.price) + '買下' + boatYard.name + '，登記為隊伍共用主船。' +
       '船停在' + locations.dock + '，附兩份木料。接著可選航線或輸入「出海」。', minutes: 8, announce: true }
   }
   if (!ship) return stop(shipPurchaseInfo)
@@ -76,10 +77,10 @@ export function resolveSailing(world: World, actor: Member, intent: SeaIntent, r
   }
   if (!atPort) return stop(boatYard.name + '停在' + locations[ship.port] + '。請先到船邊。')
   if (intent.order === 'materials') {
-    if (c.money < boatYard.woodPrice) return stop('買一份木料需要 ' + boatYard.woodPrice + ' 貝里。')
+    if (c.money < boatYard.woodPrice) return stop('買一份木料需要 ' + beli(boatYard.woodPrice) + '。')
     c.money -= boatYard.woodPrice
     ship.wood++
-    return { text: '花費 ' + boatYard.woodPrice + ' 貝里，船上新增一份木料。', minutes: 3 }
+    return { text: '花費 ' + beli(boatYard.woodPrice) + '，船上新增一份木料。', minutes: 3 }
   }
   if (intent.order === 'repair') {
     if (ship.hull >= 100) return stop('船體已是 100／100。')
@@ -236,7 +237,7 @@ export function resolveIslandTask(world: World, actor: Member, intent: TaskInten
   const rewards = party(world).filter(m => islandAt(m.character!.place) === island)
     .map(m => grantXp(m.character!, story.xp ?? 60)).filter(Boolean)
   return {
-    text: story.close + (story.reward ? c.name + '取得 ' + story.reward + ' 貝里。' : '') + '船上補充兩份木料。\n' + rewards.join('\n'),
+    text: story.close + (story.reward ? c.name + '取得 ' + beli(story.reward) + '。' : '') + '船上補充兩份木料。\n' + rewards.join('\n'),
     minutes: 5, announce: true,
   }
 }

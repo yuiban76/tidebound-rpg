@@ -2,8 +2,10 @@ import { locations, npcs } from '../shared/protocol.ts'
 import type { Intent, IslandId, LocationId, NpcId, Weapon } from '../shared/protocol.ts'
 import { goods, landmarks, meals, paths, people, shops, traderOffer } from './village.ts'
 import { isTrader } from './traders.ts'
+import { brokers, marineOffices, specialByLabel, specials, traderSpecials } from './market.ts'
 import type { Good } from './village.ts'
 import { islandAt, islands, islandStories } from './sea.ts'
+import { beli } from './scale.ts'
 import { wildPlaces } from './skills.ts'
 import { warGoals } from './war.ts'
 
@@ -100,9 +102,13 @@ export function directions(place: LocationId, { hillClosed = false, inCombat = f
     '你在' + locations[place] + '。',
     ...nearby.map(id => '可以去' + locations[id] + '，' + landmarks[id] + '。'),
     ...local.map(id => '這裡有' + npcs[id] + '（' + people[id].role + '），可以找對方交談。'),
-    ...(place === 'tavern' ? ['酒吧有烤麵包 ' + meals.bread.price + ' 貝里、燉肉飯 ' + meals.rice.price + ' 貝里。'] : []),
-    ...(wares.length ? [shops[place] + '販售' + wares.map(id => goods[id].label + ' ' + goods[id].price + ' 貝里').join('、') + '。'] : []),
-    ...local.filter(isTrader).map(id => npcs[id] + '販售' + traderOffer + '，輸入「買普通武士刀」這類指令就能購買。'),
+    ...(place === 'tavern' ? ['酒吧有烤麵包 ' + beli(meals.bread.price) + '、燉肉飯 ' + beli(meals.rice.price) + '。'] : []),
+    ...(wares.length ? [shops[place] + '販售' + wares.map(id => goods[id].label + ' ' + beli(goods[id].price)).join('、') + '。'] : []),
+    ...local.filter(isTrader).map(id => npcs[id] + '販售' + traderOffer +
+      (traderSpecials[id].length ? '；特產：' + traderSpecials[id].map(ware => specials[ware].label + ' ' + beli(specials[ware].price)).join('、') : '') +
+      '。輸入「買普通武士刀」這類指令就能購買，「賣掉某樣東西」用半價收購。'),
+    ...local.filter(id => brokers[id]).map(id => npcs[id] + '私下收購賞金單（' + Math.round(brokers[id]! * 100) + '%），輸入「兌換賞金單」。'),
+    ...(marineOffices.includes(place) ? ['這裡的海軍會兌換賞金單，付全額，但不付給有懸賞金的人。'] : []),
     ...(hillClosed && place === 'road' ? ['山道目前有正在結算的遭遇。'] : []),
     ...(wildPlaces.includes(place) ? ['這裡可以「採集」草藥和木料（每天一次）。'] : []),
   ].join('\n')
@@ -262,6 +268,11 @@ export function familiarIntent(input: string, here?: LocationId): Intent | undef
   const shopping = /^(?:買|購買)(?:[一兩二三四五六七八九十\d]+)?(?:個|份|捲|把|瓶|罐|支|只|包)?\s*(.+)$/.exec(text)
   const ware = shopping && (Object.keys(goods) as Good[]).find(id => goods[id].label === shopping[1].trim())
   if (ware) return { kind: 'buy', item: ware }
+  const specialty = shopping && specialByLabel(shopping[1].trim())
+  if (specialty) return { kind: 'buy', item: specialty }
+  if (/^(?:兌換|兑換|換)?賞金單$|^(?:領|領取)賞金$|^(?:兌換|賣掉?)賞金單$/.test(text)) return { kind: 'bounty' }
+  const selling = /^(?:賣掉?|出售|變賣)(?:[一兩二三四五六七八九十\d]+)?(?:個|份|捲|把|瓶|罐|支|只|包|件|塊)?\s*(.+)$/.exec(text)
+  if (selling && !/船/.test(selling[1])) return { kind: 'sell', item: selling[1].trim() }
   const gear = /^(?:買|購買)(?:一個|一把|一顆|一個)?(水壺|海樓石十手|海樓石|衝擊貝)$/.exec(text)
   if (gear) return { kind: 'buy', item: gear[1] === '水壺' ? 'waterskin' : gear[1] === '衝擊貝' ? 'dial' : 'seastone' }
   if (/^(?:睡覺|睡一覺|睡一晚|睡一下覺|過夜|休息一晚|好好睡一覺|去睡覺)$/.test(text)) return { kind: 'rest', sleep: true }
@@ -271,10 +282,10 @@ export function familiarIntent(input: string, here?: LocationId): Intent | undef
   const equip = /^(?:裝備|改用|換成|換上|拿起|使用)\s*(\S+)$/.exec(text)
   if (equip && Object.hasOwn(weaponWords, equip[1])) return { kind: 'equip', weapon: weaponWords[equip[1]] }
   if (/^收起武器$/.test(text)) return { kind: 'equip', weapon: 'fist' }
-  const moneyFirst = /^(?:把|將)\s*(\d+)\s*貝里\s*(?:交給|轉給|送給|給)\s*(.+)$/.exec(text)
-  if (moneyFirst) return { kind: 'give', to: moneyFirst[2].trim(), money: Number(moneyFirst[1]) }
-  const nameFirst = /^(?:給|交給|轉給|送給)\s*(.+?)\s*(\d+)\s*貝里$/.exec(text)
-  if (nameFirst) return { kind: 'give', to: nameFirst[1].trim(), money: Number(nameFirst[2]) }
+  const moneyFirst = /^(?:把|將)\s*([\d,]+)\s*貝里\s*(?:交給|轉給|送給|給)\s*(.+)$/.exec(text)
+  if (moneyFirst) return { kind: 'give', to: moneyFirst[2].trim(), money: Number(moneyFirst[1].replaceAll(',', '')) }
+  const nameFirst = /^(?:給|交給|轉給|送給)\s*(.+?)\s*([\d,]+)\s*貝里$/.exec(text)
+  if (nameFirst) return { kind: 'give', to: nameFirst[1].trim(), money: Number(nameFirst[2].replaceAll(',', '')) }
   const giveItem = /^(?:把|將)\s*(?:(\d+)\s*(?:個|份|把|捲|發|件|本)\s*)?(.+?)\s*(?:轉交給|交給|送給|給)\s*(.+)$/.exec(text)
   // Handing things to NPCs is a story action (e.g. returning the log), so only teammates get the give shortcut.
   if (giveItem && !Object.hasOwn(npcByName, giveItem[3].trim())) return { kind: 'give', to: giveItem[3].trim(), item: giveItem[2].trim(), ...(giveItem[1] ? { count: Number(giveItem[1]) } : {}) }

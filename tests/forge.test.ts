@@ -25,13 +25,13 @@ test('鐵匠：只有鐵匠鋪能強化，要等級和貝里，最多三階，�
   const { world, member, c } = solo('dock')
   assert.equal(act(world, member, { kind: 'upgrade' }).rejected, true)
   c.place = 'square'
-  c.money = 10000
+  c.money = 10_000_000
   assert.match(act(world, member, { kind: 'upgrade' }).text, /等級 2/)
   c.level = 2
   assert.match(act(world, member, { kind: 'upgrade' }).text, /精鋼武士刀/)
   assert.equal(tierOf(c), 1)
   // The fixture character knows 工藝 1: the smith charges 10% less.
-  assert.equal(c.money, 10000 - 360)
+  assert.equal(c.money, 10_000_000 - 90_000)
   assert.equal(act(world, member, { kind: 'upgrade' }).rejected, true, '2 階要等級 5')
   c.level = 8
   act(world, member, { kind: 'upgrade' })
@@ -43,7 +43,7 @@ test('鐵匠：只有鐵匠鋪能強化，要等級和貝里，最多三階，�
 
 test('強化只跟著那種武器：換成徒手不帶走，換回來仍在；火槍可在城下町買', () => {
   const { world, member, c } = solo('goa')
-  c.money = 5000
+  c.money = 5_000_000
   c.level = 2
   act(world, member, { kind: 'upgrade' })
   act(world, member, { kind: 'equip', weapon: 'fist' })

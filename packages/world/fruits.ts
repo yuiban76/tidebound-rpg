@@ -97,7 +97,7 @@ export const fruitOf: Partial<Record<NpcId, FruitId>> = Object.fromEntries(
   (Object.entries(fruits) as [FruitId, Fruit][]).map(([id, fruit]) => [fruit.owner, id])) as Partial<Record<NpcId, FruitId>>
 
 /** Auction price by rank. */
-export const fruitPrice: Record<Fruit['rank'], number> = { 1: 2_000_000, 2: 5_000_000, 3: 12_000_000 }
+export const fruitPrice: Record<Fruit['rank'], number> = { 1: 50_000_000, 2: 100_000_000, 3: 300_000_000 }
 /** Hours between a fruit being let go and it turning up at the auction. */
 export const driftHours = 72
 

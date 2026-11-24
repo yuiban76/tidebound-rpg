@@ -22,6 +22,8 @@ export type Foe = {
   weak?: Weakness[]
   /** Rounds left in which the body is solid (after water or a dial); counted down at the end of each round. */
   exposed?: number
+  /** Rounds the foe cannot see to strike (a 火藥星 in the face). */
+  blind?: number
   bounty?: number, loot: number, items?: Record<string, number>
   down?: boolean, surrendered?: boolean
 }
@@ -79,7 +81,7 @@ function foeFrom(id: string, name: string, profile: Profile, npc?: NpcId): Foe {
     id, name, npc, tier: profile.tier, faction: profile.faction,
     hp: maxHp, maxHp, def: profile.def ?? def, armor, attack: profile.attack ?? attack, die: profile.die ?? die, bonus,
     ...(profile.logia && { logia: true, weak: profile.weak ?? ['seastone'] }), ...(profile.bounty && { bounty: profile.bounty }),
-    loot: profile.faction === 'civilian' || profile.faction === 'beast' ? profile.tier * 20 : (profile.tier + 1) ** 2 * 100,
+    loot: profile.faction === 'civilian' || profile.faction === 'beast' ? profile.tier * 1_000 : (profile.tier + 1) ** 2 * 5_000,
   }
 }
 

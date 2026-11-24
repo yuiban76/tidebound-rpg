@@ -2,7 +2,7 @@ import { attributeLabels, locations, npcs } from '../shared/protocol.ts'
 import type { CharacterInput, Intent, NpcId, Skill } from '../shared/protocol.ts'
 import { asksAboutBoatCrew, asksAboutShipPurchase, dialogueQuestion, directions, routeBetween } from '../world/explore.ts'
 import { forges, maxTier, tierCost, tierDamage, tierHit, tierLevel, tierOf, weaponLabel } from '../world/forge.ts'
-import { scale } from '../world/scale.ts'
+import { beli, scale } from '../world/scale.ts'
 import { boatCrewReplies, goods, meals, npcFacts, npcPlace, npcsAt, party, shops, walkMinutes, weaponItems, weaponNames } from '../world/village.ts'
 import { islandAt, islands, shipPurchaseInfo } from '../world/sea.ts'
 import { resolveIslandTask, resolveSailing } from './sailing.ts'
@@ -15,7 +15,7 @@ import { companionByName, companionMaxHp, hasMedic, healCompanions, partyLevel, 
 import { isDown, resolveCombatAction } from './combat.ts'
 import type { Character, CombatChoice, Member, World } from '../world/village.ts'
 import { applyRace, stat, traitOf } from '../world/races.ts'
-import { isTrader, traderWares } from '../world/traders.ts'
+import { buyWare, cashSlips, sellWare, useSupply } from './market.ts'
 import { cookAt, crafted, doctorAt, dressingOf, skillCap, wildPlaces } from '../world/skills.ts'
 
 export type Attribute = keyof Character['stats']
@@ -74,7 +74,7 @@ export function makeCharacter(input: CharacterInput): Character {
   const kit = input.major === '醫術' ? { 繃帶: 2, 醫療工具: 1 } : {}
   const equipment = { fist: '基礎工具組', sword: '普通武士刀', spear: '普通長槍', musket: '普通火槍' }[weapon]
   const c: Character = {
-    ...input, place: 'square', conversingWith: null, money: 2000, level: 1, xp: 0, unspent: 0, skillPoints: 0, xpLog: {}, bounty: 0, techniques: [], hp: 0, sta: 0, weapon,
+    ...input, place: 'square', conversingWith: null, money: 100_000, level: 1, xp: 0, unspent: 0, skillPoints: 0, xpLog: {}, bounty: 0, techniques: [], hp: 0, sta: 0, weapon,
     raceReady: false,
     loaded: weapon === 'musket', inventory: { 普通衣物: 1, [equipment]: 1 },
     skillRanks: { [input.major]: 2, [input.basics[0]]: 1, [input.basics[1]]: 1, [input.life]: 1 },
@@ -228,14 +228,14 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
     case 'meal': {
       if (c.place !== 'tavern') return reject(locations.tavern + '供應餐點。可以先輸入「前往' + locations.tavern + '」。')
       const dish = meals[intent.dish]
-      if (c.money < dish.price) return reject('這份' + dish.name + '需要 ' + dish.price + ' 貝里，你帶的錢不夠。')
+      if (c.money < dish.price) return reject('這份' + dish.name + '需要 ' + beli(dish.price) + '，你帶的錢不夠。')
       c.money -= dish.price
       const hpBefore = c.hp
       const staBefore = c.sta
       if (c.hp > 0) c.hp = Math.min(maxHP(c), c.hp + dish.hp)
       c.sta = Math.min(maxSTA(c), c.sta + dish.sta)
       return {
-        text: '你在' + locations.tavern + '吃了' + dish.name + '，花費 ' + dish.price + ' 貝里。HP +' + (c.hp - hpBefore) + '、STA +' + (c.sta - staBefore) +
+        text: '你在' + locations.tavern + '吃了' + dish.name + '，花費 ' + beli(dish.price) + '。HP +' + (c.hp - hpBefore) + '、STA +' + (c.sta - staBefore) +
           '（目前 HP ' + c.hp + '／' + maxHP(c) + '，STA ' + c.sta + '／' + maxSTA(c) + '）。',
         minutes: 10,
       }
@@ -267,29 +267,9 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
       const text = label + ' D20 ' + natural + '，合計 ' + total + '／' + dc + '，' + (total >= dc ? '成功。' : '未成功。')
       return withXp({ text, minutes: 5 }, total >= dc ? grantXp(c, 5, 'check:' + intent.method + ':' + c.place) : '')
     }
-    case 'buy': {
-      const item = goods[intent.item]
-      // A guild merchant on this spot sells the standard wares and never runs out.
-      const trader = (traderWares as readonly string[]).includes(intent.item)
-        ? npcsAt(world, c.place).find(npc => isTrader(npc) && !isDown(world, npc)) : undefined
-      if (c.place !== item.shop && !trader) return reject(item.label + '在' + locations[item.shop] + '的' + shops[item.shop] + '販售' +
-        ((traderWares as readonly string[]).includes(intent.item) ? '，各島港口的潮行商會行商也有賣' : '') + '。')
-      if (!trader) {
-        world.stock[intent.item] ??= item.initial
-        if (!world.stock[intent.item]) return reject(item.label + '已售完。')
-      }
-      if (c.money < item.price) return reject('貝里不足。')
-      if (!trader) world.stock[intent.item]--
-      c.money -= item.price
-      c.inventory[item.label] = (c.inventory[item.label] ?? 0) + 1
-      const weapon = (Object.keys(weaponItems) as (keyof typeof weaponItems)[]).find(id => weaponItems[id] === item.label)
-      let note = ''
-      if (weapon && c.weapon === 'fist') {
-        c.weapon = weapon
-        note = '你改用' + item.label + '。'
-      } else if (weapon && c.weapon !== weapon) note = '可輸入「改用' + item.label + '」換武器。'
-      return { text: (trader ? npcs[trader] + '把' + item.label + '交給你。' : '') + '購入' + item.label + '，支出 ' + item.price + ' 貝里。' + note, minutes: 3 }
-    }
+    case 'buy': return buyWare(world, actor, intent.item)
+    case 'sell': return sellWare(world, actor, intent.item, intent.count)
+    case 'bounty': return cashSlips(world, actor)
     case 'upgrade': {
       if (!forges[c.place]) return reject('這裡沒有鐵匠。風車村鐵匠鋪、哥亞城下町武器鋪和羅格鎮的一本松武器店可以強化武器。')
       const tier = tierOf(c)
@@ -298,14 +278,16 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
       if (next > maxTier) return reject(name + '已經強化到這些鐵匠做得出的極限。')
       if (c.level < tierLevel[next]) return reject('強化到' + next + '階需要等級 ' + tierLevel[next] + '，你目前是 ' + c.level + '。')
       const cost = crafted(tierCost[next], c)
-      if (c.money < cost) return reject('強化到' + next + '階需要 ' + cost + ' 貝里。')
+      if (c.money < cost) return reject('強化到' + next + '階需要 ' + beli(cost) + '。')
       c.money -= cost
       ;(c.gear ??= {})[c.weapon] = next
-      return { text: '鐵匠花了兩個小時重新鍛打，支出 ' + cost + ' 貝里' + (cost < tierCost[next] ? '（你懂工藝，幫忙省了 ' + (tierCost[next] - cost) + ' 貝里）' : '') + '。你的武器變成「' + weaponLabel(c, weaponNames[c.weapon]) + '」，命中 +' + tierHit(next) + '、傷害 +' + tierDamage(next) * scale + '。' +
-        (next < maxTier ? '下一階需要等級 ' + tierLevel[next + 1] + '、' + crafted(tierCost[next + 1], c) + ' 貝里。' : ''), minutes: 120 }
+      return { text: '鐵匠花了兩個小時重新鍛打，支出 ' + beli(cost) + (cost < tierCost[next] ? '（你懂工藝，幫忙省了 ' + beli(tierCost[next] - cost) + '）' : '') + '。你的武器變成「' + weaponLabel(c, weaponNames[c.weapon]) + '」，命中 +' + tierHit(next) + '、傷害 +' + tierDamage(next) * scale + '。' +
+        (next < maxTier ? '下一階需要等級 ' + tierLevel[next + 1] + '、' + beli(crafted(tierCost[next + 1], c)) + '。' : ''), minutes: 120 }
     }
     case 'use': {
-      if (intent.item !== '傷藥') return reject('目前只能這樣使用傷藥；繃帶請用「使用繃帶給某人」。')
+      const supply = intent.item !== '傷藥' ? useSupply(world, c, intent.item) : undefined
+      if (supply) return supply
+      if (intent.item !== '傷藥') return reject('「' + intent.item + '」不是能直接使用的東西。傷藥、食物和櫻花藥可以吃喝，繃帶請用「使用繃帶給某人」。')
       if (!c.inventory['傷藥']) return reject('你的背包裡沒有傷藥。風車村鐵匠鋪有賣。')
       if (c.hp >= maxHP(c) && c.sta >= maxSTA(c)) return reject('你現在沒有需要恢復的地方。')
       c.inventory['傷藥']--
@@ -328,10 +310,10 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
       if (world.combat?.participants.includes(target.id)) return reject(t.name + '正在戰鬥中。')
       if ((intent.money === undefined) === (intent.item === undefined)) return reject('一次請轉交一種物品，或指定貝里金額。')
       if (intent.money !== undefined) {
-        if (c.money < intent.money) return reject('你只有 ' + c.money + ' 貝里。')
+        if (c.money < intent.money) return reject('你只有 ' + beli(c.money) + '。')
         c.money -= intent.money
         t.money += intent.money
-        return { text: c.name + '把 ' + intent.money + ' 貝里交給' + t.name + '。', minutes: 1 }
+        return { text: c.name + '把 ' + beli(intent.money) + '交給' + t.name + '。', minutes: 1 }
       }
       const item = findItem(c.inventory, intent.item!.trim())
       const count = intent.count ?? 1

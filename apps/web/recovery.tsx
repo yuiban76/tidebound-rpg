@@ -25,7 +25,7 @@ export function RecoveryPanel({ world, player, suggest }: Props) {
         <button type="button" className="light" disabled={inCombat} onClick={() => suggest('睡一覺')}>睡覺</button></li>
       <li><div><strong>吃東西</strong><div className="hint">
         {atTavern ? '這裡就能吃：' : '去' + locations.tavern + '：'}
-        {Object.values(meals).map(m => m.name + '（' + m.price + ' 貝里，HP+' + m.hp + '、STA+' + m.sta + '）').join('、')}</div></div>
+        {Object.values(meals).map(m => m.name + '（' + m.price.toLocaleString('en-US') + ' 貝里，HP+' + m.hp + '、STA+' + m.sta + '）').join('、')}</div></div>
         {atTavern && <div className="button-row">
           <button type="button" className="light" onClick={() => suggest('吃烤麵包')}>烤麵包</button>
           <button type="button" className="light" onClick={() => suggest('吃燉肉飯')}>燉肉飯</button></div>}</li>

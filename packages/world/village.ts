@@ -3,7 +3,7 @@ import { npcs } from '../shared/protocol.ts'
 import type { Ship, SailingPlan, IslandTask, RouteChoice } from './sea.ts'
 import type { Foe } from './foes.ts'
 import type { FruitId } from './fruits.ts'
-import { scale } from './scale.ts'
+import { beli, beliScale, scale } from './scale.ts'
 import { canonIslands, canonPeople } from './canon.ts'
 import { castPeople } from './cast.ts'
 import { traders, traderWares } from './traders.ts'
@@ -71,27 +71,27 @@ export const landmarks = {
   ...canonLandmarks,
 } as Record<LocationId, string>
 export const meals = {
-  bread: { name: '烤麵包', price: 15, hp: 2 * scale, sta: 4 },
-  rice: { name: '燉肉飯', price: 35, hp: 5 * scale, sta: 8 },
+  bread: { name: '烤麵包', price: 800, hp: 2 * scale, sta: 4 },
+  rice: { name: '燉肉飯', price: 1_800, hp: 5 * scale, sta: 8 },
 }
 
 export const shops: Partial<Record<LocationId, string>> = { square: '風車村鐵匠鋪', dock: '港口補給鋪', goa: '城下町武器鋪', logueShop: '一本松武器店', nanohana: '那諾哈娜雜貨攤', angelBeach: '天使海灘貝殼攤' }
 export const goods = {
-  spear: { label: '普通長槍', price: 500, initial: 1, shop: 'dock' },
-  bandage: { label: '繃帶', price: 80, initial: 4, shop: 'dock' },
-  bullets: { label: '火槍彈藥', price: 30, initial: 12, shop: 'dock' },
-  sword: { label: '普通武士刀', price: 600, initial: 2, shop: 'goa' },
-  musket: { label: '普通火槍', price: 900, initial: 2, shop: 'goa' },
-  tonic: { label: '傷藥', price: 120, initial: 10, shop: 'square' },
-  logPose: { label: '記錄指針', price: 1000, initial: 4, shop: 'logueShop' },
+  spear: { label: '普通長槍', price: 40_000, initial: 1, shop: 'dock' },
+  bandage: { label: '繃帶', price: 4_000, initial: 4, shop: 'dock' },
+  bullets: { label: '火槍彈藥', price: 1_500, initial: 12, shop: 'dock' },
+  sword: { label: '普通武士刀', price: 50_000, initial: 2, shop: 'goa' },
+  musket: { label: '普通火槍', price: 70_000, initial: 2, shop: 'goa' },
+  tonic: { label: '傷藥', price: 6_000, initial: 10, shop: 'square' },
+  logPose: { label: '記錄指針', price: 50_000, initial: 4, shop: 'logueShop' },
   // Answers to logia bodies before haki exists (see foes.ts Weakness).
-  waterskin: { label: '水壺', price: 30, initial: 6, shop: 'nanohana' },
-  seastone: { label: '海樓石十手', price: 3000, initial: 1, shop: 'logueShop' },
-  dial: { label: '衝擊貝', price: 300, initial: 4, shop: 'angelBeach' },
+  waterskin: { label: '水壺', price: 1_500, initial: 6, shop: 'nanohana' },
+  seastone: { label: '海樓石十手', price: 300_000, initial: 1, shop: 'logueShop' },
+  dial: { label: '衝擊貝', price: 15_000, initial: 4, shop: 'angelBeach' },
 } as const satisfies Record<string, { label: string, price: number, initial: number, shop: LocationId }>
 export type Good = keyof typeof goods
 /** What a merchant sells, as the NPC says it. */
-export const traderOffer = traderWares.map(id => goods[id].label + ' ' + goods[id].price + ' 貝里').join('、')
+export const traderOffer = traderWares.map(id => goods[id].label + ' ' + beli(goods[id].price)).join('、')
 for (const id of Object.keys(traders) as (keyof typeof traders)[])
   people[id].known += '他賣' + traderOffer + '，說要買就直接開口，但他不會跟任何人出海。'
 /** Inventory item that lets a character wield each weapon. Bare hands need nothing. */
@@ -196,6 +196,10 @@ export type World = {
   started: boolean
   minute: number
   members: Member[]
+  /** Money scale the save uses: 50 since prices follow canon beli; missing means the old small numbers. */
+  economy?: number
+  /** Crews whose treasure was already taken (see world/market.ts crewTreasure). */
+  treasures?: string[]
   /** Number scale the saved HP values use (see world/scale.ts); missing means 1. */
   scale?: number
   stock: Record<Good, number>
@@ -285,7 +289,7 @@ export function newWorld(code: string, host: string): World {
   return {
     code, version: 0, started: false, minute: 8 * 60,
     members: [{ id: host, host: true, ready: false, agree: false, approved: false }],
-    scale,
+    scale, economy: beliScale,
     stock: initialStock(), memories: emptyMemories(), proposals: [], crew: false,
   }
 }
@@ -299,6 +303,12 @@ export function normalizeWorld(world: World): World {
     for (const companion of Object.values(world.companions ?? {})) if (companion) companion.hp = Math.round(companion.hp * ratio)
     for (const foe of world.combat?.foes ?? []) { foe.hp = Math.round(foe.hp * ratio); foe.maxHp = Math.round(foe.maxHp * ratio) }
     world.scale = scale
+  }
+  // Prices moved to canon beli (×50): money saved under the old numbers keeps its buying power.
+  if ((world.economy ?? 1) !== beliScale) {
+    const factor = beliScale / (world.economy ?? 1)
+    for (const member of world.members) if (member.character) member.character.money = Math.round(member.character.money * factor)
+    world.economy = beliScale
   }
   const stock = initialStock()
   for (const id of Object.keys(stock) as Good[]) world.stock[id] ??= stock[id]

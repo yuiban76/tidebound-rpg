@@ -95,7 +95,10 @@ export const intentSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('flee') }),
   z.strictObject({ kind: z.literal('rest'), sleep: z.boolean() }),
   z.strictObject({ kind: z.literal('aid'), patient: z.string().min(1).max(24) }),
-  z.strictObject({ kind: z.literal('buy'), item: z.enum(['spear', 'bandage', 'bullets', 'sword', 'musket', 'tonic', 'logPose', 'waterskin', 'seastone', 'dial']) }),
+  /** A goods id or name (village.ts goods), or a merchant specialty id or name (world/market.ts). */
+  z.strictObject({ kind: z.literal('buy'), item: z.string().trim().min(1).max(30) }),
+  z.strictObject({ kind: z.literal('sell'), item: z.string().trim().min(1).max(40), count: z.number().int().min(1).max(99).optional() }),
+  z.strictObject({ kind: z.literal('bounty') }),
   // Reforge the held weapon at a forge; use eats or drinks a carried restorative (傷藥).
   z.strictObject({ kind: z.literal('upgrade') }),
   z.strictObject({ kind: z.literal('use'), item: z.string().trim().min(1).max(24) }),
@@ -105,7 +108,7 @@ export const intentSchema = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.literal('give'), to: z.string().trim().min(1).max(24),
     item: z.string().trim().min(1).max(24).optional(), count: z.number().int().min(1).max(99).optional(),
-    money: z.number().int().min(1).max(10_000_000).optional(),
+    money: z.number().int().min(1).max(10_000_000_000).optional(),
   }),
   z.strictObject({ kind: z.literal('equip'), weapon: z.enum(weapons) }),
   z.strictObject({ kind: z.literal('reload') }),

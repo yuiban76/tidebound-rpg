@@ -223,7 +223,7 @@ test('格式錯誤會重試一次；仍無效就當成自由行動交給旁白�
   await game.start(code)
   const before = game.room(code).members[0].character
   ai.rawIntents(
-    '{"kind":"buy","item":"不存在的果實"}',
+    '{"kind":"buy","item":""}',
     '{"kind":"move","to":"hill"} 或 {"kind":"attack","npc":"dadan","power":true}',
   )
   ai.narrateWith('你的新花樣引來一陣笑聲。')
@@ -412,9 +412,9 @@ test('單人可購船、完成兩座新島的委託並返航，規則直接保�
   assert.match(await play('出海'), /風車村港口的船塢/)
   await play('前往風車村港口')
   assert.match(await play('前往謝爾茲鎮港口'), /跨島不能自行步行/)
-  assert.match(await play('買船'), /650 貝里買下小帆船/)
+  assert.match(await play('買船'), /32,500 貝里買下小帆船/)
   assert.match(await play('買船'), /已有小帆船/)
-  assert.equal(world().members[0].character?.money, 1350)
+  assert.equal(world().members[0].character?.money, 67_500)
   assert.match(await play('出海'), /全隊抵達謝爾茲鎮的謝爾茲鎮港口/)
   assert.equal(world().members[0].character?.place, 'shellsPort')
   assert.equal(world().ship?.port, 'shellsPort')
@@ -426,7 +426,7 @@ test('單人可購船、完成兩座新島的委託並返航，規則直接保�
   await play('前往謝爾茲鎮大街')
   assert.match(await play('回報莉卡'), /開心得跳起來/)
   assert.equal(world().islandTasks?.shells?.stage, 'done')
-  assert.equal(world().members[0].character?.money, 1550)
+  assert.equal(world().members[0].character?.money, 77_500)
 
   await play('前往謝爾茲鎮港口')
   assert.match(await play('出海前往橘子鎮'), /全隊抵達橘子鎮的橘子鎮港口/)
@@ -436,7 +436,7 @@ test('單人可購船、完成兩座新島的委託並返航，規則直接保�
   for (let i = 0; i < 5 && world().islandTasks?.orange?.stage !== 'found'; i++) await play('整理寵物店')
   await play('前往橘子鎮大街')
   assert.match(await play('回報布德鎮長'), /紅著眼眶/)
-  assert.equal(world().members[0].character?.money, 1850)
+  assert.equal(world().members[0].character?.money, 92_500)
   // 20 XP per newly reached island plus 60 per island task: 160 XP crosses level 2 at 100.
   assert.equal(world().members[0].character?.level, 2)
   assert.equal(world().members[0].character?.xp, 60)
@@ -500,7 +500,7 @@ test('出售主船需要全員同意，只結算一次並支付登記船主', as
   assert.ok(game.room(code).ship)
   game.message(code, guest, vote)
   assert.equal(game.room(code).ship, undefined)
-  assert.deepEqual(game.room(code).members.map(member => member.character?.money), [2000, 1830])
+  assert.deepEqual(game.room(code).members.map(member => member.character?.money), [100_000, 91_500])
   assert.throws(() => game.message(code, guest, vote), /已結案/)
 })
 
@@ -511,8 +511,8 @@ test('可以用口語找人、前往目的地、吃飯並發起船團投票', as
   const calls = ai.seen.length
   assert.match(await act(game, code, ids[0], '吃爌肉飯'), /先輸入「前往派對酒吧」/)
   assert.match(await act(game, code, ids[0], '我走進酒館'), /你抵達派對酒吧/)
-  assert.match(await act(game, code, ids[0], '吃烤麵包'), /花費 15 貝里/)
-  assert.equal(game.room(code).members[0].character?.money, 1985)
+  assert.match(await act(game, code, ids[0], '吃烤麵包'), /花費 800 貝里/)
+  assert.equal(game.room(code).members[0].character?.money, 99_200)
   assert.match(await act(game, code, ids[0], '找村長聊聊'), /村長在風車村廣場/)
   assert.equal(ai.seen.length, calls)
   assert.match(await act(game, code, ids[0], '我要去廣場找村長'), /抵達風車村廣場。\n村長與你交談/)
@@ -536,7 +536,7 @@ for (const n of [1, 2, 3, 4]) {
     assert.equal(view.world.members.length, n)
     assert.equal(view.phase, 'playing')
     assert.equal(view.world.crew, false)
-    assert.equal(view.world.members[0].character?.money, 2000)
+    assert.equal(view.world.members[0].character?.money, 100_000)
     if (n < 4) {
       // A late joiner holds a seat but is not part of N until admitted at a port.
       const late = game.join(code)
@@ -609,7 +609,7 @@ test('P0-11／15／18 最後一件長槍只賣一次，NPC 交談連續，跨島
   await until(() => game.store.pending(code, two)?.phase === 'done')
   assert.match(game.store.pending(code, one)!.result!, /購入/)
   assert.match(game.store.pending(code, two)!.result!, /售完/)
-  assert.deepEqual(game.room(code).members.map(m => m.character?.money), [1500, 2000])
+  assert.deepEqual(game.room(code).members.map(m => m.character?.money), [60_000, 100_000])
   assert.equal(game.room(code).stock.spear, 0)
   for (const id of ids) await act(game, code, id, '回廣場')
   const inquiries = ids.map(id => submit(game, code, id, '找村長聊聊'))
@@ -690,7 +690,7 @@ test('P0-19 SQLite 重開與備份保留世界、金錢和待續旁白', async t
   const id = submit(game, code, player, '買一把普通長槍')
   await until(() => game.ai.status.state === 'lost')
   const saved = game.room(code)
-  assert.equal(saved.members[0].character?.money, 1500)
+  assert.equal(saved.members[0].character?.money, 60_000)
   const dump = join(dir, 'copy.sqlite')
   await store.export(dump)
   game.stop()
@@ -812,8 +812,8 @@ test('同地隊友可轉交貝里與物品；武器需持有才可換', async t 
   const [a, b] = ids
   const money = () => game.room(code).members.map(m => m.character?.money)
   assert.match(await act(game, code, a, '給旅行者 1 300 貝里'), /300 貝里交給旅行者 1/)
-  assert.deepEqual(money(), [1700, 2300])
-  assert.match(await act(game, code, a, '給旅行者 1 5000 貝里'), /你只有 1700 貝里/)
+  assert.deepEqual(money(), [99_700, 100_300])
+  assert.match(await act(game, code, a, '給旅行者 1 500,000 貝里'), /你只有 99,700 貝里/)
   await act(game, code, b, '去碼頭')
   assert.match(await act(game, code, a, '把普通衣物交給旅行者 1'), /不在風車村廣場/)
   assert.match(await act(game, code, a, '改用普通長槍'), /背包裡沒有普通長槍/)
@@ -844,7 +844,7 @@ test('哥亞城下町武器鋪只在當地販售，步行耗時較長，最後�
   assert.match(game.store.pending(code, one)!.result!, /購入普通武士刀/)
   assert.match(game.store.pending(code, two)!.result!, /售完/)
   assert.equal(game.room(code).stock.sword, 0)
-  assert.deepEqual(game.room(code).members.map(m => m.character?.money), [1400, 2000])
+  assert.deepEqual(game.room(code).members.map(m => m.character?.money), [50_000, 100_000])
 })
 
 test('舊存檔載入時補上新欄位而不改動既有資料', () => {
@@ -854,6 +854,8 @@ test('舊存檔載入時補上新欄位而不改動既有資料', () => {
     const legacy = JSON.parse(JSON.stringify(world))
     delete legacy.stock.sword
     delete legacy.memories.mayor
+    // Saves from before canon-beli prices are converted once: 777 becomes 777 × 50.
+    delete legacy.economy
     legacy.members[0].character = makeCharacter(character('甲'))
     legacy.members[0].character.money = 777
     delete legacy.members[0].character.unspent
@@ -862,7 +864,7 @@ test('舊存檔載入時補上新欄位而不改動既有資料', () => {
     const loaded = store.get('ABCDEF0123')!
     assert.equal(loaded.stock.sword, 2)
     assert.deepEqual(loaded.memories.mayor, [])
-    assert.deepEqual([loaded.members[0].character?.unspent, loaded.members[0].character?.xpLog, loaded.members[0].character?.money], [0, {}, 777])
+    assert.deepEqual([loaded.members[0].character?.unspent, loaded.members[0].character?.xpLog, loaded.members[0].character?.money], [0, {}, 777 * 50])
   } finally { store.db.close() }
 })
 
@@ -893,7 +895,7 @@ test('謝爾茲鎮與橘子鎮：航行抵達、與索隆交談、完成兩地�
   for (let i = 0; i < 6 && world().islandTasks?.orange?.stage !== 'found'; i++) await play('整理寵物店')
   await play('去大街')
   assert.match(await play('回報布德鎮長'), /布德鎮長看見寵物店重新關好門/)
-  assert.equal(world().members[0].character?.money, 2000 - 650 + 200 + 300)
+  assert.equal(world().members[0].character?.money, 100_000 - 32_500 + 10_000 + 15_000)
   assert.match(await play('去碼頭'), /抵達橘子鎮港口/)
   assert.match(await play('返航'), /無法由現在的港口起航/)
   assert.equal(world().ship?.port, 'orangePort')
@@ -962,7 +964,7 @@ test('偉大航路：需記錄指針、單向航線、衝天海流要先抓南�
   game.store.save(world)
   assert.match(await play('出海前往雙子岬'), /必須有人帶著記錄指針/)
   await play('前往一本松武器店')
-  assert.match(await play('買記錄指針'), /購入記錄指針，支出 1000 貝里/)
+  assert.match(await play('買記錄指針'), /購入記錄指針，支出 50,000 貝里/)
   assert.match(await play('去港口'), /抵達羅格鎮港/)
   assert.match(await play('出海前往雙子岬'), /翻越顛倒山[\s\S]*全隊抵達雙子岬的雙子岬港灣/)
   assert.ok(game.room(code).ship!.hull <= 90)

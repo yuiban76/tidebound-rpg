@@ -104,7 +104,7 @@ test('海上遭遇可以甩開；全隊倒下時被海賊搶走三成貝里，�
   act(lost.world, lost.member, { kind: 'sail', order: 'depart', destination: 'shells' }, dice(10, 20, 1))
   const beaten = act(lost.world, lost.member, { kind: 'attack' }, dice(1, 20, 6, 6))
   assert.match(beaten.text, /搶走了你們身上三成的貝里[\s\S]*全隊抵達謝爾茲鎮/)
-  assert.equal(lost.c.money, 1400)
+  assert.equal(lost.c.money, 70_000)
   assert.equal(lost.c.place, 'shellsPort')
 })
 
