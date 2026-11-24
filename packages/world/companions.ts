@@ -5,6 +5,7 @@ import { scale } from './scale.ts'
 import { npcs } from '../shared/protocol.ts'
 import type { IslandId, NpcId } from '../shared/protocol.ts'
 import { npcProfiles } from './foes.ts'
+import { traders } from './traders.ts'
 import { npcPlace, party, people } from './village.ts'
 import type { Companion, World } from './village.ts'
 import { sideAllies, warOn } from './war.ts'
@@ -126,6 +127,7 @@ export const cannotJoin: Partial<Record<NpcId, string>> = {
   laboon: '拉布是一頭巨大的鯨魚，上不了你們的船，何況他還在等一個約定。',
   dragon: '革命軍總司令有他自己的戰場，不會讓任何人把他帶上船。',
   charloss: '天龍人只會叫人跪下，不可能跟任何人一起出海。',
+  ...Object.fromEntries(Object.keys(traders).map(id => [id, npcs[id as NpcId] + '是潮行商會的行商，只做買賣，不會加入任何海賊團。'])),
   tsuru: '鶴中將是海軍的大參謀，不可能加入海賊團。',
   shanks: '香克斯是四皇，有自己的海賊團和船，不會加入別人的船團。',
   garp: '卡普是海軍中將，不會跟海賊同船。',

@@ -1,6 +1,7 @@
 import { locations, npcs } from '../shared/protocol.ts'
 import type { Intent, IslandId, LocationId, NpcId, Weapon } from '../shared/protocol.ts'
-import { goods, landmarks, meals, paths, people, shops } from './village.ts'
+import { goods, landmarks, meals, paths, people, shops, traderOffer } from './village.ts'
+import { isTrader } from './traders.ts'
 import type { Good } from './village.ts'
 import { islandAt, islands, islandStories } from './sea.ts'
 import { wildPlaces } from './skills.ts'
@@ -101,6 +102,7 @@ export function directions(place: LocationId, { hillClosed = false, inCombat = f
     ...local.map(id => '這裡有' + npcs[id] + '（' + people[id].role + '），可以找對方交談。'),
     ...(place === 'tavern' ? ['酒吧有烤麵包 ' + meals.bread.price + ' 貝里、燉肉飯 ' + meals.rice.price + ' 貝里。'] : []),
     ...(wares.length ? [shops[place] + '販售' + wares.map(id => goods[id].label + ' ' + goods[id].price + ' 貝里').join('、') + '。'] : []),
+    ...local.filter(isTrader).map(id => npcs[id] + '販售' + traderOffer + '，輸入「買普通武士刀」這類指令就能購買。'),
     ...(hillClosed && place === 'road' ? ['山道目前有正在結算的遭遇。'] : []),
     ...(wildPlaces.includes(place) ? ['這裡可以「採集」草藥和木料（每天一次）。'] : []),
   ].join('\n')
@@ -128,6 +130,13 @@ export function asksAboutBoatCrew(text: string) {
 export function asksAboutShipPurchase(input: string) {
   return dialogueQuestion(input) &&
     /(?:[買买賣卖]|[購购][買买置]|出售)(?:一?[艘條条])?(?:小艇|帆船|船[隻只]?)(?![上票員员長长])|(?:小艇|帆船|船[隻只]?)(?![上票員员長长]).{0,5}(?:哪[裡里邊边兒儿]?)?[買买賣卖]/.test(input)
+}
+
+/** The NPC a line turns to on purpose (「問可雅…」「跟可雅說」「可雅，…」); merely naming someone does not count. */
+export function addressedNpc(input: string): NpcId | undefined {
+  const text = input.trim()
+  const vocative = new RegExp('^(' + npcNames + ')\s*[，,：:]').exec(text)
+  return talkIntent(text)?.npc ?? (vocative ? npcByName[vocative[1]] : undefined)
 }
 
 function talkIntent(text: string) {

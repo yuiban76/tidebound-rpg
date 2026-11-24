@@ -98,3 +98,13 @@ export const castNpcs = {
   daz: '達茲・波涅斯', tsuru: '鶴中將',
   squard: '斯庫亞多', oarsJr: '小奧茲Jr.', izo: '以藏', namur: '那謬爾', rakuyo: '拉克約', curiel: '庫利', blenheim: '布倫海姆',
 } as const
+
+/** Original traveling merchants of the 潮行商會, one at every island's port (details in packages/world/traders.ts). */
+export const traderNpcs = {
+  traderWind: '行商托賓', traderShells: '行商瑪洛', traderOrange: '行商皮普', traderSyrup: '行商歐蘭',
+  traderBaratie: '行商塞吉', traderCocoyasi: '行商汐莉', traderLogue: '行商貝克', traderTwin: '行商歐佛',
+  traderWhisky: '行商卡絲', traderGarden: '行商薩洛', traderDrum: '行商伊格納', traderAlabasta: '行商哈米德',
+  traderJaya: '行商巴托', traderSkypiea: '行商菲亞', traderWater7: '行商德魯', traderEnies: '行商文森',
+  traderThriller: '行商葛林', traderSabaody: '行商艾琳', traderAmazon: '行商薩娜', traderImpel: '行商莫茲',
+  traderMarineford: '行商霍爾',
+} as const

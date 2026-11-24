@@ -6,6 +6,7 @@ import type { FruitId } from './fruits.ts'
 import { scale } from './scale.ts'
 import { canonIslands, canonPeople } from './canon.ts'
 import { castPeople } from './cast.ts'
+import { traders, traderWares } from './traders.ts'
 import { addedSites, islandLayouts } from './sites.ts'
 import { applyRace, raceTraits } from './races.ts'
 
@@ -40,6 +41,7 @@ export function walkMinutes(from: LocationId, to: LocationId) {
 export const people: Record<NpcId, { place: LocationId | null, role: string, known: string }> = {
   ...canonPeople,
   ...castPeople,
+  ...Object.fromEntries(Object.entries(traders).map(([id, { place, role, known }]) => [id, { place, role, known }])) as Record<keyof typeof traders, { place: LocationId, role: string, known: string }>,
   keeper: { place: 'tavern', role: '派對酒吧老闆娘', known: '魯夫今天清晨乘小船出海了，說要成為海賊王。他從小就在店裡聽香克斯說海上的故事。' },
   mayor: { place: 'square', role: '風車村村長', known: '魯夫那小子今早真的出海當海賊去了。村民都是老實人；有事可以到酒吧找瑪琪諾。' },
   // Canon East Blue snapshot for the starting day. These are present states, not scripted futures:
@@ -88,6 +90,10 @@ export const goods = {
   dial: { label: '衝擊貝', price: 300, initial: 4, shop: 'angelBeach' },
 } as const satisfies Record<string, { label: string, price: number, initial: number, shop: LocationId }>
 export type Good = keyof typeof goods
+/** What a merchant sells, as the NPC says it. */
+export const traderOffer = traderWares.map(id => goods[id].label + ' ' + goods[id].price + ' 貝里').join('、')
+for (const id of Object.keys(traders) as (keyof typeof traders)[])
+  people[id].known += '他賣' + traderOffer + '，說要買就直接開口，但他不會跟任何人出海。'
 /** Inventory item that lets a character wield each weapon. Bare hands need nothing. */
 export const weaponItems: Record<Exclude<Weapon, 'fist'>, string> = { sword: '普通武士刀', spear: '普通長槍', musket: '普通火槍' }
 export const weaponNames: Record<Weapon, string> = { fist: '徒手', ...weaponItems }

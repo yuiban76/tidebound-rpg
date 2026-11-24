@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { addedLocations, canonIslandIds, canonLocations, canonNpcs, castNpcs } from './atlas.ts'
+import { addedLocations, canonIslandIds, canonLocations, canonNpcs, castNpcs, traderNpcs } from './atlas.ts'
 
 export const attributes = ['STR', 'AGI', 'CON', 'PER', 'INT', 'WIL'] as const
 export const attributeLabels = { STR: '力量', AGI: '敏捷', CON: '體魄', PER: '感知', INT: '智識', WIL: '意志' }
@@ -17,7 +17,7 @@ export const locations = {
   ...addedLocations,
 }
 export const npcs = { keeper: '瑪琪諾', mayor: '村長',
-  rika: '莉卡', zoro: '索隆', boodle: '布德鎮長', chouchou: '修修', ...canonNpcs, ...castNpcs }
+  rika: '莉卡', zoro: '索隆', boodle: '布德鎮長', chouchou: '修修', ...canonNpcs, ...castNpcs, ...traderNpcs }
 export const weapons = ['fist', 'sword', 'spear', 'musket'] as const
 export const attackStyles = ['normal', 'power', 'special', 'advanced', 'flurry'] as const
 export type AttackStyle = (typeof attackStyles)[number]

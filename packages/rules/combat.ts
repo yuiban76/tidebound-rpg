@@ -51,15 +51,21 @@ const standing = (combat: Combat) => combat.foes.filter(foe => !foe.down && !foe
 function findFoe(combat: Combat, target?: string) {
   const alive = standing(combat)
   if (!target) return alive[0]
+  const byId = alive.find(foe => foe.npc === target)
+  if (byId) return byId
   return alive.find(foe => foe.name === target) ?? alive.find(foe => foe.name.includes(target) || target.includes(foe.name))
 }
 
 /** A named NPC on the actor's spot who can be attacked right now. */
 function npcTarget(world: World, c: Character, target?: string): NpcId | string {
+  // The AI classifier sometimes names the target by its code ("usopp") instead of 「騙人布」.
+  if (target && Object.hasOwn(npcs, target)) target = npcs[target as NpcId]
   const mate = target ? companionByName(world, target) : undefined
   if (mate && npcPlace(world, mate) === c.place) return npcs[mate] + '是你的夥伴，不能攻擊。'
   const here = npcsAt(world, c.place).filter(npc => !isDown(world, npc) && !isCompanion(world, npc))
   if (!here.length) return '這裡沒有可以攻擊的對象。'
+  // An unnamed attack goes to whoever the character is talking to.
+  if (!target && c.conversingWith && here.includes(c.conversingWith)) return c.conversingWith
   if (!target) return here.length === 1 ? here[0] : '請說明要攻擊誰：' + here.map(npc => npcs[npc]).join('、') + '。'
   const found = here.find(npc => npcs[npc] === target) ?? here.find(npc => npcs[npc].includes(target) || target.includes(npcs[npc]))
   if (found) return found

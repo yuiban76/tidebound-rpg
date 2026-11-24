@@ -4,6 +4,7 @@ import { scale } from './scale.ts'
 import type { NpcId } from '../shared/protocol.ts'
 import { npcs } from '../shared/protocol.ts'
 import { castProfiles } from './cast.ts'
+import { traders } from './traders.ts'
 
 /** What lets a blow land on a logia body before haki exists: wet sand, sea stone, or a Sky Island dial. */
 export type Weakness = 'water' | 'seastone' | 'dial'
@@ -67,6 +68,8 @@ export const npcProfiles: Record<NpcId, Profile> = {
   sengoku: { tier: 6, faction: 'marine' }, whitebeard: { tier: 6, faction: 'pirate', bounty: 5_046_000_000 },
   luffy: { tier: 4, faction: 'pirate' },
   ...castProfiles,
+  // The guild's merchants carry a blade for robbers, nothing more.
+  ...Object.fromEntries(Object.keys(traders).map(id => [id, { tier: 1, faction: 'civilian' }])) as Record<keyof typeof traders, Profile>,
 }
 
 function foeFrom(id: string, name: string, profile: Profile, npc?: NpcId): Foe {

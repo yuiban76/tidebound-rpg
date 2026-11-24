@@ -120,3 +120,15 @@ test('打倒原作頭目會改變世界，時間線也跟著改寫', () => {
   assert.ok(advanceTimeline(world).some(item => item.text.includes('惡龍早已被一群旅人打倒')))
   assert.equal(npcPlace(world, 'arlong'), null)
 })
+
+test('AI 用代號（keeper）指定攻擊目標時，也認得是瑪琪諾', () => {
+  const { world, member } = solo('tavern')
+  assert.match(act(world, member, { kind: 'attack', target: 'keeper' }).text, /旅人向瑪琪諾（平民）出手了/)
+})
+
+test('沒指名就出手時，打的是正在交談的人', () => {
+  const { world, member, c } = solo('tavern')
+  const others = (['keeper'] as const)
+  c.conversingWith = others[0]
+  assert.match(act(world, member, { kind: 'attack' }).text, /旅人向瑪琪諾（平民）出手了/)
+})

@@ -1022,3 +1022,19 @@ test('多人時只有全隊在線且同地才能一起等待', async t => {
   assert.match(await act(game, code, ids[0], '等待 5 小時'), /全隊在風車村廣場等待了 5 小時/)
   assert.equal(game.room(code).minute, before + 300)
 })
+
+test('交談中提到別人的名字，話仍是對眼前的人說；明確轉向才換人', async t => {
+  const { game, ai, code, ids } = await withGame(t)
+  ready(game, code, ids)
+  await game.start(code)
+  const [player] = ids
+  await act(game, code, player, '去派對酒吧，找瑪琪諾聊天')
+  ai.next({ kind: 'talk', npc: 'mayor' })
+  const report = await act(game, code, player, '村長在我手上')
+  assert.doesNotMatch(report, /村長/)
+  assert.match(report, /^瑪琪諾與你交談/)
+  assert.equal(JSON.parse(ai.seen.at(-1)!.content).context.speaker, '瑪琪諾')
+  const intent = JSON.parse(ai.seen.filter(call => call.kind === 'intent').at(-1)!.content)
+  assert.deepEqual(intent.context.talkingWith, { id: 'keeper', name: '瑪琪諾' })
+  assert.equal(game.room(code).members[0].character?.conversingWith, 'keeper')
+})

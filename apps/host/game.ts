@@ -3,7 +3,7 @@ import { AiFault, AiProvider, IntentFormatFault } from '../../packages/ai/provid
 import { aiInput, locations, npcs } from '../../packages/shared/protocol.ts'
 import type { Intent, Message, NpcId } from '../../packages/shared/protocol.ts'
 import { allocatePoint, guideFor, makeCharacter, needsReview, resolve, trainSkill, voteThreshold } from '../../packages/rules/engine.ts'
-import { asksAboutShipPurchase, dialogueQuestion, familiarIntent, sceneQuestion } from '../../packages/world/explore.ts'
+import { addressedNpc, asksAboutShipPurchase, dialogueQuestion, familiarIntent, sceneQuestion } from '../../packages/world/explore.ts'
 import { npcFacts, npcPlace, npcsAt, opening, party, paths, people, selfMade } from '../../packages/world/village.ts'
 import { advanceTimeline } from '../../packages/world/timeline.ts'
 import { companionIds, companionMaxHp, isCompanion, recruitable } from '../../packages/world/companions.ts'
@@ -427,6 +427,8 @@ export class Game {
       ...warContext(world, c.place),
       combat: world.combat && { foes: world.combat.foes.map(foe => ({ name: foe.name, hp: foe.hp, maxHp: foe.maxHp, down: !!foe.down })), atSea: !!world.combat.sea },
       speaker: intent?.kind === 'talk' ? npcs[intent.npc] : undefined,
+      // Who the player is facing, so 「來對戰阿」 without a name means this person.
+      talkingWith: forNarration ? undefined : (npc => npc && { id: npc, name: npcs[npc] })(this.interlocutor(world, actor)),
       party: party(world).map(m => m.character!.name),
       partyHere: party(world).filter(m => m.character!.place === c.place).map(m => m.character!.name),
       // NPC companions follow the players, so the narrator can describe them as part of the party.
@@ -497,6 +499,11 @@ export class Game {
       if (signal.aborted) return
       world = this.room(code)
       if (!allowed(world)) return
+      // Mid-conversation, a line goes to the person you are facing unless it clearly turns to someone else:
+      // 「可雅在我手上」 said to the butler is a threat to the butler, not a word with Kaya.
+      const facing = this.interlocutor(world, actorAt(world))
+      if (intent.kind === 'talk' && facing && intent.npc !== facing && addressedNpc(job.text) !== intent.npc)
+        intent = { kind: 'talk', npc: facing }
       if (intent.kind === 'guide' || intent.kind === 'location') {
         const question = sceneQuestion(job.text) ?? 'location'
         this.store.transaction(() => {

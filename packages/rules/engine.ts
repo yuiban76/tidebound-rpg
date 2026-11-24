@@ -15,6 +15,7 @@ import { companionByName, companionMaxHp, hasMedic, healCompanions, partyLevel, 
 import { isDown, resolveCombatAction } from './combat.ts'
 import type { Character, CombatChoice, Member, World } from '../world/village.ts'
 import { applyRace, stat, traitOf } from '../world/races.ts'
+import { isTrader, traderWares } from '../world/traders.ts'
 import { cookAt, crafted, doctorAt, dressingOf, skillCap, wildPlaces } from '../world/skills.ts'
 
 export type Attribute = keyof Character['stats']
@@ -268,11 +269,17 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
     }
     case 'buy': {
       const item = goods[intent.item]
-      if (c.place !== item.shop) return reject(item.label + '在' + locations[item.shop] + '的' + shops[item.shop] + '販售。')
-      world.stock[intent.item] ??= item.initial
-      if (!world.stock[intent.item]) return reject(item.label + '已售完。')
+      // A guild merchant on this spot sells the standard wares and never runs out.
+      const trader = (traderWares as readonly string[]).includes(intent.item)
+        ? npcsAt(world, c.place).find(npc => isTrader(npc) && !isDown(world, npc)) : undefined
+      if (c.place !== item.shop && !trader) return reject(item.label + '在' + locations[item.shop] + '的' + shops[item.shop] + '販售' +
+        ((traderWares as readonly string[]).includes(intent.item) ? '，各島港口的潮行商會行商也有賣' : '') + '。')
+      if (!trader) {
+        world.stock[intent.item] ??= item.initial
+        if (!world.stock[intent.item]) return reject(item.label + '已售完。')
+      }
       if (c.money < item.price) return reject('貝里不足。')
-      world.stock[intent.item]--
+      if (!trader) world.stock[intent.item]--
       c.money -= item.price
       c.inventory[item.label] = (c.inventory[item.label] ?? 0) + 1
       const weapon = (Object.keys(weaponItems) as (keyof typeof weaponItems)[]).find(id => weaponItems[id] === item.label)
@@ -281,7 +288,7 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
         c.weapon = weapon
         note = '你改用' + item.label + '。'
       } else if (weapon && c.weapon !== weapon) note = '可輸入「改用' + item.label + '」換武器。'
-      return { text: '購入' + item.label + '，支出 ' + item.price + ' 貝里。' + note, minutes: 3 }
+      return { text: (trader ? npcs[trader] + '把' + item.label + '交給你。' : '') + '購入' + item.label + '，支出 ' + item.price + ' 貝里。' + note, minutes: 3 }
     }
     case 'upgrade': {
       if (!forges[c.place]) return reject('這裡沒有鐵匠。風車村鐵匠鋪、哥亞城下町武器鋪和羅格鎮的一本松武器店可以強化武器。')
