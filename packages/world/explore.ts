@@ -4,6 +4,7 @@ import { goods, landmarks, meals, paths, people, shops } from './village.ts'
 import type { Good } from './village.ts'
 import { islandAt, islands, islandStories } from './sea.ts'
 import { wildPlaces } from './skills.ts'
+import { warGoals } from './war.ts'
 
 const locationNames: Record<string, LocationId> = {
   ...Object.fromEntries(Object.entries(locations).map(([id, name]) => [name, id as LocationId])),
@@ -227,6 +228,11 @@ export function familiarIntent(input: string, here?: LocationId): Intent | undef
   const bandage = /^(?:使用|用)(繃帶|草藥)(?:給|替|幫)?\s*(.*)$/.exec(text)
   if (bandage) return { kind: 'useItem', item: bandage[1], ...(bandage[2].trim() && { target: bandage[2].trim() }) }
   if (/^(?:採集|採草藥|採藥|撿木料|找草藥|蒐集木料|收集木料)$/.test(text)) return { kind: 'gather' }
+  if (/^(?:站在|加入|協助|幫助|支援)(?:白鬍子|白鬍子海賊團)(?:這邊|那邊|一方)?$/.test(text)) return { kind: 'war', side: 'whitebeard' }
+  if (/^(?:站在|加入|協助|幫助|支援)海軍(?:這邊|那邊|一方)?$/.test(text)) return { kind: 'war', side: 'marine' }
+  if (/^(?:只)?(?:旁觀|觀戰|在一旁觀戰)$/.test(text)) return { kind: 'war', side: 'none' }
+  const warGoal = warGoals.find(goal => text === goal.title || text === '執行' + goal.title)
+  if (warGoal) return { kind: 'war', goal: warGoal.id }
   if (/^(?:吸收|吃下|吃掉|吞下)(?:那顆|這顆|該顆)?(?:惡魔)?果實$/.test(text)) return { kind: 'fruit', take: true }
   if (/^(?:放走|放棄|不吸收|不吃|丟掉|放生)(?:那顆|這顆|該顆)?(?:惡魔)?果實$/.test(text)) return { kind: 'fruit', take: false }
   const absorb = /^(?:吸收|吃下|吃掉|吞下)(.{1,12}果實.*)$/.exec(text)

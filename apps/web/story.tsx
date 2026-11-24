@@ -21,6 +21,7 @@ import { CompanionPanel } from './companions.tsx'
 import { FruitPanel } from './fruit.tsx'
 import { RecoveryPanel } from './recovery.tsx'
 import { CalendarPanel } from './calendar.tsx'
+import { WarPanel } from './war.tsx'
 
 const phaseText = { queued: '排隊中', interpret: 'AI 理解與規則驗證中', narrate: '結果已存檔，旁白生成中' }
 // Only entry kinds that need explaining get a tag; results, narration and the player's own input speak for themselves.
@@ -165,6 +166,7 @@ export function Story({ view, send, history, connected, gap, review }: {
           .filter(id => goods[id].shop === character.place).map(id =>
             <li key={id}><button type="button" className="link" onClick={() => suggest('買' + goods[id].label)}>{goods[id].label}</button> · {goods[id].price} 貝里 · 剩 {world.stock[id]}</li>)}</ul></details>}
       </section>
+      <WarPanel world={world} player={player} suggest={suggest}/>
       <IslandAdventure world={world} player={player} suggest={suggest}/>
       <VoyagePanel world={world} player={player} suggest={suggest}/>
     </>,

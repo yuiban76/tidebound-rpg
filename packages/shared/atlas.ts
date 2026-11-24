@@ -94,4 +94,6 @@ export const castNpcs = {
   zambai: '札姆巴', baskerville: '巴斯卡比魯', hogback: '霍古巴克', absalom: '阿布薩羅姆',
   disco: '迪士可', charloss: '查爾羅斯聖', camie: '凱米',
   marguerite: '瑪格麗特', sandersonia: '桑達索尼亞', marigold: '馬里哥爾特', hannyabal: '漢尼巴爾',
+  // The rest of Whitebeard's sons who matter at the Summit War.
+  squard: '斯庫亞多', oarsJr: '小奧茲Jr.', izo: '以藏', namur: '那謬爾', rakuyo: '拉克約', curiel: '庫利', blenheim: '布倫海姆',
 } as const

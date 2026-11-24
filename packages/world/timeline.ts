@@ -1,4 +1,4 @@
-import type { IslandId, NpcId } from '../shared/protocol.ts'
+import type { IslandId, LocationId, NpcId } from '../shared/protocol.ts'
 import { canonTimeline, bossDefeats, luffyRoute, minuteOf } from './canon.ts'
 import type { CanonEvent, RouteStop, WorldEffect } from './canon.ts'
 import { expireOffers } from '../rules/fruits.ts'
@@ -127,6 +127,11 @@ export function advanceTimeline(world: World) {
       }
     }
     if (at > world.minute) continue
+    if (flagsHold(world, event.skip)) {
+      ;(world.timeline ??= {})[event.id] = 'changed'
+      phases[key('fired')] = world.minute
+      continue
+    }
     // A stand-off: the party is on the island and the villain is there, so the players get the chance to act first.
     const scene = info?.scene
     if (scene) {
@@ -185,6 +190,8 @@ function followLuffy(world: World, news: { minute: number, text: string }[], her
 
 /** The popular canon characters keep their own calendar (cast.ts). A recruited companion is never moved by it. */
 function followCast(world: World, news: { minute: number, text: string }[], here: Set<IslandId>) {
+  // People arriving at the same spot at the same time make one sighting (a whole fleet lands at Marineford at once).
+  const sightings = new Map<string, { minute: number, place: LocationId, names: string[] }>()
   for (const npc of Object.keys(castRoutes) as CastId[]) {
     for (const stop of castRoutes[npc]!) {
       const at = minuteOf(stop.at)
@@ -193,10 +200,15 @@ function followCast(world: World, news: { minute: number, text: string }[], here
       ;(world.timeline ??= {})[key] = 'canon'
       if (world.companions?.[npc]) continue
       applyEffect(world, { move: { [npc]: stop.place }, ...(stop.facts && { facts: { [npc]: stop.facts } }) })
-      if (stop.place && here.has(islandAt(stop.place)) && world.minute - at <= 360)
-        news.push({ minute: at, text: '【目擊】' + npcs[npc] + '出現在' + locations[stop.place] + '。' })
+      if (stop.place && here.has(islandAt(stop.place)) && world.minute - at <= 360) {
+        const spot = sightings.get(at + '|' + stop.place) ?? { minute: at, place: stop.place, names: [] }
+        spot.names.push(npcs[npc])
+        sightings.set(at + '|' + stop.place, spot)
+      }
     }
   }
+  for (const { minute, place, names } of sightings.values())
+    news.push({ minute, text: '【目擊】' + names.join('、') + '出現在' + locations[place] + '。' })
 }
 
 /** What Luffy can tell people at a stop. Crew the players recruited first are missing from his crew. */

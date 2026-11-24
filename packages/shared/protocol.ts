@@ -100,6 +100,7 @@ export const intentSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('upgrade') }),
   z.strictObject({ kind: z.literal('use'), item: z.string().trim().min(1).max(24) }),
   z.strictObject({ kind: z.literal('gather') }),
+  z.strictObject({ kind: z.literal('war'), side: z.enum(['whitebeard', 'marine', 'none']).optional(), goal: z.string().trim().min(1).max(40).optional() }),
   z.strictObject({ kind: z.literal('wait'), hours: z.number().int().min(1).max(240) }),
   z.strictObject({
     kind: z.literal('give'), to: z.string().trim().min(1).max(24),

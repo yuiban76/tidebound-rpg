@@ -300,3 +300,8 @@ legend { padding: 0 .3rem; font-weight: 700; }
   .bulletin .log { flex: 1; max-height: none; min-height: 0; }
   .story-column .windows { flex: 1 1 66%; min-height: 7rem; }
 }
+
+.war-stages { margin: .3rem 0 .6rem; padding-left: 1.2rem; display: grid; gap: .25rem; }
+.war-stages li { display: flex; flex-wrap: wrap; gap: .1rem .6rem; }
+.war-stages li[data-state='changed'] strong { color: var(--accent, #1f605c); }
+.war-stages li[data-state='pending'] strong { color: var(--muted); font-weight: 600; }

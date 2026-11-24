@@ -126,6 +126,37 @@ export const eventPhases: Record<string, EventPhases> = {
     warn: '馬林福特外海的海面沸騰了，白鬍子的大艦隊逼近。',
     shifts: [{ when: ['task:impelDown'], hours: 24 }],
   },
+  // The war day's stages: heard only on Marineford, two hours and one hour ahead, so the party knows what is coming next.
+  warSquard: {
+    lead: { omen: 2, warn: 1, after: 2 },
+    omen: '傘下的船長們之間流傳著一張海軍的告示，說白鬍子打算拿他們換艾斯的命。',
+    warn: '斯庫亞多握著刀的手在發抖，一步步走向白鬍子身後。',
+  },
+  warWall: {
+    lead: { omen: 2, warn: 1, after: 2 },
+    omen: '海灣四周的地面傳來轟隆聲，像有巨大的機關正在啟動。',
+    warn: '鋼鐵的包圍牆開始從海灣邊緣升起，小奧茲Jr.拖著船加快了腳步。',
+  },
+  warLuffy: {
+    lead: { omen: 2, warn: 1, after: 2 },
+    omen: '海軍的通訊兵大喊：推進城出事了，有一艘軍艦被搶走。',
+    warn: '有人指著天空大叫：上面有東西掉下來了！',
+  },
+  warRescue: {
+    lead: { omen: 2, warn: 1, after: 2 },
+    omen: '奧利斯廣場上，海軍的人牆越來越厚，卡普站在最前面。',
+    warn: '處刑台上的劊子手舉起了刀。',
+  },
+  warAkainu: {
+    lead: { omen: 2, warn: 1, after: 2 },
+    omen: '赤犬沒有去追別人，只盯著艾斯逃走的方向。',
+    warn: '赤犬的拳頭冒出岩漿，一步步逼近兄弟倆。',
+  },
+  warTeach: {
+    lead: { omen: 2, warn: 1, after: 2 },
+    omen: '白鬍子說要留下來斷後，叫兒子們全部上船。',
+    warn: '黑鬍子一夥扛著一塊巨大的黑布出現在海灣邊。',
+  },
   warEnds: {
     omen: '馬林福特的炮聲日夜不停，戰況越來越慘烈。',
     warn: '戰場上空的硝煙散去了一半，最後的決戰就要見分曉。',

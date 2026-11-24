@@ -234,6 +234,10 @@ export type World = {
   calmSeas?: boolean
   /** NPCs who joined the party (see world/companions.ts). Their place follows their leader. */
   companions?: Partial<Record<NpcId, Companion>>
+  /** Which side the party took in the Summit War (see world/war.ts). */
+  warSide?: 'whitebeard' | 'marine' | 'none'
+  /** Failed attempts at each war goal; every try adds +1 to the next. */
+  warTries?: Record<string, number>
   /** Day (0-based) each wild spot was last gathered; one gathering per spot per day. */
   gathered?: Partial<Record<LocationId, number>>
   /** Minute before which an NPC who refused an invitation will not listen to another one. */

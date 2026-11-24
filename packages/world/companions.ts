@@ -7,6 +7,7 @@ import type { IslandId, NpcId } from '../shared/protocol.ts'
 import { npcProfiles } from './foes.ts'
 import { npcPlace, party, people } from './village.ts'
 import type { Companion, World } from './village.ts'
+import { sideAllies, warOn } from './war.ts'
 
 /** Hammocks on the ship: how many NPC companions can travel with the party at once. */
 /** The whole crew, real players and companions together, tops out at ten. */
@@ -142,6 +143,7 @@ const tierFight = [
   { hp: 100, def: 17, attr: 4, skill: 5, die: 10, bonus: 4 },
 ]
 const moves: Partial<Record<NpcId, string>> = {
+  squard: '大渦旋斬', oarsJr: '巨人鐵拳', izo: '雙槍連射', namur: '鯊魚大刀', rakuyo: '鐵球錘', curiel: '火槍掃射', blenheim: '巨掌',
   morgan: '斧頭右手', helmeppo: '雙刀亂揮', cabaji: '雜技劍術', mohji: '猛獸突擊', jango: '圓環催眠', patty: '料理重拳', carne: '料理重拳',
   nezumi: '指揮刀', kohza: '叛亂軍軍刀', wyper: '燃燒砲', ohm: '鐵雲劍', zambai: '鐵鏈甩擊', baskerville: '三頭長槍', hogback: '手術刀',
   absalom: '獅子砲', marguerite: '蛇弓射擊', sandersonia: '蛇之鞭', marigold: '蛇之火', hannyabal: '拿破崙長槍',
@@ -285,6 +287,7 @@ export function recruitBlock(world: World, npc: NpcId): string | undefined {
   const name = npcs[npc]
   if (!profile) return cannotJoin[npc] ?? name + '有自己要走的路，不會加入你們的船團。'
   if (isCompanion(world, npc)) return name + '已經在你們的隊伍裡了。'
+  if (warOn(world) && sideAllies.whitebeard.includes(npc)) return name + '現在只想救出艾斯，戰爭結束前不會跟任何人走。'
   if (!world.crew) return '還沒有正式成立船團。先提議「成立海賊團」並完成投票，才能邀請夥伴。'
   if (companionIds(world).length >= companionSlots(world))
     return '船團已滿 ' + maxCrew + ' 人（含玩家）。想邀請新的夥伴，可以先請一位離隊（例如「請' +

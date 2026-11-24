@@ -6,6 +6,7 @@ import { scale } from '../world/scale.ts'
 import { boatCrewReplies, goods, meals, npcFacts, npcPlace, npcsAt, party, shops, walkMinutes, weaponItems, weaponNames } from '../world/village.ts'
 import { islandAt, islands, shipPurchaseInfo } from '../world/sea.ts'
 import { resolveIslandTask, resolveSailing } from './sailing.ts'
+import { resolveWar } from './war.ts'
 import { alertWithin } from '../world/timeline.ts'
 import { dismissCompanion, handoverCompanion, recruitCompanion } from './companions.ts'
 import { buyFruit, chooseFruit, learnFruitArts } from './fruits.ts'
@@ -200,6 +201,7 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
   switch (intent.kind) {
     case 'sail': return resolveSailing(world, actor, intent, roll, connected)
     case 'islandTask': return resolveIslandTask(world, actor, intent, roll)
+    case 'war': return resolveWar(world, actor, intent, roll)
     case 'move': {
       if (c.place === intent.to)
         return intent.talkTo ? converse(world, c, intent.talkTo, raw) : reject('你已經在' + locations[c.place] + '。')

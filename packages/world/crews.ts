@@ -56,7 +56,8 @@ export const crews: Record<string, Crew> = {
     grunts: { name: '九蛇的女戰士', tier: 2, count: 2, home: ['kujaArena', 'kujaCastle'] } },
   kid: { name: '基德海賊團', captain: 'kid', faction: 'pirate', members: [{ npc: 'killer' }] },
   whitebeard: { name: '白鬍子海賊團', captain: 'whitebeard', faction: 'pirate',
-    members: [{ npc: 'marco' }, { npc: 'jozu' }, { npc: 'vista' }, { npc: 'ace' }] },
+    members: [{ npc: 'marco' }, { npc: 'jozu' }, { npc: 'vista' }, { npc: 'ace' }, { npc: 'izo' }, { npc: 'namur' }, { npc: 'rakuyo' },
+      { npc: 'curiel' }, { npc: 'blenheim' }, { npc: 'squard' }, { npc: 'oarsJr' }] },
 }
 
 /** The crew an NPC captains or belongs to, if any. */

@@ -78,6 +78,13 @@ export const castPeople: Record<CastId, CastPerson> = {
   sandersonia: { place: 'kujaArena', role: '九蛇海賊團的副船長', known: '漢考克的妹妹，身材高大，常在競技場上和戰士們比試，背上藏著一個不能讓人看見的秘密。' },
   marigold: { place: 'kujaArena', role: '九蛇海賊團的副船長', known: '漢考克的另一個妹妹，在競技場上和姊姊一起看守著九蛇的戰士。' },
   hannyabal: { place: 'impelLevel4', role: '推進城副典獄長', known: '整天說要把典獄長的位子搶過來的副典獄長，嘴上囂張，守起監獄來卻從不偷懶。' },
+  squard: { place: null, role: '白鬍子傘下的海賊船長', known: '人稱「大渦蜘蛛」的船長，把白鬍子當成父親；他的同伴多年前被海賊王的手下殺光，他至今恨著羅傑的一切。' },
+  oarsJr: { place: null, role: '白鬍子傘下的巨人船長', known: '比普通巨人還大上好幾倍的小奧茲Jr.，說話慢吞吞的，對艾斯敬重得像對親大哥。' },
+  izo: { place: null, role: '白鬍子海賊團第十六隊隊長', known: '穿著和服、拿著兩把短槍的隊長，舉止優雅，開槍時從不猶豫。' },
+  namur: { place: null, role: '白鬍子海賊團第八隊隊長', known: '鯊魚魚人，揮著一把大刀，說在老爹的船上，從沒有人因為他是魚人而看輕他。' },
+  rakuyo: { place: null, role: '白鬍子海賊團第七隊隊長', known: '綁著長髮辮、揮著鐵球錘的隊長，笑起來豪爽，打起來毫不留情。' },
+  curiel: { place: null, role: '白鬍子海賊團第十隊隊長', known: '扛著大火槍的隊長，說話直來直往，最看不慣海軍拿處刑當表演。' },
+  blenheim: { place: null, role: '白鬍子海賊團第九隊隊長', known: '高大的隊長，能用身體擋下炮彈，說兄弟有難時自己就是一面牆。' },
   marco: { place: null, role: '白鬍子海賊團第一隊隊長', known: '被稱為「不死鳥」的男人，一副沒睡醒的樣子，卻是白鬍子最信賴的副手。' },
   jozu: { place: null, role: '白鬍子海賊團第三隊隊長', known: '身體能變成鑽石的壯漢，說話沉穩，是白鬍子海賊團中最可靠的盾牌。' },
   vista: { place: null, role: '白鬍子海賊團第五隊隊長', known: '雙手各持一把長劍的劍士，留著整齊的八字鬍，愛打理自己的花。' },
@@ -114,6 +121,8 @@ export const castProfiles: Record<CastId, CastProfile> = {
   disco: { tier: 1, faction: 'tyrant' }, charloss: { tier: 1, faction: 'government' }, camie: { tier: 0, faction: 'civilian' },
   marguerite: { tier: 3, faction: 'pirate' }, sandersonia: { tier: 4, faction: 'pirate' }, marigold: { tier: 4, faction: 'pirate' },
   hannyabal: { tier: 4, faction: 'government' },
+  squard: { tier: 4, faction: 'pirate' }, oarsJr: { tier: 5, faction: 'pirate' }, izo: { tier: 4, faction: 'pirate' },
+  namur: { tier: 4, faction: 'pirate' }, rakuyo: { tier: 4, faction: 'pirate' }, curiel: { tier: 4, faction: 'pirate' }, blenheim: { tier: 4, faction: 'pirate' },
 }
 
 const war = (hour: number, place: LocationId, facts: string): CastStop[] =>
@@ -246,6 +255,13 @@ export const castRoutes: Partial<Record<CastId, CastStop[]>> = {
   marco: war(9, 'marinefordBay', '他隨白鬍子艦隊趕來，站在戰場最前線。'),
   jozu: war(9, 'marinefordBay', '他隨白鬍子艦隊趕來，擋在老爹身前。'),
   vista: war(9, 'marinefordBay', '他隨白鬍子艦隊趕來，雙劍已經出鞘。'),
+  squard: war(12, 'marinefordBay', '他帶著自己的艦隊跟在老爹身後，卻一直盯著處刑台，臉色很難看。'),
+  oarsJr: war(12, 'mfWall', '他拖著一整艘船往處刑台前進，說一定要把艾斯救出來。'),
+  izo: war(9, 'marinefordBay', '他隨白鬍子艦隊趕來，兩把短槍都已經上膛。'),
+  namur: war(9, 'marinefordBay', '他隨白鬍子艦隊趕來，大刀扛在肩上。'),
+  rakuyo: war(9, 'marinefordBay', '他隨白鬍子艦隊趕來，甩著鐵球錘說要把處刑台砸爛。'),
+  curiel: war(9, 'marinefordBay', '他隨白鬍子艦隊趕來，大火槍對準了海軍的陣線。'),
+  blenheim: war(9, 'marinefordBay', '他隨白鬍子艦隊趕來，擋在兄弟們的前面。'),
   morgan: [{ at: [2, 12], place: null, facts: '被戴草帽的少年打倒後，他被自己的部下綁起來押走了。' }],
   helmeppo: [
     { at: [2, 13], place: 'marineBase', facts: '父親倒台後，他被留在基地從雜工做起，嘴上還是不服氣。' },
@@ -274,4 +290,4 @@ export const castRoutes: Partial<Record<CastId, CastStop[]>> = {
 }
 
 /** Who is on the Summit War battlefield from the Day 72 morning: used by the final-day guard in the tests. */
-export const warCast: CastId[] = ['koby', 'tashigi', 'mihawk', 'bonclay', 'law', 'kuma', 'jinbe', 'teach', 'doflamingo', 'garp', 'akainu', 'aokiji', 'kizaru', 'marco', 'jozu', 'vista']
+export const warCast: CastId[] = ['koby', 'tashigi', 'mihawk', 'bonclay', 'law', 'kuma', 'jinbe', 'teach', 'doflamingo', 'garp', 'akainu', 'aokiji', 'kizaru', 'marco', 'jozu', 'vista', 'squard', 'oarsJr', 'izo', 'namur', 'rakuyo', 'curiel', 'blenheim']

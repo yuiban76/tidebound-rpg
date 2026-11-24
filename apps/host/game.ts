@@ -9,8 +9,17 @@ import { advanceTimeline } from '../../packages/world/timeline.ts'
 import { companionIds, companionMaxHp, isCompanion, recruitable } from '../../packages/world/companions.ts'
 import { islandAt, islands, routesFrom, shipPurchaseInfo } from '../../packages/world/sea.ts'
 import { sellMainShip, shipSaleBlock } from '../../packages/rules/sailing.ts'
-import type { Member, World } from '../../packages/world/village.ts'
+import type { Character, Member, World } from '../../packages/world/village.ts'
 import { traitOf } from '../../packages/world/races.ts'
+import { warOn, warSides, warState } from '../../packages/world/war.ts'
+
+/** During the war the narrator hears the latest stage and the party's side, so every turn is not the same melee. */
+function warContext(world: World, place: Character['place']) {
+  if (!warOn(world) || islandAt(place) !== 'marineford') return {}
+  const fired = warState(world).stages.filter(item => item.result)
+  const last = fired.at(-1)?.stage
+  return { war: { side: warSides[world.warSide ?? 'none'], stage: last ? last.title : '開戰前的對峙' } }
+}
 import type { Store } from './store.ts'
 
 export class GameError extends Error {}
@@ -415,6 +424,7 @@ export class Game {
     return {
       actor: c.name, race: c.race + '（' + traitOf(c).perk + '）', place: locations[c.place], ...navigation,
       local,
+      ...warContext(world, c.place),
       combat: world.combat && { foes: world.combat.foes.map(foe => ({ name: foe.name, hp: foe.hp, maxHp: foe.maxHp, down: !!foe.down })), atSea: !!world.combat.sea },
       speaker: intent?.kind === 'talk' ? npcs[intent.npc] : undefined,
       party: party(world).map(m => m.character!.name),

@@ -3,6 +3,7 @@
 // fixed in-game days unless the players have already changed them, so the manga is a default, not a script.
 import type { IslandId, LocationId, NpcId } from '../shared/protocol.ts'
 import type { canonIslandIds, canonNpcs } from '../shared/atlas.ts'
+import { warEndings, warStages } from './war.ts'
 
 type CanonIslandId = (typeof canonIslandIds)[number]
 type Attribute = 'STR' | 'AGI' | 'CON' | 'PER' | 'INT' | 'WIL'
@@ -54,6 +55,8 @@ export type CanonEvent = {
   text: string, effect?: WorldEffect
   /** First matching entry replaces the canon outcome: that island's quest was done, or the players beat that NPC. */
   changed?: { by?: IslandId, defeated?: NpcId, /** Every flag must hold (see flags.ts). */ when?: string[], text: string, effect?: WorldEffect }[]
+  /** When every flag holds the event passes silently: it never happens (e.g. no war after the Impel Down breakout). */
+  skip?: string[]
 }
 
 /** What happens to the world right away when the players beat a canon villain in a fight. */
@@ -526,14 +529,17 @@ export const canonTimeline: CanonEvent[] = [
     effect: { move: { ace: 'scaffold' }, facts: { ace: '他被綁在馬林福特的處刑台上，說自己的人生沒有遺憾。' }, close: ['impelDown'] },
     changed: [{ by: 'impelDown', text: '海軍原本要把火拳艾斯押往馬林福特，但他早已不在推進城的牢房裡。' }] },
   { id: 'warBegins', at: [72, 12], island: 'marineford', title: '頂上戰爭爆發',
-    text: '白鬍子海賊團率領大艦隊殺到馬林福特，頂上戰爭爆發！',
+    text: '白鬍子海賊團率領大艦隊從海底浮出，殺到馬林福特；白鬍子一拳震出海嘯，青雉把整片海灣凍成冰面，頂上戰爭爆發！',
     effect: { move: { whitebeard: 'marinefordBay' }, facts: { whitebeard: '他站在船頭，要海軍交出他的兒子艾斯。' } },
     changed: [{ by: 'impelDown', text: '白鬍子海賊團與海軍在馬林福特外海對峙，但處刑台空無一人，雙方沒有全面開戰。' }] },
+  ...warStages,
   { id: 'warEnds', at: [72, 20], island: 'marineford', title: '頂上戰爭落幕',
-    text: '火拳艾斯為保護弟弟而倒下，白鬍子也戰死沙場。頂上戰爭落幕，大海賊時代迎來新的轉折。',
-    effect: { move: { ace: null, whitebeard: null }, close: ['marineford'] },
+    text: '火拳艾斯為保護弟弟而倒下，白鬍子站著迎來最後一刻，黑鬍子奪走了震震果實。紅髮香克斯現身，一句話讓雙方停手，頂上戰爭落幕，大海賊時代迎來新的轉折。',
+    effect: { move: { ace: null, whitebeard: null }, facts: { teach: '他奪走了白鬍子的震震果實，在新世界掀起了風浪。' }, close: ['marineford'] },
     changed: [
-      { by: 'marineford', text: '火拳艾斯被救下處刑台，白鬍子海賊團掩護他撤離。頂上戰爭在混亂中結束，世界局勢從此改寫。' },
       { by: 'impelDown', text: '沒有處刑的馬林福特恢復平靜；逃出推進城的火拳艾斯下落成謎，世界局勢從此改寫。' },
+      { when: ['war:holdScaffold', 'war:intercept'], text: '海軍守住了處刑台，處刑如期執行；白鬍子站著迎來最後一刻，黑鬍子奪走了震震果實。紅髮香克斯現身，一句話讓雙方停手，頂上戰爭落幕。',
+        effect: { move: { ace: null, whitebeard: null }, facts: { teach: '他奪走了白鬍子的震震果實，在新世界掀起了風浪。' }, close: ['marineford'] } },
+      ...warEndings,
     ] },
 ]

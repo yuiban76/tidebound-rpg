@@ -10,6 +10,8 @@ import { navigatorRank } from '../world/skills.ts'
 import { rollSeaEncounter, tierNames } from '../world/foes.ts'
 import { startSeaFight } from './combat.ts'
 import { minuteOf } from '../world/canon.ts'
+import { setFlag } from '../world/flags.ts'
+import { warFlag } from '../world/war.ts'
 import { applyEffect } from '../world/timeline.ts'
 import { grantXp } from './engine.ts'
 import type { Result, Roll } from './engine.ts'
@@ -195,6 +197,7 @@ export function resolveIslandTask(world: World, actor: Member, intent: TaskInten
   if (story.blockedBy && world.islandTasks?.[story.blockedBy]?.stage === 'done')
     return stop('情勢已經改變，「' + story.title + '」不會再發生了。')
   if (intent.step === 'accept') {
+    if (island === 'marineford' && world.warSide === 'marine') return stop('你們站在海軍這邊，不會去救艾斯。')
     if (c.place !== story.meeting) return stop('請先到' + locations[story.meeting] + '接委託。')
     if (task) return stop('隊伍已接下這項委託。')
     if (story.availableFrom && world.minute < minuteOf(story.availableFrom)) return stop('這裡目前還沒有相關的動靜。')
@@ -227,6 +230,8 @@ export function resolveIslandTask(world: World, actor: Member, intent: TaskInten
   c.money += story.reward
   if (world.ship) world.ship.wood += 2
   applyEffect(world, story.onDone)
+  // Freeing Ace with the Marineford quest saves him from the war's canon ending too.
+  if (island === 'marineford') setFlag(world, warFlag('pullAce'))
   // Everyone on the island shares the experience of a finished island quest.
   const rewards = party(world).filter(m => islandAt(m.character!.place) === island)
     .map(m => grantXp(m.character!, story.xp ?? 60)).filter(Boolean)
