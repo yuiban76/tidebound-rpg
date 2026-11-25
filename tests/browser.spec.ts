@@ -196,6 +196,15 @@ test('從船塢購船，出海後地圖更新並顯示登島委託，返航後�
   await expect(page.getByLabel('輸入行動或聊天')).toHaveValue('買船')
   await page.getByRole('button', { name: '送出行動' }).click()
   await expect(voyage).toContainText('小帆船停在風車村港口')
+  // The crew names her, and every panel uses the name.
+  await openTab(page, '船團')
+  await page.getByLabel('船名').fill('黎明號')
+  await page.getByRole('button', { name: '取名', exact: true }).click()
+  await expect(page.getByLabel('輸入行動或聊天')).toHaveValue('替船取名「黎明號」')
+  await page.getByRole('button', { name: '送出行動' }).click()
+  await expect(page.getByRole('region', { name: '「黎明號」' })).toContainText('小帆船')
+  await openTab(page, '地圖')
+  await expect(voyage).toContainText('「黎明號」停在風車村港口')
   // The whole world map: pick an island, read its card, choose a course from it.
   await map.getByRole('button', { name: '展開世界地圖' }).click()
   const world = page.getByRole('dialog', { name: '世界地圖全圖' })

@@ -1,11 +1,12 @@
-import { locations, npcs } from '../shared/protocol.ts'
-import type { Intent, IslandId, LocationId, NpcId, Weapon } from '../shared/protocol.ts'
+import { locations, npcs, shipModels } from '../shared/protocol.ts'
+import type { Intent, IslandId, LocationId, NpcId, ShipModel, ShipPart, Weapon } from '../shared/protocol.ts'
 import { goods, landmarks, meals, paths, people, shops, traderOffer } from './village.ts'
 import { isTrader } from './traders.ts'
 import { brokers, marineOffices, specialByLabel, specials, traderSpecials } from './market.ts'
 import type { Good } from './village.ts'
 import { islandAt, islands, islandStories } from './sea.ts'
 import { beli } from './scale.ts'
+import { models } from './ships.ts'
 import { wildPlaces } from './skills.ts'
 import { warGoals } from './war.ts'
 import { sagaGoals } from './water7.ts'
@@ -190,6 +191,41 @@ export function dismissRequest(input: string): NpcId | undefined {
   if (new RegExp('^(?:先|可以|要)?' + leaveWords + '(?:吧|了)?$').test(rest) || /^(?:不要|別|不用)?(?:再)?跟(?:著)?(?:我們?|我)了$/.test(rest)) return npcByName[named[1]]
 }
 
+const shipWords = '(?:我們的|我們這艘|這艘|咱們的|我的)?(?:主船|船隻|帆船|船)'
+const partWords: Record<string, ShipPart> = {
+  裝甲: 'armor', 船體: 'armor', 船身: 'armor', 船殼: 'armor', 船帆: 'sail', 帆: 'sail', 風帆: 'sail', 船砲: 'cannon', 大砲: 'cannon', 砲: 'cannon', 船炮: 'cannon', 大炮: 'cannon',
+  瞭望台: 'lookout', 瞭望: 'lookout', 船室: 'cabin', 船艙房間: 'cabin', 房間: 'cabin',
+}
+const modelWords = Object.fromEntries(shipModels.flatMap(id => [[models[id].label, id]])) as Record<string, ShipModel>
+
+/** Orders about the ship herself: 「替船取名 黎明號」「升級船帆」「換成卡拉維爾帆船」「把繃帶放進船艙」. */
+function shipIntent(text: string): Intent | undefined {
+  const named = new RegExp('^(?:替|幫|給|為|把|將)?' + shipWords + '(?:的名字)?(?:取名字|取名|取個名字|命名|改名|改叫|取做|叫做|就叫|叫)(?:為|做|成|叫做|叫)?[:：\\s]*(.+)$').exec(text) ??
+    /^(?:船名|船的名字)(?:就)?(?:改成|改為|叫做|叫|是|用)[:：\s]*(.+)$/.exec(text)
+  if (new RegExp('^(?:替|幫|給|為)?' + shipWords + '(?:取名字|取名|取個名字|命名|改名)$').test(text)) return { kind: 'ship', order: 'name' }
+  const name = named?.[1].trim().replace(/^[「『"“]+|[」』"”]+$/g, '').trim()
+  if (name && !/^(?:什麼|甚麼|啥|哪)|(?:嗎|呢|吧)$/.test(name)) return { kind: 'ship', order: 'name', name: [...name].slice(0, 24).join('') }
+  const upgraded = /^(?:升級|強化|加裝|改裝|加強|安裝|裝上)(?:我們的|船的|這艘船的|船上的)?(.+)$/.exec(text)
+  if (upgraded && Object.hasOwn(partWords, upgraded[1].trim())) return { kind: 'ship', order: 'upgrade', part: partWords[upgraded[1].trim()] }
+  if (/^(?:升級|強化|改裝|改造)(?:我們的|這艘)?(?:主船|船隻|帆船|船)$/.test(text)) return { kind: 'ship', order: 'upgrade' }
+  const refit = /^(?:換成|換船|換一艘|改買|買|購買|買一艘|訂造|打造)(?:一艘)?\s*(.+)$/.exec(text)
+  if (refit && Object.hasOwn(modelWords, refit[1].trim()) && modelWords[refit[1].trim()] !== 'boat') return { kind: 'ship', order: 'refit', model: modelWords[refit[1].trim()] }
+  if (/^(?:換船|換大船|買大船|買新船|換一艘船|換新船)$/.test(text)) return { kind: 'ship', order: 'refit' }
+  const spot = '(?:船艙|船上|船上的金庫|船的金庫|金庫|船艙裡|船上的船艙|貨艙)'
+  const money = (digits: string) => Number(digits.replaceAll(',', ''))
+  const saved = new RegExp('^(?:把|將)?\\s*([\\d,]+)\\s*貝里\\s*(?:放進|放到|放在|存進|存到|收進|存入)' + spot + '(?:裡)?$').exec(text) ?? /^存\s*([\d,]+)\s*貝里(?:到|進)?(?:船上|金庫|船上的金庫|船上金庫)?$/.exec(text)
+  if (saved && money(saved[1]) > 0) return { kind: 'ship', order: 'store', money: money(saved[1]) }
+  const drawn = new RegExp('^從' + spot + '(?:裡)?(?:拿出|拿|取出|領出|提出|拿走)\\s*([\\d,]+)\\s*貝里$').exec(text)
+  if (drawn && money(drawn[1]) > 0) return { kind: 'ship', order: 'take', money: money(drawn[1]) }
+  const amount = '(?:(\\d+)\\s*(?:個|份|把|捲|發|件|本|瓶|張|塊)?\\s*)?'
+  const stored = new RegExp('^(?:把|將)\\s*' + amount + '(.+?)\\s*(?:放進|放到|放在|存進|收進|搬進|搬到)' + spot + '(?:裡)?$').exec(text)
+  if (stored) return { kind: 'ship', order: 'store', item: stored[2].trim(), ...(stored[1] && { count: Math.min(99, Math.max(1, Number(stored[1]))) }) }
+  const taken = new RegExp('^從' + spot + '(?:裡)?(?:拿出|拿|取出|搬出|拿走)\\s*' + amount + '(.+)$').exec(text)
+  if (taken) return { kind: 'ship', order: 'take', item: taken[2].trim(), ...(taken[1] && { count: Math.min(99, Math.max(1, Number(taken[1]))) }) }
+  const fired = /^(?:開砲|開炮|砲擊|炮擊|用船砲攻擊|用大砲攻擊|用船砲打|對)\s*(.*?)(?:開砲|開炮)?$/.exec(text)
+  if (fired && /開砲|開炮|砲擊|炮擊|船砲|大砲/.test(text)) return { kind: 'cannon', ...(fired[1].trim() && { target: fired[1].trim() }) }
+}
+
 function seaIntent(text: string): Intent | undefined {
   if (/^(?:買|購買)(?:一艘)?(?:船|小艇|帆船|小帆船)$/.test(text)) return { kind: 'sail', order: 'buy' }
   if (/^買(?:一份)?木料$/.test(text)) return { kind: 'sail', order: 'materials' }
@@ -209,6 +245,8 @@ export function familiarIntent(input: string, here?: LocationId): Intent | undef
   if (question) return { kind: question }
   const text = input.trim().replace(/[。！!?？]+$/, '')
     .replace(/^(?:我們?|大家)?(?:想要|打算|想|要|先)?(?:先)?\s*/, '')
+  const aboard = shipIntent(text)
+  if (aboard) return aboard
   const sailing = seaIntent(text)
   // 「前往西羅布村」 on Syrup island means the village spot, not a voyage to the island you are already on.
   const sameIsland = sailing?.kind === 'sail' && sailing.order === 'depart' && here &&

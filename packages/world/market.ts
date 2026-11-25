@@ -38,7 +38,7 @@ export const specials = {
   iron: { label: '鐵甲', price: 800_000, kind: 'armor', def: 2, agi: -1, text: '厚重的鐵甲：防禦 +2，但敏捷 −1' },
   snakeskin: { label: '蛇皮護甲', price: 1_500_000, kind: 'armor', def: 2, text: '九蛇島的蛇皮護甲，又輕又韌：防禦 +2' },
   marineArmor: { label: '海軍制式護甲', price: 1_200_000, kind: 'armor', def: 2, lawful: true, text: '海軍的制式護甲：防禦 +2；軍需商不賣給有懸賞金的人' },
-  adamWood: { label: '亞當木', price: 2_000_000, kind: 'ship', text: '傳說中的寶樹木材：在船邊使用，船體一次修滿' },
+  adamWood: { label: '亞當木', price: 2_000_000, kind: 'ship', text: '傳說中的寶樹木材：在船邊使用，船體一次修滿；三份可以打造亞當木大帆船' },
   steelSword: { label: '精鋼武士刀', price: 200_000, kind: 'weapon', weapon: 'sword', tier: 1, text: '強化一階的武士刀（需等級 2）' },
   steelSpear: { label: '精鋼長槍', price: 180_000, kind: 'weapon', weapon: 'spear', tier: 1, text: '強化一階的長槍（需等級 2）' },
   steelMusket: { label: '精鋼火槍', price: 240_000, kind: 'weapon', weapon: 'musket', tier: 1, text: '強化一階的火槍（需等級 2）' },

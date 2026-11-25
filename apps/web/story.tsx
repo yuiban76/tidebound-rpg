@@ -4,7 +4,7 @@ import { attributes, attributeLabels, locations, npcs, skills } from '../../pack
 import type { Message } from '../../packages/shared/protocol.ts'
 import { guideFor, maxHP, maxSTA, voteThreshold, xpToNext } from '../../packages/rules/engine.ts'
 import { sceneQuestion } from '../../packages/world/explore.ts'
-import { boatYard, islandAt, islands, paceNames } from '../../packages/world/sea.ts'
+import { islandAt, islands, paceNames } from '../../packages/world/sea.ts'
 import { raceSummary, stat } from '../../packages/world/races.ts'
 import { skillCap, skillUses } from '../../packages/world/skills.ts'
 import { forges, weaponLabel } from '../../packages/world/forge.ts'
@@ -22,6 +22,8 @@ import { FruitPanel } from './fruit.tsx'
 import { RecoveryPanel } from './recovery.tsx'
 import { CalendarPanel } from './calendar.tsx'
 import { LuffyPanel } from './luffy.tsx'
+import { ShipPanel } from './ship.tsx'
+import { partLevel, shipName } from '../../packages/world/ships.ts'
 import { WarPanel } from './war.tsx'
 import { SagaPanel } from './saga.tsx'
 import { MarketPanel } from './market.tsx'
@@ -237,9 +239,10 @@ export function Story({ view, send, history, connected, gap, review }: {
           {m.character && !m.approved && <button className="light" onClick={() => review(m.id, true)}>核准</button>}
         </li>)}</ul>
       </section>}
+      <ShipPanel world={world} player={player} suggest={suggest}/>
       <CompanionPanel world={world} player={player} suggest={suggest}/>
       <section className="subsection"><h3>團隊決議</h3>
-        <p className="hint">{world.crew ? '船團已成立' : '尚未成立船團'} · {world.ship ? '主船' + boatYard.name : '尚無主船'}</p>
+        <p className="hint">{world.crew ? '船團已成立' : '尚未成立船團'} · {world.ship ? '主船' + shipName(world.ship) : '尚無主船'}</p>
         {world.proposals.filter(p => !p.passed).map(p => <div className="proposal" key={p.id}><strong>{p.title}</strong>
           <p className="hint">{crew.filter(m => p.votes[m.id]).length}／{voteThreshold(crew.length, p.type !== 'ordinary')} 贊成</p>
           <div className="button-row">
@@ -318,7 +321,7 @@ export function Story({ view, send, history, connected, gap, review }: {
           }}>載入較早紀錄</button>}
         </div>
 
-        {combat && <CombatPanel combat={combat} character={character} player={player} suggest={suggest}/>}
+        {combat && <CombatPanel combat={combat} guns={combat.atSea ? partLevel(world.ship, 'cannon') : 0} character={character} player={player} suggest={suggest}/>}
         <form className="composer" onSubmit={submit}>
           {!chat && !combat && <div className="action-suggestions">
             <p className="hint">你在<strong>{location}</strong>。{character.conversingWith && '你正和' + npcs[character.conversingWith] + '交談。'}</p>

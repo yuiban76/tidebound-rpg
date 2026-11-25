@@ -113,10 +113,11 @@ const calmBelt: SeaEncounter = { text: '無風帶的海底震動，一頭比船�
  * Rolls for a random encounter on a voyage. Calm Belt crossings are the most dangerous,
  * the Grand Line is rougher than East Blue. Returns undefined for a quiet voyage.
  */
-export function rollSeaEncounter(roll: (sides: number) => number, lane: { logPose?: boolean, hazard?: { name: string } }) {
+export function rollSeaEncounter(roll: (sides: number) => number, lane: { logPose?: boolean, hazard?: { name: string } }, lookout = 0) {
   const chance = roll(20)
   const calm = lane.hazard?.name.includes('無風帶')
-  if (chance < (calm ? 11 : lane.logPose ? 16 : 18)) return undefined
+  // A good lookout spots trouble early enough to steer around it.
+  if (chance < Math.min(20, (calm ? 11 : lane.logPose ? 16 : 18) + lookout)) return undefined
   const pool = calm ? [calmBelt] : lane.logPose ? grandLine : eastBlue
   const pick = pool[roll(pool.length) - 1]
   return { text: pick.text, foes: pick.foes.map(([name, profile], index) => foeFrom('sea:' + index, name, profile)) }

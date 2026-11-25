@@ -11,8 +11,8 @@ type Combat = NonNullable<View['world']['combat']>
 const styleLabels = { special: '基礎特殊招式・3 STA', advanced: '進階招式・5 STA', flurry: '連續攻擊・7 STA' }
 
 /** The fight in progress: who is left standing and one-click commands for this round. */
-export function CombatPanel({ combat, character, player, suggest }: {
-  combat: Combat, character: Character, player: string, suggest: (command: string) => void,
+export function CombatPanel({ combat, guns, character, player, suggest }: {
+  combat: Combat, /** Cannons the ship can fire this round (0 on land). */ guns: number, character: Character, player: string, suggest: (command: string) => void,
 }) {
   const title = useId()
   const standing = combat.foes.filter(foe => !foe.down && !foe.surrendered)
@@ -40,6 +40,7 @@ export function CombatPanel({ combat, character, player, suggest }: {
       <button type="button" className="light" disabled={character.sta < 7} onClick={() => suggest('連續攻擊 ' + target)}>連續攻擊（7 STA）</button>
       {character.techniques.map(move => <button key={move.name} type="button" className="light"
         onClick={() => suggest('用「' + move.name + '」攻擊 ' + target)}>「{move.name}」</button>)}
+      {guns > 0 && <button type="button" className="light" onClick={() => suggest('對' + target + '開砲')}>開砲（{guns} 門）</button>}
       <button type="button" className="light" onClick={() => suggest('防守')}>防守</button>
       {!!character.inventory['繃帶'] && <button type="button" className="light" onClick={() => suggest('使用繃帶')}>使用繃帶</button>}
       {character.weapon === 'musket' && !character.loaded && <button type="button" className="light" onClick={() => suggest('裝填')}>裝填</button>}

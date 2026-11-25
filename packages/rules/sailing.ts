@@ -2,8 +2,9 @@ import { locations, npcs } from '../shared/protocol.ts'
 import type { Intent, IslandId } from '../shared/protocol.ts'
 import { ballotCount, boatYard, islandAt, islands, islandStories, paceNames, routesFrom, sameRoute, selectedRoute, shipPurchaseInfo } from '../world/sea.ts'
 import type { RouteChoice } from '../world/sea.ts'
+import { crippled, modelOf, partLevel, shipName, shipSpeed, shipValue, shipWear, shipwright, yardAt } from '../world/ships.ts'
 import { party } from '../world/village.ts'
-import { companionIds } from '../world/companions.ts'
+import { companionIds, healCompanions } from '../world/companions.ts'
 import type { Member, PendingVoyage, World } from '../world/village.ts'
 import { raceSeats, stat } from '../world/races.ts'
 import { navigatorRank } from '../world/skills.ts'
@@ -14,7 +15,7 @@ import { beli } from '../world/scale.ts'
 import { hasFlag, setFlag } from '../world/flags.ts'
 import { warFlag } from '../world/war.ts'
 import { applyEffect } from '../world/timeline.ts'
-import { grantXp } from './engine.ts'
+import { grantXp, maxHP, maxSTA } from './engine.ts'
 import type { Result, Roll } from './engine.ts'
 
 type SeaIntent = Extract<Intent, { kind: 'sail' }>
@@ -30,10 +31,15 @@ export function shipSaleBlock(world: World) {
 export function sellMainShip(world: World) {
   const buyer = party(world).find(member => member.id === world.ship?.owner)?.character
   if (!buyer) throw new Error('主船缺少登記船主。')
-  buyer.money += boatYard.sale
+  const ship = world.ship!
+  const price = shipValue(ship)
+  buyer.money += price + (ship.safe ?? 0)
+  // Nothing aboard is lost: the registered owner takes the cargo along.
+  for (const [item, count] of Object.entries(ship.hold ?? {})) buyer.inventory[item] = (buyer.inventory[item] ?? 0) + count
   delete world.ship
   delete world.sailing
-  return '船塢收購了' + boatYard.name + '。' + buyer.name + '收到 ' + beli(boatYard.sale) + '。'
+  return '船塢收購了' + shipName(ship) + '。' + buyer.name + '收到 ' + beli(price) + '。' +
+    (ship.safe || Object.keys(ship.hold ?? {}).length ? '船艙和金庫裡的東西也由' + buyer.name + '收下。' : '')
 }
 
 function logVote(world: World, actor: Member, choice: RouteChoice) {
@@ -50,13 +56,13 @@ export function resolveSailing(world: World, actor: Member, intent: SeaIntent, r
   const c = actor.character!
   const ship = world.ship
   if (intent.order === 'buy') {
-    if (c.place !== 'dock') return stop(shipPurchaseInfo)
-    if (ship) return stop('隊伍已有' + boatYard.name + '，可查看航海面板。')
+    if (!yardAt(c.place)?.models.includes('boat')) return stop(shipPurchaseInfo)
+    if (ship) return stop('隊伍已有' + shipName(ship) + '，可查看航海面板。')
     if (c.money < boatYard.price) return stop('購船需要 ' + beli(boatYard.price) + '。')
     c.money -= boatYard.price
-    world.ship = { owner: actor.id, port: 'dock', hull: 100, wood: 2, trips: 0 }
+    world.ship = { owner: actor.id, port: islands[islandAt(c.place)].port, hull: 100, wood: 2, trips: 0 }
     return { text: '你花了 ' + beli(boatYard.price) + '買下' + boatYard.name + '，登記為隊伍共用主船。' +
-      '船停在' + locations.dock + '，附兩份木料。接著可選航線或輸入「出海」。', minutes: 8, announce: true }
+      '船停在' + locations[world.ship.port] + '，附兩份木料。可以輸入「替船取名」加上名字，接著選航線或輸入「出海」。', minutes: 8, announce: true }
   }
   if (!ship) return stop(shipPurchaseInfo)
   if (world.combat) return stop('遭遇仍在進行。結束戰鬥後才能處理航行。')
@@ -78,7 +84,7 @@ export function resolveSailing(world: World, actor: Member, intent: SeaIntent, r
       '，目前 ' + count + '／' + requirement + ' 票。' +
       (count >= requirement ? '航線已通過。請全員到' + locations[ship.port] + '準備出航。' : '') }
   }
-  if (!atPort) return stop(boatYard.name + '停在' + locations[ship.port] + '。請先到船邊。')
+  if (!atPort) return stop(shipName(ship) + '停在' + locations[ship.port] + '。請先到船邊。')
   if (intent.order === 'materials') {
     if (c.money < boatYard.woodPrice) return stop('買一份木料需要 ' + beli(boatYard.woodPrice) + '。')
     c.money -= boatYard.woodPrice
@@ -91,8 +97,10 @@ export function resolveSailing(world: World, actor: Member, intent: SeaIntent, r
     ship.wood--
     const before = ship.hull
     const craft = c.skillRanks['工藝'] ?? 0
-    ship.hull = Math.min(100, ship.hull + boatYard.repairGain + craft * 5)
-    return { text: '用一份木料把船體從 ' + before + ' 修到 ' + ship.hull + '／100' + (craft ? '（工藝 ' + craft + '，多修了 ' + craft * 5 + '）' : '') + '。', minutes: 25, announce: true }
+    const wright = shipwright(world)
+    ship.hull = Math.min(100, ship.hull + boatYard.repairGain + craft * 5 + (wright ? 15 : 0))
+    return { text: '用一份木料把' + (ship.name ? shipName(ship) + '的' : '') + '船體從 ' + before + ' 修到 ' + ship.hull + '／100' + (craft ? '（工藝 ' + craft + '，多修了 ' + craft * 5 + '）' : '') +
+      (wright ? '（' + npcs[wright] + '動手，多修了 15）' : '') + '。', minutes: 25, announce: true }
   }
 
   const plan = world.sailing
@@ -114,7 +122,7 @@ export function resolveSailing(world: World, actor: Member, intent: SeaIntent, r
   if (party(world).some(m => m.character?.place !== ship.port)) return stop('請所有隊友到' + locations[ship.port] + '集合後再出海。')
   if (party(world).some(m => !m.character || m.character.hp <= 0)) return stop('有隊友還沒恢復行動能力，請先協助他們。')
   // A giant takes two seats.
-  if (party(world).reduce((seats, m) => seats + raceSeats(m.character!), 0) > boatYard.seats) return stop(boatYard.name + '的座位不足以載全隊（巨人佔 2 個座位）。')
+  if (party(world).reduce((seats, m) => seats + raceSeats(m.character!), 0) > modelOf(ship).seats) return stop(shipName(ship) + '的座位不足以載全隊（巨人佔 2 個座位）。')
   if (!ship.hull) return stop('船體損壞。請先「修船」。')
 
   const solo = party(world).length === 1
@@ -138,27 +146,27 @@ export function resolveSailing(world: World, actor: Member, intent: SeaIntent, r
   const navigator = Math.max(...party(world).map(m => stat(m.character!, 'INT') + (m.character!.skillRanks['航海'] ?? 0)))
   const natural = roll(20)
   const score = natural + navigator
-  const base = Math.ceil(route.miles * 60 / boatYard.speed)
+  const base = Math.ceil(route.miles * 60 / shipSpeed(ship))
   const fast = option.pace === 'fast'
   // Each rank of the best navigator's 航海 trims the voyage by 3%.
-  const minutes = Math.max(20, Math.round(((fast ? Math.ceil(base * .82) : base + 16) + (score < 9 ? 24 : score >= 18 ? -12 : 0)) * (1 - .03 * navigatorRank(world))))
+  const minutes = Math.max(20, Math.round(((fast ? Math.ceil(base * .82) : base + 16) + (score < 9 ? 24 : score >= 18 ? -12 : 0)) * (1 - .03 * navigatorRank(world)) * (crippled(ship) ? 1.25 : 1)))
   const damage = (fast ? (score < 9 ? 22 : score < 15 ? 8 : 2) : (score < 9 ? 4 : 0)) + (route.hazard?.damage ?? 0)
   const weather = score < 9 ? '遇見逆風與碎浪' : score >= 18 ? '順著有利的海流' : '越過平穩海面'
   const voyage: PendingVoyage = {
     from, to: option.to, pace: option.pace, miles: route.miles, minutes, damage, landfallXp: route.logPose ? 50 : 20,
-    text: boatYard.name + '從' + islands[from].name + '出航，以' + paceNames[option.pace] + '航行 ' + route.miles +
+    text: shipName(ship) + '從' + islands[from].name + '出航，以' + paceNames[option.pace] + '航行 ' + route.miles +
       ' 海里。航海 D20 ' + natural + '＋' + navigator + '＝' + score + '，' + weather +
-      (route.hazard ? '，' + route.hazard.name : '') + '，耗時 ' + duration(minutes) + '。',
+      (route.hazard ? '，' + route.hazard.name : '') + (crippled(ship) ? '，船體破損走得很慢' : '') + '，耗時 ' + duration(minutes) + '。',
   }
   delete world.sailing
   // Spec §9: sea events include pirates, Marines and Sea Kings. The fight interrupts the voyage until it ends.
-  const encounter = world.calmSeas ? undefined : rollSeaEncounter(roll, route)
+  const encounter = world.calmSeas ? undefined : rollSeaEncounter(roll, route, partLevel(ship, 'lookout'))
   if (encounter) {
     startSeaFight(world, encounter.foes, voyage)
     return {
-      text: boatYard.name + '從' + islands[from].name + '出航，駛向' + islands[option.to].name + '。\n航行途中：' + encounter.text +
+      text: shipName(ship) + '從' + islands[from].name + '出航，駛向' + islands[option.to].name + '。\n航行途中：' + encounter.text +
         '\n對手：' + encounter.foes.map(foe => foe.name + '（' + tierNames[foe.tier] + '）').join('、') +
-        '。全隊可以攻擊、防守、使用繃帶，或輸入「撤退」由航海士嘗試甩開。',
+        '。全隊可以攻擊、防守、使用繃帶' + (partLevel(ship, 'cannon') ? '、「開砲」' : '') + '，或輸入「撤退」由航海士嘗試甩開。',
       minutes: Math.ceil(minutes / 2), announce: true,
     }
   }
@@ -169,11 +177,19 @@ export function resolveSailing(world: World, actor: Member, intent: SeaIntent, r
 export function finishVoyage(world: World, voyage: PendingVoyage): { text: string, minutes: number } {
   const ship = world.ship!
   const before = ship.hull
-  ship.hull = Math.max(1, ship.hull - voyage.damage)
+  ship.hull = Math.max(1, ship.hull - shipWear(ship, voyage.damage))
   ship.port = islands[voyage.to].port
   ship.trips++
   const discoveries: string[] = []
+  // A long voyage in a proper cabin is a rest.
+  const cabin = voyage.minutes >= 240 ? partLevel(ship, 'cabin') : 0
+  if (cabin) healCompanions(world, .1 * cabin)
   for (const member of party(world)) {
+    const x = member.character!
+    if (cabin) {
+      x.sta = Math.min(maxSTA(x), x.sta + Math.ceil(maxSTA(x) * .25 * cabin))
+      if (x.hp > 0) x.hp = Math.min(maxHP(x), x.hp + Math.ceil(maxHP(x) * .1 * cabin))
+    }
     member.character!.place = ship.port
     member.character!.conversingWith = null
     // Reaching a new island is meaningful exploration; the home island pays nothing.
@@ -182,6 +198,7 @@ export function finishVoyage(world: World, voyage: PendingVoyage): { text: strin
   return {
     text: voyage.text + '\n全隊抵達' + islands[voyage.to].name + '的' + locations[ship.port] +
       '。船體 ' + before + ' → ' + ship.hull + '／100。' +
+      (cabin ? '大家在船室裡休息過，恢復了體力。' : '') +
       (companionIds(world).length ? '\n隨船夥伴：' + companionIds(world).map(npc => npcs[npc]).join('、') + '也一起上岸。' : '') +
       (islandStories[voyage.to] && !['done', 'closed'].includes(world.islandTasks?.[voyage.to]?.stage ?? '')
         ? '\n島上消息：' + islandStories[voyage.to]!.title + '。可找' + npcs[islandStories[voyage.to]!.guide] + '。' : '') +

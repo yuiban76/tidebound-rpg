@@ -149,6 +149,7 @@ export class AiProvider {
       'rest {sleep:boolean}，aid {patient:角色名}，buy {item:商品代號或商品名稱，例如 sword、普通武士刀、櫻花藥、皮甲}，sell {item:背包裡的物品名, count?}（賣給行商，半價），bounty {}（兌換賞金單）（musket 普通火槍，tonic 傷藥；）upgrade {}（在鐵匠鋪／武器店強化手上的武器）、use {item:傷藥}（喝傷藥回復）；（logPose 是記錄指針，waterskin 水壺，seastone 海樓石十手，dial 衝擊貝）；fruit {take:boolean, fruit?}（打倒帶有惡魔果實的 NPC 後，take:true=吸收果實、false=放走）、buyFruit {fruit?}（在夏波帝人口拍賣所買果實）；戰鬥中對自然系對手用 useItem {item:水壺或衝擊貝, target:對手名}，reload。wait {hours:1-240} 用於原地等待或消磨時間。',
       'give {to:context.party 裡的角色名, item?:context.items 裡的物品名, count?:數量, money?:貝里}，item 與 money 只填一項。equip {weapon:fist|sword|spear|musket} 用於改用自己背包裡的武器。',
       'sail {order:buy|materials|repair|vote|ready|unready|depart, destination?:context.routes 裡的島嶼代號, pace?:steady|fast}。islandTask {step:accept|search|deliver}。',
+      'ship {order:name|refit|upgrade|store|take} 用於船本身：name 取名 {name}、refit 換船 {model:boat|caravel|brig|adam}、upgrade 改裝 {part:armor|sail|cannon|lookout|cabin}、store／take 把物品或貝里放進／拿出船艙 {item,count?} 或 {money}。cannon {target?} 只用於海戰中開船砲。',
       'recruit {npc:context.people 裡的代號} 用於玩家邀請某位 NPC 加入自己的海賊團、船團或隊伍，或請對方跟著一起行動。dismiss {npc:context.companions 裡的代號} 用於請同伴離隊。context.companions 是已經加入的同伴。handover {npc, to:隊友角色名} 用於把同伴交給另一位玩家帶領。',
       '邀請對方加入一律用 recruit，不可用 social、talk 或 free，否則對方只是口頭答應、並不會真的跟著走。',
       '看懂玩家的口語、省略與別名。酒館、酒吧或瑪琪諾的店指 tavern，港口或碼頭指 dock，科爾波山指 hill，哥亞王國指 goa，問路或「我能去哪」用 guide，找村長用 talk 且 npc 是 mayor。',

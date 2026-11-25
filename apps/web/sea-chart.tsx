@@ -7,6 +7,7 @@ import { hasFlag } from '../../packages/world/flags.ts'
 import { luffyNow } from '../../packages/world/luffy.ts'
 import { islandAt, islands, paceNames, routeNeeds, routesFrom } from '../../packages/world/sea.ts'
 import { bands, chart, chartIslands, chartLanes, redLine, redLineShape, reversePeak, seaPath, seeded } from '../../packages/world/seachart.ts'
+import { shipName } from '../../packages/world/ships.ts'
 import { party } from '../../packages/world/village.ts'
 import { IslandArt, ShipMark, StrawHat } from './island-art.tsx'
 import type { View } from './network.ts'
@@ -268,7 +269,7 @@ export function SeaChartDialog({ world, here, canSail, onCourse, onClose }: {
     <p><strong>{route.miles} 海里</strong>，從{islands[here].name}可以直航。{routeNeeds(route).length > 0 && '（' + routeNeeds(route).join('、') + '）'}</p>
     {canSail ? <div className="button-row">{(['steady', 'fast'] as const).map(pace =>
       <button key={pace} type="button" onClick={() => onCourse(selected, pace)}>選{paceNames[pace]}航線</button>)}</div>
-      : <p className="hint">{world.ship ? '船停在' + locations[world.ship.port] + '，回到船邊才能出海。' : '需要先有船。'}</p>}
+      : <p className="hint">{world.ship ? shipName(world.ship) + '停在' + locations[world.ship.port] + '，回到船邊才能出海。' : '需要先有船。'}</p>}
   </>
   else if (trip.length) status = <p>沒有直達航線。要經過：{trip.map(id => islands[id].name).join(' → ')}</p>
   else status = <p>偉大航路的航線多半是單向的，從{islands[here].name}已經到不了這裡。</p>
@@ -304,7 +305,7 @@ export function SeaChartDialog({ world, here, canSail, onCourse, onClose }: {
         {luffy.near === selected && <p className="hint">{npcs.luffy}：{luffy.doing}</p>}
         <ul className="sea-legend" aria-label="圖例">
           <li><svg viewBox="-18 -14 36 24" aria-hidden="true"><StrawHat/></svg>{npcs.luffy}</li>
-          <li><svg viewBox="-16 -18 32 32" aria-hidden="true"><ShipMark/></svg>你們的船</li>
+          <li><svg viewBox="-16 -18 32 32" aria-hidden="true"><ShipMark/></svg>{world.ship ? shipName(world.ship) : '你們的船'}</li>
           <li><svg viewBox="0 0 30 12" aria-hidden="true"><path d="M2 6H28" className="chart-lane" data-open="true"/></svg>可直航</li>
           <li><svg viewBox="0 0 30 12" aria-hidden="true"><path d="M2 6H28" className="chart-lane"/></svg>其他航線</li>
         </ul>

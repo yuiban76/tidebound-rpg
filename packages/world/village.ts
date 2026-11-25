@@ -144,7 +144,7 @@ export type Technique = { name: string, style: 'special' | 'advanced' | 'flurry'
   /** Born with it (a race's move); does not count either. */ innate?: true }
 /** Moves the player made up themselves (at most six). */
 export const selfMade = (move: Technique) => !move.fruit && !move.innate
-export type CombatChoice = Extract<Intent, { kind: 'attack' | 'guard' | 'flee' | 'negotiate' | 'reload' | 'useItem' }>
+export type CombatChoice = Extract<Intent, { kind: 'attack' | 'cannon' | 'guard' | 'flee' | 'negotiate' | 'reload' | 'useItem' }>
 /** A voyage interrupted by a sea encounter; it resumes once the fight is over. */
 export type PendingVoyage = RouteChoice & { from: IslandId, miles: number, minutes: number, damage: number, text: string, landfallXp: number }
 export type Combat = {

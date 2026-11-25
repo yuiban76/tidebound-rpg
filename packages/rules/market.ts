@@ -6,6 +6,7 @@ import { brokers, marineOffices, priceFor, resale, slipValue, slipsOf, specialBy
 import type { Special, SpecialId } from '../world/market.ts'
 import { scale } from '../world/scale.ts'
 import { islandAt, islands } from '../world/sea.ts'
+import { shipName } from '../world/ships.ts'
 import { isTrader, traders, traderWares } from '../world/traders.ts'
 import type { TraderId } from '../world/traders.ts'
 import { goods, npcsAt, shops, weaponItems, weaponNames } from '../world/village.ts'
@@ -142,7 +143,7 @@ export function useSupply(world: World, c: Character, name: string) {
     if (world.ship.hull >= 100) return reject('船體已是 100／100。')
     world.ship.hull = 100
     if (!--c.inventory[ware.label]) delete c.inventory[ware.label]
-    return { text: '工匠們用亞當木把船修得比新的還結實，船體 100／100。', minutes: 60, announce: true }
+    return { text: '工匠們用亞當木把' + shipName(world.ship) + '修得比新的還結實，船體 100／100。', minutes: 60, announce: true }
   }
   if (c.hp >= maxHP(c) && c.sta >= maxSTA(c)) return reject('你現在沒有需要恢復的地方。')
   if (!--c.inventory[ware.label]) delete c.inventory[ware.label]

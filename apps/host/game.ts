@@ -435,6 +435,7 @@ export class Game {
     return {
       actor: c.name, race: c.race + '（' + traitOf(c).perk + '）', place: locations[c.place], ...navigation,
       local,
+      ...(world.ship?.name && { ourShip: world.ship.name }),
       ...warContext(world, c.place),
       ...sagaContext(world, c.place),
       combat: world.combat && { foes: world.combat.foes.map(foe => ({ name: foe.name, hp: foe.hp, maxHp: foe.maxHp, down: !!foe.down })), atSea: !!world.combat.sea },
@@ -528,9 +529,9 @@ export class Game {
       const result = resolve(world, actorAt(world), intent, job.text, this.store.roller(code, id), this.connected(world))
       // Each AI call is a full wait on a local model, so the rules' own text stands alone for routine upkeep,
       // and a fight gets one narration when it ends instead of one per round.
-      const fightGoesOn = ['attack', 'guard', 'flee', 'negotiate', 'reload', 'useItem'].includes(intent.kind) && !!world.combat
+      const fightGoesOn = ['attack', 'cannon', 'guard', 'flee', 'negotiate', 'reload', 'useItem'].includes(intent.kind) && !!world.combat
       const narrate = !result.rejected && !result.directReply && !fightGoesOn &&
-        !['sail', 'islandTask', 'give', 'equip', 'wait', 'recruit', 'dismiss', 'handover', 'fruit', 'buyFruit', 'upgrade', 'use', 'rest', 'meal', 'reload', 'useItem'].includes(intent.kind) &&
+        !['sail', 'ship', 'cannon', 'islandTask', 'give', 'equip', 'wait', 'recruit', 'dismiss', 'handover', 'fruit', 'buyFruit', 'upgrade', 'use', 'rest', 'meal', 'reload', 'useItem'].includes(intent.kind) &&
         (!!result.spokeWith || !['move', 'meal', 'crew'].includes(shortcut?.kind ?? ''))
       const narrationContext = intent.kind === 'move' && result.spokeWith
         ? this.context(world, actorAt(world), { kind: 'talk', npc: result.spokeWith }, true) : before

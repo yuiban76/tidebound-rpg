@@ -1,6 +1,7 @@
 import { useId } from 'react'
 import { locations, npcs } from '../../packages/shared/protocol.ts'
 import { ballotCount, boatYard, islandAt, islands, islandStories, paceNames, routeNeeds, routesFrom, selectedRoute } from '../../packages/world/sea.ts'
+import { shipName } from '../../packages/world/ships.ts'
 import { npcPlace, party } from '../../packages/world/village.ts'
 import type { View } from './network.ts'
 
@@ -37,7 +38,7 @@ export function VoyagePanel({ world, player, suggest }: Props) {
     : '單人可直接出海，也能先選島嶼和航速。'
   return <section className="panel sea-panel" aria-labelledby={title}>
     <h2 id={title}>航海</h2>
-    <p><strong>{boatYard.name}</strong>停在{locations[ship.port]} · 船體 {ship.hull}／100 · 木料 {ship.wood}</p>
+    <p><strong>{shipName(ship)}</strong>停在{locations[ship.port]} · 船體 {ship.hull}／100 · 木料 {ship.wood}</p>
     <ul className="voyage-courses" aria-label="可選航線">
       {routesFrom(from).map(route => { const { to, miles } = route; const needs = routeNeeds(route); return <li key={to}>
         <strong>{islands[to].name}</strong>

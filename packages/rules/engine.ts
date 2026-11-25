@@ -5,6 +5,8 @@ import { forges, maxTier, tierCost, tierDamage, tierHit, tierLevel, tierOf, weap
 import { beli, scale } from '../world/scale.ts'
 import { boatCrewReplies, goods, meals, npcFacts, npcPlace, npcRole, npcsAt, party, shops, walkMinutes, weaponItems, weaponNames } from '../world/village.ts'
 import { islandAt, islands, shipPurchaseInfo } from '../world/sea.ts'
+import { partLevel, shipName } from '../world/ships.ts'
+import { resolveShip } from './ship.ts'
 import { resolveIslandTask, resolveSailing } from './sailing.ts'
 import { resolveWar } from './war.ts'
 import { resolveGoal, rideTrain } from './saga.ts'
@@ -170,7 +172,7 @@ export function attackCheck(roll: Roll, stats: { attr: number, skill: number, de
 }
 
 const isCombat = (intent: Intent): intent is CombatChoice =>
-  ['attack', 'guard', 'flee', 'negotiate', 'reload', 'useItem'].includes(intent.kind)
+  ['attack', 'cannon', 'guard', 'flee', 'negotiate', 'reload', 'useItem'].includes(intent.kind)
 
 function converse(world: World, c: Character, npc: NpcId, raw: string, minute = world.minute): Result {
   const place = npcPlace(world, npc)
@@ -202,6 +204,7 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
 
   switch (intent.kind) {
     case 'sail': return resolveSailing(world, actor, intent, roll, connected)
+    case 'ship': return resolveShip(world, actor, intent)
     case 'islandTask': return resolveIslandTask(world, actor, intent, roll)
     case 'war': return resolveWar(world, actor, intent, roll)
     case 'goal': return resolveGoal(world, actor, intent.goal, roll)
@@ -385,8 +388,15 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
           c.sta = Math.min(maxSTA(c), c.sta + cooking * 2)
           if (c.hp > 0) c.hp = Math.min(maxHP(c), c.hp + cooking * scale)
         }
+        // A cabin aboard makes any rest beside the ship a better one.
+        const cabin = world.ship && c.place === world.ship.port ? partLevel(world.ship, 'cabin') : 0
+        if (cabin) {
+          c.sta = Math.min(maxSTA(c), c.sta + cabin * 2)
+          if (c.hp > 0) c.hp = Math.min(maxHP(c), c.hp + Math.ceil(maxHP(c) * .05 * cabin))
+        }
         return {
           text: (alert ? '睡到一半被周圍的動靜吵醒了（' + Math.max(1, Math.round(spent / 6) / 10) + ' 小時）。' : intent.sleep ? '睡了一覺（8 小時）。' : '稍作休息（30 分鐘）。') +
+            (cabin ? '你在' + shipName(world.ship!) + '的船室裡休息，恢復得更好。' : '') +
             (cook ? (cook === c ? '你' : cook.name) + '做了一頓飯，多回復了 ' + cooking * 2 + ' STA。' : '') +
             'HP ' + c.hp + '／' + maxHP(c) + '，STA ' + c.sta + '／' + maxSTA(c) + '。', minutes: spent,
         }

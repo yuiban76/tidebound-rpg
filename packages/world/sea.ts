@@ -1,5 +1,5 @@
 import { locations } from '../shared/protocol.ts'
-import type { IslandId, LocationId, SailingPace } from '../shared/protocol.ts'
+import type { IslandId, LocationId, SailingPace, ShipModel, ShipPart } from '../shared/protocol.ts'
 import { canonIslands, canonLanes, canonStories } from './canon.ts'
 import type { canonIslandIds as canonIslandIdList } from '../shared/atlas.ts'
 import type { IslandStory, SeaLane } from './canon.ts'
@@ -48,7 +48,15 @@ export function routeNeeds(route: Route) {
 export const boatYard = { name: '小帆船', price: 32_500, speed: 7, seats: 4, sale: 24_000, woodPrice: 2_500, repairGain: 25 }
 export const shipPurchaseInfo = locations.dock + '的船塢販售可載四人的' + boatYard.name + '，售價 ' + beli(boatYard.price) + '。到碼頭輸入「買船」即可。'
 export const paceNames: Record<SailingPace, string> = { steady: '穩健', fast: '快航' }
-export type Ship = { owner: string, port: LocationId, hull: number, wood: number, trips: number }
+export type Ship = {
+  owner: string, port: LocationId, hull: number, wood: number, trips: number
+  /** What the crew named her. */
+  name?: string
+  /** Hull type and fitted parts (see world/ships.ts); a ship without a model is the small boat. */
+  model?: ShipModel, parts?: Partial<Record<ShipPart, number>>
+  /** Shared cargo and money; nobody can rob what lies aboard. */
+  hold?: Record<string, number>, safe?: number
+}
 export type RouteChoice = { to: IslandId, pace: SailingPace }
 export type SailingPlan = { from: IslandId, ballots: Record<string, RouteChoice>, ready: string[] }
 /** closed: the matter was settled by the timeline before the players finished it. */

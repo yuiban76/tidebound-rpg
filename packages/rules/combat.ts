@@ -5,7 +5,8 @@ import type { AttackStyle, NpcId } from '../shared/protocol.ts'
 import { npcFoe, tierNames, tierXp } from '../world/foes.ts'
 import { crewmates, crews } from '../world/crews.ts'
 import type { Foe } from '../world/foes.ts'
-import { boatYard, islandAt } from '../world/sea.ts'
+import { islandAt } from '../world/sea.ts'
+import { partLevel, shipName, shipWear } from '../world/ships.ts'
 import { raceDefense, raceHit, stat, traitOf } from '../world/races.ts'
 import { dressingOf } from '../world/skills.ts'
 import { armorOf, crewTreasure, slipName, specialByLabel, specials } from '../world/market.ts'
@@ -149,7 +150,7 @@ export function resolveCombatAction(world: World, actor: Member, choice: CombatC
   if (combat.participants.some(id => !connected.has(id))) return stop('有參戰角色離線，戰鬥等待重連。')
   if (combat.choices[actor.id]) return stop('你已提交這一回合的行動。')
 
-  const invalid = validate(combat, c, choice)
+  const invalid = validate(combat, c, choice) ?? (choice.kind === 'cannon' ? cannonFault(world, combat, choice.target) : undefined)
   if (invalid) {
     // An invalid opening move never starts the fight.
     if (started) delete world.combat
@@ -182,6 +183,15 @@ function validate(combat: Combat, c: Character, choice: CombatChoice) {
     } else if (!/繃帶|草藥/.test(choice.item) || !dressingOf(c)) return '戰鬥中只能使用背包裡的繃帶、草藥、水壺、衝擊貝、火藥星、煙霧彈、火焰貝或鹽。'
   }
   if (choice.kind === 'negotiate' && !findFoe(combat, choice.target)) return '找不到可以交涉的對手。'
+}
+
+/** Why a cannon cannot be fired right now. Each cannon fires once a round, whoever mans it. */
+function cannonFault(world: World, combat: Combat, target?: string) {
+  if (!combat.sea || !world.ship) return '只有海戰時才能開砲。'
+  const guns = partLevel(world.ship, 'cannon')
+  if (!guns) return shipName(world.ship) + '沒有裝船砲。到船塢輸入「升級船砲」可以加裝。'
+  if (Object.values(combat.choices).filter(choice => choice.kind === 'cannon').length >= guns) return '這一回合 ' + guns + ' 門船砲都有人操作了。'
+  if (!findFoe(combat, target)) return '找不到名叫「' + target + '」的對手。'
 }
 
 function resolveRound(world: World, combat: Combat, roll: Roll, opening: string): Result {
@@ -217,7 +227,7 @@ function resolveRound(world: World, combat: Combat, roll: Roll, opening: string)
         // The best sailor steers; a merfolk or long-leg aboard helps the boat slip away.
         const navigator = Math.max(...party(world).map(m => stat(m.character!, 'INT') + (m.character!.skillRanks['航海'] ?? 0))) +
           Math.max(0, ...party(world).map(m => traitOf(m.character!).seaEscape ?? 0))
-        const dc = 12 + Math.max(...standing(combat).map(foe => foe.tier))
+        const dc = 12 + Math.max(...standing(combat).map(foe => foe.tier)) - partLevel(world.ship, 'sail')
         const natural = roll(20)
         escaped = natural + navigator >= dc
         lines.push('全速甩開對手：航海 D20 ' + natural + '＋' + navigator + '＝' + (natural + navigator) + '／' + dc + '，' + (escaped ? '成功脫離！' : '沒能甩開。'))
@@ -258,6 +268,18 @@ function resolveRound(world: World, combat: Combat, roll: Roll, opening: string)
       const success = natural !== 1 && total >= dc
       lines.push(fighter.name + '勸' + foe.name + '住手：說服 D20 ' + natural + '，合計 ' + total + '／' + dc + '，' + (success ? foe.name + '收手了。' : '對方不肯罷休。'))
       if (success) foe.surrendered = true
+      continue
+    }
+    if (choice.kind === 'cannon') {
+      const foe = findFoe(combat, choice.target) ?? standing(combat)[0]
+      if (!foe) continue
+      if (foe.logia && !(foe.exposed ?? 0)) { lines.push(fighter.name + '的砲彈穿過了' + foe.name + '的身體，自然系的能力讓攻擊沒有效果。'); continue }
+      const guns = partLevel(world.ship, 'cannon')
+      const shot = attackCheck(roll, { attr: stat(fighter, 'PER'), skill: (fighter.skillRanks['射擊'] ?? 0) + levelHit(fighter.level), def: foe.def, die: 10, bonus: guns * 2 + levelDamage(fighter.level), armor: foe.armor })
+      foe.hp = Math.max(0, foe.hp - shot.damage)
+      lines.push(fighter.name + '對' + foe.name + '開砲，D20 ' + shot.natural + '，合計 ' + shot.total + '／' + foe.def +
+        (shot.hit ? '，傷害 ' + shot.damage + '。' + foe.name + ' HP ' + foe.hp + '／' + foe.maxHp + '。' : '，砲彈落在海裡。'))
+      if (!foe.hp) { foe.down = true; lastHit.set(foe.id, member); lines.push(foe.name + '倒下了。') }
       continue
     }
     if (choice.kind !== 'attack') continue
@@ -323,6 +345,13 @@ function resolveRound(world: World, combat: Combat, roll: Roll, opening: string)
     const fallen = victim.hurt(damage)
     lines.push(foe.name + '反擊' + victim.name + '，D20 ' + natural + '，合計 ' + total + '／' + def + (hit ? '，傷害 ' + damage + '。' : '，未命中。'))
     if (fallen) lines.push(fallen)
+  }
+
+  // At sea the ship takes a beating too: the stronger the enemy, the more of her hull goes.
+  if (combat.sea && world.ship && standing(combat).length) {
+    const before = world.ship.hull
+    world.ship.hull = Math.max(1, before - shipWear(world.ship, 1 + Math.max(...standing(combat).map(foe => foe.tier))))
+    if (world.ship.hull < before) lines.push(shipName(world.ship) + '在交戰中受損，船體 ' + before + ' → ' + world.ship.hull + '／100。')
   }
 
   for (const foe of combat.foes) { if (foe.exposed) foe.exposed--; if (foe.blind) foe.blind-- }
@@ -483,7 +512,7 @@ function defeat(world: World, combat: Combat, lines: string[]): Result {
   } else lines.push('對手沒有追擊，留下倒地的你們離開了。')
   if (combat.sea) {
     const voyage = finishVoyage(world, combat.sea)
-    lines.push(boatYard.name + '在海上漂流，最後還是到了目的地。', voyage.text)
+    lines.push(shipName(world.ship!) + '在海上漂流，最後還是到了目的地。', voyage.text)
     return { text: lines.join('\n'), announce: true, minutes: 1 + voyage.minutes }
   }
   return { text: lines.join('\n'), announce: true, minutes: 1 }
