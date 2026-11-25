@@ -1,11 +1,17 @@
-import { useEffect, useId, useRef } from 'react'
+import { useId, useLayoutEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { locations } from '../../packages/shared/protocol.ts'
-import type { IslandId, LocationId } from '../../packages/shared/protocol.ts'
+import type { IslandId, LocationId, SailingPace } from '../../packages/shared/protocol.ts'
+import { hasFlag } from '../../packages/world/flags.ts'
 import { routeBetween } from '../../packages/world/explore.ts'
 import { islandAt, islands, routesFrom } from '../../packages/world/sea.ts'
-import { party, paths } from '../../packages/world/village.ts'
+import { party, paths, walkMinutes } from '../../packages/world/village.ts'
+import { chartIslands, coastline, seeded } from '../../packages/world/seachart.ts'
+import type { Biome } from '../../packages/world/seachart.ts'
 import { canonIslands } from '../../packages/world/canon.ts'
 import { addedSites, islandLayouts } from '../../packages/world/sites.ts'
+import { biomes } from './island-art.tsx'
+import { SeaChartDialog, SeaPreview } from './sea-chart.tsx'
 import type { View } from './network.ts'
 import './world-map.css'
 
@@ -36,44 +42,91 @@ const sites = Object.keys(points) as LocationId[]
 const roads = sites.flatMap((from, index) => paths[from].filter(to => sites.indexOf(to) > index)
   .map(to => [from, to] as const))
 
-function Routes({ current, moving, hillClosed }: { current: LocationId, moving: boolean, hillClosed: boolean }) {
-  const ref = useRef<HTMLCanvasElement>(null)
-  useEffect(() => {
-    const canvas = ref.current
-    const ctx = canvas?.getContext('2d')
-    if (!canvas || !ctx) return
-    const draw = () => {
-      const { width, height } = canvas.getBoundingClientRect()
-      if (!width || !height) return
-      const scale = window.devicePixelRatio || 1
-      canvas.width = Math.round(width * scale)
-      canvas.height = Math.round(height * scale)
-      ctx.setTransform(scale, 0, 0, scale, 0, 0)
-      ctx.lineCap = 'round'
+/** How far a point lies from a straight path. */
+function distance([x, y]: number[], [x1, y1]: number[], [x2, y2]: number[]) {
+  const length = (x2 - x1) ** 2 + (y2 - y1) ** 2
+  const t = length ? Math.min(1, Math.max(0, ((x - x1) * (x2 - x1) + (y - y1) * (y2 - y1)) / length)) : 0
+  return Math.hypot(x - x1 - t * (x2 - x1), y - y1 - t * (y2 - y1))
+}
 
-      for (const [from, to] of roads.filter(([place]) => islandAt(place) === islandAt(current))) {
-        const closed = hillClosed && (from === 'hill' || to === 'hill')
-        const direct = moving && !closed && (current === from || current === to)
-        ctx.beginPath()
-        ctx.setLineDash(closed ? [4, 6] : [])
-        ctx.lineWidth = direct ? 3.5 : 2
-        ctx.strokeStyle = closed ? '#79847c' : direct ? '#1f605c' : '#658c81'
-        ctx.moveTo(points[from][0] * width / 100, points[from][1] * height / 100)
-        ctx.lineTo(points[to][0] * width / 100, points[to][1] * height / 100)
-        ctx.stroke()
-      }
-    }
-    draw()
-    const observer = new ResizeObserver(draw)
-    observer.observe(canvas)
+const tree = <><path d="M0 6V0" fill="none" strokeWidth="2"/><circle cy="-4" r="6" fill="#7fa65c"/></>
+const roof = <><path d="M-6 5V-2H6V5Z" fill="#f6efdc"/><path d="M-8 -2L0 -8L8 -2Z" fill="#b87155"/></>
+const sceneryFor: Record<Biome, ReactNode> = {
+  green: tree, town: roof,
+  desert: <path d="M-10 4Q-3 -5 3 2Q8 -2 11 4" fill="none"/>,
+  snow: <><path d="M0 6V2" fill="none" strokeWidth="2"/><path d="M-6 3L0 -9L6 3Z" fill="#dcebee"/></>,
+  jungle: <><path d="M0 7Q2 1 0 -4" fill="none" strokeWidth="2"/><path d="M0 -4Q-8 -8 -10 -1Q-5 -4 0 -4Q-3 -11 4 -11Q0 -8 0 -4Q8 -8 10 0Q5 -4 0 -4" fill="#5f9350"/></>,
+  stone: <path d="M-7 5L-4 -3L2 -5L7 5Z" fill="#c2bdab"/>,
+  dark: <path d="M0 7V-3M0 1L-5 -5M0 -1L5 -7M0 -3L-2 -9" fill="none" strokeWidth="1.6"/>,
+  cloud: <path d="M-10 4Q-13 -2 -6 -3Q-3 -9 3 -5Q10 -6 10 0Q13 4 8 4Z" fill="#eef5f9"/>,
+  sea: <path d="M-9 0q4.5 -6 9 0q4.5 6 9 0" fill="none" stroke="#fff"/>,
+}
+
+/** Places that are no ordinary land: the floating restaurant and the undersea prison. */
+const grounds: Partial<Record<IslandId, { land: string, shade: string, shore: string, scenery: ReactNode }>> = {
+  baratie: { land: '#d9b484', shade: '#8f6039', shore: '#b98655', scenery: <path d="M-16 0H16M-9 -4V0M6 0V4" fill="none"/> },
+  impelDown: { land: '#8f8ba0', shade: '#57546a', shore: '#6d6a80', scenery: <path d="M-8 6V-6H8V6ZM-4 -6V6M0 -6V6M4 -6V6" fill="#6f6b82"/> },
+}
+
+/** Land, scenery and paths under the place names. Drawn in pixels so nothing gets stretched. */
+function Ground({ island, current, moving, hillClosed }: { island: IslandId, current: LocationId, moving: boolean, hillClosed: boolean }) {
+  const ref = useRef<SVGSVGElement>(null)
+  const [{ w, h }, setSize] = useState({ w: 0, h: 0 })
+  useLayoutEffect(() => {
+    const element = ref.current!
+    const measure = () => setSize({ w: element.clientWidth, h: element.clientHeight })
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(element)
     return () => observer.disconnect()
-  }, [current, moving, hillClosed])
-  return <canvas ref={ref} className="map-routes" aria-hidden="true"/>
+  }, [])
+  const { biome } = chartIslands[island]
+  const { land, shade, shore } = grounds[island] ?? biomes[biome]
+  const at = (place: LocationId) => [points[place][0] * w / 100, points[place][1] * h / 100]
+  const shape = (inset: number) => coastline(island + 'land', w / 2, h / 2, Math.max(1, w / 2 - inset), Math.max(1, h / 2 - inset), .09, 22, 3.4)
+  const random = seeded(island + 'scenery')
+  const paved = roads.filter(([place]) => islandAt(place) === island)
+  // Scenery keeps clear of the names, the paths and itself; things further down are drawn in front.
+  const scenery: [number, number, number][] = []
+  for (let i = 0; i < 160 && scenery.length < 34; i++) {
+    const [x, y, s] = [w * (.08 + random() * .84), h * (.08 + random() * .84), .8 + random() * .4]
+    if (scenery.every(([a, b]) => Math.hypot(a - x, b - y) > 24) &&
+      islands[island].places.every(place => Math.abs(x - at(place)[0]) > 60 || Math.abs(y - at(place)[1]) > 34) &&
+      paved.every(([from, to]) => distance([x, y], at(from), at(to)) > 17)) scenery.push([x, y, s])
+  }
+  scenery.sort((a, b) => a[1] - b[1])
+  const links = paved.map(([from, to]) => {
+    const [[x1, y1], [x2, y2]] = [at(from), at(to)]
+    const bend = (seeded(from + to)() - .5) * .22
+    const middle = [(x1 + x2) / 2 - (y2 - y1) * bend, (y1 + y2) / 2 + (x2 - x1) * bend]
+    const closed = hillClosed && (from === 'hill' || to === 'hill')
+    return { key: from + to, d: `M${x1} ${y1}Q${middle.join(' ')} ${x2} ${y2}`, closed, minutes: walkMinutes(from, to),
+      direct: moving && !closed && (current === from || current === to),
+      label: [(x1 + x2) / 4 + middle[0] / 2, (y1 + y2) / 4 + middle[1] / 2] }
+  })
+  return <svg ref={ref} className="map-ground" viewBox={`0 0 ${w || 1} ${h || 1}`} aria-hidden="true">
+    {w > 0 && <>
+      <g fill="none" stroke="#ffffff" strokeOpacity=".5" strokeWidth="1.5"><path d={shape(1)}/></g>
+      <path d={shape(6)} fill={shore} stroke="#8f8254" strokeOpacity=".6"/>
+      <path d={shape(15)} fill={shade} transform="translate(0 3)"/>
+      <path d={shape(15)} fill={land}/>
+      <g stroke="#33403d" strokeOpacity=".55" strokeWidth=".9" strokeLinejoin="round">
+        {scenery.map(([x, y, s], i) => <g key={i} transform={`translate(${x} ${y}) scale(${s})`}>{grounds[island]?.scenery ?? sceneryFor[biome]}</g>)}
+      </g>
+      <g fill="none" strokeLinecap="round">
+        {links.map(link => <path key={link.key} d={link.d} stroke="#fff8e2" strokeOpacity=".85" strokeWidth={link.direct ? 8 : 6}/>)}
+        {links.map(link => <path key={link.key} d={link.d} stroke={link.closed ? '#7d7a6c' : link.direct ? '#9a4a1c' : '#9b7b47'}
+          strokeWidth={link.direct ? 3.4 : 2} strokeDasharray={link.closed ? '3 7' : link.direct ? undefined : '7 6'}/>)}
+      </g>
+      {/* Only the long walks are worth a number. */}
+      {links.filter(link => link.direct && link.minutes > 6).map(link => <text key={link.key} x={link.label[0]} y={link.label[1]} className="map-minutes" textAnchor="middle">{link.minutes} 分</text>)}
+    </>}
+  </svg>
 }
 
 export function WorldMap({ world, player, hideOnMobile, onTravel, onCourse }: {
   world: View['world'], player: string, hideOnMobile: boolean,
-  onTravel: (place: LocationId) => void, onCourse: (island: IslandId) => void,
+  onTravel: (place: LocationId) => void, onCourse: (island: IslandId, pace: SailingPace) => void,
 }) {
   const title = useId()
   const character = world.members.find(member => member.id === player)!.character!
@@ -84,26 +137,33 @@ export function WorldMap({ world, player, hideOnMobile, onTravel, onCourse }: {
   const fighting = world.combat?.participants.includes(player)
   const moving = character.hp > 0 && !fighting
   const hillClosed = world.combat?.place === 'hill'
+  const [chartOpen, setChartOpen] = useState(false)
+  const ruined = (id: IslandId) => hasFlag(world, 'ruined:' + id)
+  const canSail = !!world.ship && islandAt(world.ship.port) === island
 
   return <section className={'panel world-map' + (hideOnMobile ? ' mobile-hide' : '')} aria-labelledby={title}>
     <header className="map-heading">
       <h2 id={title}>世界地圖</h2>
       <p className="map-location"><span aria-hidden="true"/>你在{locations[current]}</p>
     </header>
+    <SeaPreview world={world} here={island} onOpen={() => setChartOpen(true)}/>
+    {chartOpen && <SeaChartDialog world={world} here={island} canSail={canSail} onClose={() => setChartOpen(false)}
+      onCourse={(id, pace) => { setChartOpen(false); onCourse(id, pace) }}/>}
     <ul className="sea-overview" aria-label="海圖">
       {([island, ...routes.map(route => route.to)]).map(id => {
         const route = routes.find(link => link.to === id)
         return <li key={id}>
-          {route && world.ship && islandAt(world.ship.port) === island
-            ? <button type="button" className="sea-island" onClick={() => onCourse(id)}>
+          {route && canSail && !ruined(id)
+            ? <button type="button" className="sea-island" onClick={() => onCourse(id, 'steady')}>
               <strong>{islands[id].name}</strong><span>{route.miles} 海里 · 選航線</span></button>
-            : <div className="sea-island" data-current={id === island}>
-              <strong>{islands[id].name}</strong><span>{route ? route.miles + ' 海里 · 需船隻' : '所在島嶼'}</span></div>}
+            : <div className="sea-island" data-current={id === island} data-ruined={ruined(id) || undefined}>
+              <strong>{islands[id].name}</strong><span>{ruined(id) && route ? '已成廢墟 · 不能靠岸' : route ? route.miles + ' 海里 · 需船隻' : '所在島嶼'}</span></div>}
         </li>
       })}
     </ul>
-    <div className="map-chart" data-dense={islands[island].places.length > 5 || undefined} aria-label={islands[island].name + '步行地圖'}>
-      <Routes current={current} moving={moving} hillClosed={hillClosed}/>
+    <h3 className="map-island-name">{islands[island].name}</h3>
+    <div className="map-chart" data-biome={chartIslands[island].biome} data-dense={islands[island].places.length > 5 || undefined} aria-label={islands[island].name + '步行地圖'}>
+      <Ground island={island} current={current} moving={moving} hillClosed={hillClosed}/>
       <ul className="map-sites" aria-label={islands[island].name + '的地點'}>
         {islands[island].places.map(place => {
           const [x, y] = points[place]
@@ -115,7 +175,7 @@ export function WorldMap({ world, player, hideOnMobile, onTravel, onCourse }: {
             : reachable ? via(route.slice(1, -1)) : '暫不可達'
           const label = locations[place] + '，' + state
           const contents = <>
-            <strong title={locations[place]}>{shortNames[place] ?? locations[place]}</strong>
+            <strong title={locations[place]}>{place === islands[island].port && <svg className="map-anchor" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 4V14M3 9Q3 14 8 14Q13 14 13 9M5.5 6.5H10.5"/><circle cx="8" cy="2.6" r="1.6"/></svg>}{shortNames[place] ?? locations[place]}</strong>
             <span className="map-site-status">{state}</span>
             {visitors.length > 0 && <span className="map-occupancy" aria-hidden="true">{visitors.length}</span>}
           </>

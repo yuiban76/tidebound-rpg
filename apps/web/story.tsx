@@ -4,7 +4,7 @@ import { attributes, attributeLabels, locations, npcs, skills } from '../../pack
 import type { Message } from '../../packages/shared/protocol.ts'
 import { guideFor, maxHP, maxSTA, voteThreshold, xpToNext } from '../../packages/rules/engine.ts'
 import { sceneQuestion } from '../../packages/world/explore.ts'
-import { boatYard, islandAt, islands } from '../../packages/world/sea.ts'
+import { boatYard, islandAt, islands, paceNames } from '../../packages/world/sea.ts'
 import { raceSummary, stat } from '../../packages/world/races.ts'
 import { skillCap, skillUses } from '../../packages/world/skills.ts'
 import { forges, weaponLabel } from '../../packages/world/forge.ts'
@@ -160,7 +160,7 @@ export function Story({ view, send, history, connected, gap, review }: {
   const panels: Record<Side, ReactNode> = {
     map: <>
       <WorldMap world={world} player={player} hideOnMobile={false} onTravel={place => suggest('前往' + locations[place])}
-        onCourse={island => suggest('選擇航線 ' + islands[island].name + ' 穩健')}/>
+        onCourse={(island, pace) => suggest('選擇航線 ' + islands[island].name + ' ' + paceNames[pace])}/>
       <section className="subsection"><h3>這裡</h3>
         <p>{location}</p>
         {visibleNpcs.length > 0 && <ul className="chips">{visibleNpcs.map(id =>

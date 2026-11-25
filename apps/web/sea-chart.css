@@ -1,0 +1,67 @@
+/* The world map: the preview in the side panel and the full chart in a dialog. */
+.sea-preview {
+  position: relative; display: block; width: 100%; padding: 0; margin-bottom: .6rem; overflow: hidden;
+  border: 3px double #8a6a2c; border-radius: 6px; background: #a5cfd3; aspect-ratio: 620 / 350; line-height: 0;
+}
+.sea-preview:hover:not(:disabled), .sea-preview:active:not(:disabled) { background: #a5cfd3; border-color: #5d4416; }
+.sea-preview svg { width: 100%; height: 100%; }
+.sea-preview-open {
+  position: absolute; right: .45rem; bottom: .45rem; padding: .28rem .6rem; border: 1px solid #87662a; border-radius: 4px;
+  background: var(--brass); color: var(--navy); font-size: .82rem; font-weight: 700; line-height: 1.4; box-shadow: 0 1px 4px #152b3855;
+}
+.sea-preview:hover .sea-preview-open { background: #f1cb7f; }
+
+.chart-seas { font-family: "Noto Serif TC", "Songti TC", PMingLiU, serif; font-weight: 800; pointer-events: none; }
+.chart-seas text { font-size: 46px; fill: #2b5763; fill-opacity: .5; letter-spacing: .3em; }
+.chart-seas .chart-band { font-size: 32px; fill: #173f4d; fill-opacity: .55; letter-spacing: .08em; }
+.chart-seas .chart-small { font-size: 22px; fill: #42685c; fill-opacity: .75; letter-spacing: .1em; }
+.chart-seas .chart-place { font-size: 18px; fill: #5d2c1b; fill-opacity: 1; letter-spacing: .05em; paint-order: stroke; stroke: #f6ecd0; stroke-width: 4px; stroke-linejoin: round; }
+.chart-seas .chart-tiny { font-size: 13px; }
+.chart-seas .chart-red { font-size: 21px; fill: #fbeadb; fill-opacity: .95; letter-spacing: .35em; }
+.chart-title text { font-family: "Noto Serif TC", "Songti TC", PMingLiU, serif; font-size: 42px; font-weight: 800; letter-spacing: .12em; fill: #5d2c1b; }
+.chart-compass text { font-size: 20px; font-weight: 800; fill: #5d4416; }
+
+.chart-lane { fill: none; stroke: #27424c; stroke-opacity: .5; stroke-width: 2.2; stroke-dasharray: 2 7; stroke-linecap: round; }
+.chart-lane[data-open] { stroke: #9a4a1c; stroke-opacity: 1; stroke-width: 3.4; stroke-dasharray: 10 8; }
+.chart-lane[data-trip] { stroke: #8a1f1f; stroke-opacity: 1; stroke-width: 4; stroke-dasharray: 12 7; }
+.chart-island[role='button'] { cursor: pointer; outline: none; }
+.chart-island[role='button']:hover .chart-art, .chart-island[role='button']:focus-visible .chart-art { transform: scale(1.12); }
+.chart-island:focus-visible .chart-name { fill: #0b5560; text-decoration: underline; }
+.chart-art { transition: transform .15s; }
+.chart-island[data-new] .chart-art { filter: saturate(.45) brightness(1.06); opacity: .86; }
+.chart-island[data-ruined] .chart-art { filter: grayscale(.9) brightness(.7); }
+.chart-name { font-family: "Noto Serif TC", "Songti TC", PMingLiU, serif; font-weight: 800; fill: #1b303a; paint-order: stroke; stroke: #fbf6e6; stroke-width: 5px; stroke-linejoin: round; }
+.chart-here { fill: #f5d68c; fill-opacity: .55; stroke: #8a5a12; stroke-width: 3; animation: chart-pulse 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.chart-picked { fill: none; stroke: #8a1f1f; stroke-width: 3; stroke-dasharray: 6 6; }
+.chart-scene circle { fill: #c4402c; stroke: #fff; stroke-width: 2; }
+.chart-scene text { fill: #fff; font-size: 17px; font-weight: 800; }
+@keyframes chart-pulse { 50% { transform: scale(1.12); fill-opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .chart-here { animation: none; } .chart-art { transition: none; } }
+
+.sea-chart {
+  width: min(96vw, 100rem); max-width: none; height: 94dvh; max-height: none; padding: 0; border: 4px double #8a6a2c; border-radius: 8px;
+  color: var(--ink); background: #f3e7c6; overflow: hidden;
+}
+.sea-chart[open] { display: flex; flex-direction: column; }
+.sea-chart::backdrop { background: #0d1d27b8; }
+.sea-chart > header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .4rem .8rem; padding: .55rem .9rem; border-bottom: 2px solid #b8995a; }
+.sea-chart > header h2 { font-family: "Noto Serif TC", "Songti TC", PMingLiU, serif; letter-spacing: .12em; }
+.sea-chart-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 18.5rem; }
+.sea-chart-view { min-width: 0; min-height: 0; position: relative; background: #e6d5a8; }
+.sea-chart-view svg { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; user-select: none; }
+.sea-chart-view svg:active { cursor: grabbing; }
+.sea-chart-card { padding: .9rem 1rem; overflow-y: auto; border-left: 2px solid #b8995a; background: #fbf5e3; }
+.sea-chart-card h3 { font-size: 1.3rem; font-family: "Noto Serif TC", "Songti TC", PMingLiU, serif; }
+.sea-chart-card .sea-chart-region { margin: 0; color: #7a5a1f; font-size: .84rem; font-weight: 700; }
+.sea-chart-card .button-row { margin-top: .6rem; }
+.sea-legend { display: grid; grid-template-columns: 1fr 1fr; gap: .35rem .6rem; margin-top: 1rem; padding: .7rem 0 0; border-top: 1px solid #d9c591; list-style: none; font-size: .84rem; }
+.sea-legend li { display: flex; align-items: center; gap: .4rem; }
+.sea-legend svg { width: 1.9rem; height: 1.4rem; flex: none; }
+@media (max-width: 760px) {
+  .sea-chart { width: 100vw; height: 100dvh; border-width: 0; border-radius: 0; }
+  .sea-chart > header { padding: .4rem .6rem; }
+  .sea-chart > header .button-row { gap: .3rem; }
+  .sea-chart > header button { padding-inline: .6rem; }
+  .sea-chart-body { grid-template-columns: none; grid-template-rows: minmax(0, 1fr) auto; }
+  .sea-chart-card { max-height: 36dvh; border-left: 0; border-top: 2px solid #b8995a; padding: .6rem .8rem; }
+}

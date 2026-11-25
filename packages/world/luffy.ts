@@ -142,5 +142,7 @@ export function luffyNow(world: LuffyWorld) {
     : skipped ? stop.skipFacts ?? '改變了航線，正在海上。'
     : taken ? '想拉' + npcs[stop.joins!] + '入夥，卻發現對方早已跟著別人走了，正在繼續找夥伴。'
     : note.then?.findLast(([event]) => world.timeline?.[event] === 'canon')?.[1] ?? changed?.text ?? note.text
-  return { place, where, doing, since }
+  // The island to draw him at: the one he is on, or the one he last left.
+  const near = place ? islandAt(place) : where === '下落不明' ? null : left ? islandAt(left.place!) : 'wind'
+  return { place, where, doing, since, near }
 }
