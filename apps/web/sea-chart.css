@@ -1,6 +1,6 @@
 /* The world map: the preview in the side panel and the full chart in a dialog. */
 .sea-preview {
-  position: relative; display: block; width: 100%; padding: 0; margin-bottom: .6rem; overflow: hidden;
+  position: relative; display: block; width: 100%; padding: 0; overflow: hidden;
   border: 3px double #8a6a2c; border-radius: 6px; background: #a5cfd3; aspect-ratio: 620 / 350; line-height: 0;
 }
 .sea-preview:hover:not(:disabled), .sea-preview:active:not(:disabled) { background: #a5cfd3; border-color: #5d4416; }

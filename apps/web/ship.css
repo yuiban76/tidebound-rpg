@@ -1,10 +1,9 @@
-.ship-panel h3 { margin-top: .9rem; }
-.ship-panel h3:first-child { margin-top: 0; font-family: "Noto Serif TC", "Songti TC", PMingLiU, serif; font-size: 1.2rem; letter-spacing: .06em; }
-.ship-art { display: block; width: 100%; margin-top: .5rem; border: 3px double #8a6a2c; border-radius: 6px; }
-.ship-hull { display: flex; align-items: center; gap: .6rem; margin-top: .5rem; font-weight: 700; }
-.ship-hull meter { flex: 1; height: 1rem; }
-.ship-values { display: grid; grid-template-columns: repeat(auto-fit, minmax(6.4rem, 1fr)); gap: 0 .9rem; }
-.ship-name { display: flex; align-items: stretch; gap: .5rem; margin-top: .7rem; }
-.ship-name input { margin: 0; }
+.ship-card { padding: 0 0 .85rem; overflow: hidden; }
+.ship-card > :not(.ship-art) { margin-inline: .85rem; }
+.ship-art { display: block; width: 100%; border-bottom: 3px double #8a6a2c; }
+.ship-name { display: flex; align-items: stretch; gap: .5rem; }
+.ship-name input { margin: 0; min-height: 36px; }
 .ship-name button { flex-shrink: 0; margin: 0; }
-.ship-parts li > span { flex-shrink: 0; }
+.safe { display: flex; justify-content: space-between; align-items: baseline; padding: .4rem .65rem; border-radius: 8px; background: #fbf0d3; }
+.safe span { color: #6b5312; font-size: .84rem; }
+.safe strong { font-variant-numeric: tabular-nums; }

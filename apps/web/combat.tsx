@@ -6,6 +6,7 @@ import type { Character } from '../../packages/world/village.ts'
 import { selfMade } from '../../packages/world/village.ts'
 import type { View } from './network.ts'
 import { Field } from './lobby.tsx'
+import { Card, More } from './side.tsx'
 
 type Combat = NonNullable<View['world']['combat']>
 const styleLabels = { special: '基礎特殊招式・3 STA', advanced: '進階招式・5 STA', flurry: '連續攻擊・7 STA' }
@@ -60,16 +61,21 @@ export function Techniques({ character, post, disabled }: { character: Character
     post({ kind: 'technique', name: name.trim(), style })
     setName('')
   }
-  return <details><summary>招式（{character.techniques.filter(selfMade).length}／6）</summary>
-    {character.techniques.length > 0 && <ul>{character.techniques.map(move =>
-      <li key={move.name}>「{move.name}」· {styleLabels[move.style]}</li>)}</ul>}
-    <p className="hint">自創招式只決定名稱與等級；傷害和命中由等級與武器決定，華麗的名字不會讓它更強。</p>
-    {character.techniques.filter(selfMade).length < 6 && <form onSubmit={create}>
-      <Field label="招式名稱"><input maxLength={12} value={name} onChange={e => setName(e.target.value)} required/></Field>
-      <Field label="招式等級"><select value={style} onChange={e => setStyle(e.target.value as typeof style)}>
-        {Object.entries(styleLabels).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
-      </select></Field>
-      <button type="submit" className="light" disabled={disabled}>建立招式</button>
-    </form>}
-  </details>
+  const own = character.techniques.filter(selfMade)
+  const granted = character.techniques.filter(move => move.innate)
+  const list = (moves: typeof own) => <ul className="moves">{moves.map(move => <li key={move.name}><strong>{move.name}</strong><small>{styleLabels[move.style]}</small></li>)}</ul>
+  return <>
+    {granted.length > 0 && <Card title="天生招式">{list(granted)}</Card>}
+    <Card title="自創招式" meta={own.length + '／6'}>
+      {own.length > 0 ? list(own) : <p className="hint">還沒有自創招式。</p>}
+      {own.length < 6 && <More label="自創新招式" open={!own.length}><form onSubmit={create}>
+        <Field label="招式名稱"><input maxLength={12} value={name} onChange={e => setName(e.target.value)} required/></Field>
+        <Field label="招式等級"><select value={style} onChange={e => setStyle(e.target.value as typeof style)}>
+          {Object.entries(styleLabels).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+        </select></Field>
+        <button type="submit" className="light" disabled={disabled}>建立招式</button>
+      </form></More>}
+      <p className="hint">自創招式只決定名稱與等級；傷害和命中由等級與武器決定，華麗的名字不會讓它更強。</p>
+    </Card>
+  </>
 }

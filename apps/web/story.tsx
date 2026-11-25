@@ -1,25 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
-import { attributes, attributeLabels, locations, npcs, skills } from '../../packages/shared/protocol.ts'
+import { locations, npcs } from '../../packages/shared/protocol.ts'
 import type { Message } from '../../packages/shared/protocol.ts'
-import { guideFor, maxHP, maxSTA, voteThreshold, xpToNext } from '../../packages/rules/engine.ts'
+import { guideFor, maxHP, maxSTA } from '../../packages/rules/engine.ts'
 import { sceneQuestion } from '../../packages/world/explore.ts'
-import { islandAt, islands, paceNames } from '../../packages/world/sea.ts'
-import { raceSummary, stat } from '../../packages/world/races.ts'
-import { skillCap, skillUses } from '../../packages/world/skills.ts'
-import { forges, weaponLabel } from '../../packages/world/forge.ts'
+import { islandAt, islands, paceNames, selectedRoute } from '../../packages/world/sea.ts'
 import { canonTimeline } from '../../packages/world/canon.ts'
-import { fightingStyles, fightingSummary, goods, masteryOf, npcRole, npcsAt, party, shops, weaponItems, weaponNames } from '../../packages/world/village.ts'
-import type { Good } from '../../packages/world/village.ts'
+import { party } from '../../packages/world/village.ts'
 import type { View } from './network.ts'
 import type { Entry } from '../host/store.ts'
-import { Field } from './lobby.tsx'
-import { WorldMap } from './world-map.tsx'
-import { CombatPanel, Techniques } from './combat.tsx'
+import { IslandMap, SeaMap } from './world-map.tsx'
+import { HerePanel } from './here.tsx'
+import { CombatPanel } from './combat.tsx'
 import { IslandAdventure, VoyagePanel } from './voyage.tsx'
+import { CharacterPanel } from './character.tsx'
+import { BagPanel } from './bag.tsx'
 import { CompanionPanel } from './companions.tsx'
-import { FruitPanel } from './fruit.tsx'
-import { RecoveryPanel } from './recovery.tsx'
+import { DecisionsPanel } from './decisions.tsx'
+import { FruitStalls } from './fruit.tsx'
 import { CalendarPanel } from './calendar.tsx'
 import { LuffyPanel } from './luffy.tsx'
 import { ShipPanel } from './ship.tsx'
@@ -29,18 +27,19 @@ import type { Vital } from './fight-tray.tsx'
 import { lineUp, pickStrikes, strikesIn } from '../../packages/world/strikes.ts'
 import { companionIds, companionMaxHp } from '../../packages/world/companions.ts'
 import { diceIn } from '../../packages/shared/dice.ts'
-import { partLevel, shipName } from '../../packages/world/ships.ts'
+import { partLevel } from '../../packages/world/ships.ts'
 import { VoiceBar, VoiceSettingsPanel, VoiceSwitch } from './voice-panel.tsx'
 import { useNarrator } from './voice.ts'
 import { WarPanel } from './war.tsx'
 import { SagaPanel } from './saga.tsx'
 import { MarketPanel } from './market.tsx'
+import { Icon } from './icons.tsx'
+import type { IconName } from './icons.tsx'
+import { Card, clock, Row, Rows, Segments, useSegment } from './side.tsx'
 
 const phaseText = { queued: '排隊中', interpret: 'AI 理解與規則驗證中', narrate: '結果已存檔，旁白生成中' }
 // Only entry kinds that need explaining get a tag; results, narration and the player's own input speak for themselves.
 const entryTag: Record<string, string> = { world: '世界', chat: '聊天', cancelled: '取消', guide: '指引', location: '位置' }
-export const clock = (minutes: number) => '第 ' + (Math.floor(minutes / 1440) + 1) + ' 日 ' +
-  String(Math.floor(minutes / 60) % 24).padStart(2, '0') + ':' + String(minutes % 60).padStart(2, '0')
 
 type Side = 'map' | 'me' | 'bag' | 'crew' | 'news' | 'luffy'
 const sideTabs: [Side, string][] = [['map', '地圖'], ['me', '角色'], ['bag', '背包'], ['crew', '船團'], ['news', '消息'], ['luffy', npcs.luffy]]
@@ -83,9 +82,9 @@ function Meter({ label, value, max, tone }: { label: string, value: number, max:
   </div>
 }
 
-function Tab({ selected, badge, onClick, children }: { selected: boolean, badge?: number | boolean, onClick: () => void, children: ReactNode }) {
+function Tab({ selected, badge, icon, onClick, children }: { selected: boolean, badge?: number | boolean, icon?: IconName, onClick: () => void, children: ReactNode }) {
   return <button type="button" role="tab" aria-selected={selected} className="tab" onClick={onClick}>
-    {children}{badge ? <span className="badge" aria-label="有新內容">{typeof badge === 'number' ? badge : ''}</span> : null}
+    {icon && <Icon name={icon}/>}{children}{badge ? <span className="badge" aria-label="有新內容">{typeof badge === 'number' ? badge : ''}</span> : null}
   </button>
 }
 
@@ -139,13 +138,14 @@ export function Story({ view, send, history, connected, gap, review }: {
   // Desktop: the side panel's tab. Phone: 'story' or one of the side tabs fills the screen.
   const [side, setSide] = useState<Side>('map')
   const [screen, setScreen] = useState<'story' | Side>('story')
+  const [mapPage, setMapPage] = useState<'land' | 'sea'>('land')
+  const [crewPage, setCrewPage] = useSegment<'ship' | 'mates' | 'votes'>('crew', 'ship')
+  const grid = useRef<HTMLDivElement>(null)
   const [windowId, setWindowId] = useState(player)
   const [seen, setSeen] = useState<Record<string, number>>({})
   const [showGap, setShowGap] = useState(gap > 0)
   const [past, setPast] = useState<Entry[]>([])
   const [hasMore, setHasMore] = useState(true)
-  const [title, setTitle] = useState('')
-  const [proposalType, setProposalType] = useState<'ordinary' | 'formCrew' | 'sellShip'>('ordinary')
   const retryId = useRef<{ id: string, text: string, chat: boolean } | undefined>(undefined)
   const actionField = useRef<HTMLTextAreaElement>(null)
   const me = world.members.find(member => member.id === player)!
@@ -156,7 +156,9 @@ export function Story({ view, send, history, connected, gap, review }: {
     .filter(entry => !rolling || entry.seq < rolling.seq || (entry.actor !== null && entry.actor !== player))
   const post = (msg: Message) => { void send(msg).catch(() => {}) }
   const location = locations[character.place]
-  const visibleNpcs = npcsAt(world, character.place)
+  const island = islandAt(character.place)
+  // Ashore on another island, the land is what matters again.
+  useEffect(() => setMapPage('land'), [island])
   const combat = world.combat?.participants.includes(player) ? world.combat : undefined
   const askedForDirections = entries.findLast(entry => entry.actor === player)?.type === 'guide'
   const suggestions = askedForDirections ? guideFor(world, me).suggestions : []
@@ -177,12 +179,17 @@ export function Story({ view, send, history, connected, gap, review }: {
     if (latest > (seen[windowId] ?? 0)) setSeen(previous => ({ ...previous, [windowId]: latest }))
   })
 
+  // At sea: a course waits for this player's vote, or the chosen one for their go-ahead.
+  const { sailing } = world
+  const seaWaits = crew.length > 1 && !!sailing && Object.keys(sailing.ballots).length > 0 &&
+    (selectedRoute(sailing, crew.length) ? !sailing.ready.includes(player) : !sailing.ballots[player])
   const openVotes = world.proposals.filter(p => !p.passed && p.votes[player] === undefined).length
   const liveScenes = canonTimeline.filter(event => world.phases?.[event.id + ':scene'] !== undefined && !world.timeline?.[event.id]).length
-  const fruitWaiting = (world.fruitOffers ?? []).some(offer => offer.to === player)
+  const fruitsWaiting = (world.fruitOffers ?? []).filter(offer => offer.to === player).length
+  const reviews = review ? joining.filter(m => m.character && !m.approved).length : 0
   const sideBadge: Record<Side, number | boolean> = {
-    map: false, me: character.unspent + (character.skillPoints ?? 0), bag: fruitWaiting,
-    crew: openVotes + (review ? joining.filter(m => m.character && !m.approved).length : 0), news: liveScenes, luffy: false,
+    map: seaWaits, me: character.unspent + (character.skillPoints ?? 0) + fruitsWaiting, bag: false,
+    crew: openVotes + reviews, news: liveScenes, luffy: false,
   }
 
   function suggest(text: string) {
@@ -194,6 +201,9 @@ export function Story({ view, send, history, connected, gap, review }: {
   function pickSide(id: Side) {
     setSide(id)
     setScreen(id)
+    // On a phone the page scrolls: a new tab starts at its top, not where the last one was left.
+    const top = grid.current?.getBoundingClientRect().top ?? 0
+    if (top < 0) window.scrollBy(0, top - 72)
   }
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -214,122 +224,48 @@ export function Story({ view, send, history, connected, gap, review }: {
     finally { setSending(false) }
   }
 
-  const panels: Record<Side, ReactNode> = {
-    map: <>
-      <WorldMap world={world} player={player} hideOnMobile={false} onTravel={place => suggest('前往' + locations[place])}
-        onCourse={(island, pace) => suggest('選擇航線 ' + islands[island].name + ' ' + paceNames[pace])}/>
-      <section className="subsection"><h3>這裡</h3>
-        <p>{location}</p>
-        {visibleNpcs.length > 0 && <ul className="chips">{visibleNpcs.map(id =>
-          <li key={id}><button type="button" className="chip" onClick={() => suggest('找' + npcs[id] + '聊聊')}>{npcs[id]}<small>{npcRole(world, id)}</small></button></li>)}</ul>}
-        {shops[character.place] && <details><summary>{shops[character.place]}</summary><ul className="plain">{(Object.keys(goods) as Good[])
-          .filter(id => goods[id].shop === character.place).map(id =>
-            <li key={id}><button type="button" className="link" onClick={() => suggest('買' + goods[id].label)}>{goods[id].label}</button> · {goods[id].price.toLocaleString('en-US')} 貝里 · 剩 {world.stock[id]}</li>)}</ul></details>}
-      </section>
-      <MarketPanel world={world} player={player} suggest={suggest}/>
-      <SagaPanel world={world} player={player} suggest={suggest}/>
-      <WarPanel world={world} player={player} suggest={suggest}/>
-      <IslandAdventure world={world} player={player} suggest={suggest}/>
-      <VoyagePanel world={world} player={player} suggest={suggest}/>
+  const panelProps = { world, player, suggest }
+  const onCourse = (to: keyof typeof islands, pace: keyof typeof paceNames) => suggest('選擇航線 ' + islands[to].name + ' ' + paceNames[pace])
+  const panels: Record<Side, () => ReactNode> = {
+    map: () => <>
+      <Segments label="地圖內容" value={mapPage} onPick={setMapPage} options={[['land', '島上'], ['sea', '出海', seaWaits]]}/>
+      {mapPage === 'land' ? <>
+        <IslandMap world={world} player={player} onTravel={place => suggest('前往' + locations[place])} onCourse={onCourse}/>
+        <HerePanel {...panelProps}/>
+        <SagaPanel {...panelProps}/>
+        <WarPanel {...panelProps}/>
+        <IslandAdventure {...panelProps}/>
+        <FruitStalls {...panelProps}/>
+        <MarketPanel {...panelProps}/>
+      </> : <>
+        <SeaMap world={world} player={player} onCourse={onCourse}/>
+        <VoyagePanel {...panelProps}/>
+      </>}
     </>,
-    me: <>
-      <section className="subsection first"><h3>{character.name}</h3>
-        <p className="hint">{character.race} · 等級 {character.level} · XP {character.xp}／{xpToNext(character.level)}</p>
-        <p className="hint">{raceSummary(character.race)}</p>
-        <p className="hint">攻擊方式：{fightingStyles[character.fighting].label}（{fightingSummary(character.fighting)}）</p>
-        <dl className="values">
-          <div><dt>懸賞金</dt><dd>{character.bounty.toLocaleString('en-US')}</dd></div>
-          <div><dt>海軍注意度</dt><dd>{world.renown?.marineHeat ?? 0}／100</dd></div>
-          <div><dt>本島聲望</dt><dd>{world.renown?.islandRep[islandAt(character.place)] ?? 0}</dd></div>
-        </dl>
-      </section>
-      {character.unspent > 0 && <section className="subsection callout" aria-label="自由屬性點">
-        <h3>可分配屬性點 {character.unspent}</h3>
-        <div className="button-row">{attributes.map(k =>
-          <button key={k} type="button" className="light" disabled={paused || !!combat} onClick={() => post({ kind: 'allocate', attr: k })}>
-            {attributeLabels[k]} {character.stats[k]} ＋1</button>)}</div>
-      </section>}
-      {character.skillPoints > 0 && <section className="subsection callout" aria-label="技能點">
-        <h3>可分配技能點 {character.skillPoints}</h3>
-        <p className="hint">每項技能上限 {skillCap(character.level)}，等級越高上限越高。</p>
-        <div className="button-row">{skills.map(skill =>
-          <button key={skill} type="button" className="light"
-            disabled={paused || !!combat || (character.skillRanks[skill] ?? 0) >= skillCap(character.level)}
-            onClick={() => post({ kind: 'train', skill })}>{skill} {character.skillRanks[skill] ?? 0} ＋1</button>)}</div>
-      </section>}
-      <section className="subsection"><h3>屬性與技能</h3>
-        <dl className="stat-list">{attributes.map(k => <div key={k}><dt>{attributeLabels[k]}</dt>
-          <dd>{stat(character, k)}{stat(character, k) > character.stats[k] &&
-            <small className="race-bonus" title="種族加成"> +{stat(character, k) - character.stats[k]}</small>}</dd></div>)}</dl>
-        <ul className="skill-list">{skills.filter(skill => character.skillRanks[skill]).map(skill =>
-          <li key={skill}><strong>{skill} {character.skillRanks[skill]}</strong><span>{skillUses[skill]}</span></li>)}</ul>
-      </section>
-      <section className="subsection"><Techniques character={character} post={post} disabled={paused}/></section>
-      <FruitPanel world={world} player={player} suggest={suggest}/>
+    me: () => <CharacterPanel {...panelProps} post={post} paused={paused}/>,
+    bag: () => <BagPanel {...panelProps}/>,
+    crew: () => <>
+      {review && joining.length > 0 && <Card title="加入中的玩家" tone="gold">
+        <Rows>{joining.map(m => <Row key={m.id} title={m.character?.name ?? '未創角'}
+          note={!m.connected ? '離線' : !m.character ? '創角中' : !m.approved ? '等待角色審核' : '等待確認背景並準備'}>
+          {m.character && !m.approved && <button type="button" className="light" onClick={() => review(m.id, true)}>核准</button>}
+        </Row>)}</Rows>
+      </Card>}
+      <Segments label="船團內容" value={crewPage} onPick={setCrewPage}
+        options={[['ship', '船隻'], ['mates', '夥伴 ' + companionIds(world).length], ['votes', '決議', openVotes]]}/>
+      {crewPage === 'ship' ? <ShipPanel {...panelProps}/>
+        : crewPage === 'mates' ? <CompanionPanel {...panelProps}/>
+        : <DecisionsPanel world={world} player={player} post={post} paused={paused}/>}
     </>,
-    bag: <>
-      <section className="subsection first"><h3>裝備</h3>
-        <p>目前武器：{weaponLabel(character, weaponNames[character.weapon])}{masteryOf(character) ? '（擅長：命中 +' + masteryOf(character)!.hit + '、傷害 +' + masteryOf(character)!.damage + '）' : ''}</p>
-        <div className="button-row">
-          {(Object.keys(weaponItems) as (keyof typeof weaponItems)[]).filter(id => id !== character.weapon && character.inventory[weaponItems[id]])
-            .map(id => <button key={id} type="button" className="light" onClick={() => suggest('改用' + weaponItems[id])}>改用{weaponItems[id]}</button>)}
-          {character.weapon !== 'fist' && <button type="button" className="light" onClick={() => suggest('收起武器')}>改為徒手</button>}
-          {forges[character.place] && <button type="button" className="light" onClick={() => suggest('強化武器')}>強化武器</button>}
-        </div>
-      </section>
-      <section className="subsection"><h3>背包</h3>
-        <ul className="plain">{Object.entries(character.inventory).filter(([, count]) => count > 0).map(([item, count]) =>
-          <li key={item}>{item} × {count}</li>)}</ul>
-        {!!character.inventory['傷藥'] && <div className="button-row"><button type="button" className="light" onClick={() => suggest('喝傷藥')}>喝傷藥</button></div>}
-        {crew.some(m => m.id !== player && m.character!.place === character.place) &&
-          <p className="hint">同地的隊友可以轉交物品或貝里，例如「把繃帶交給隊友名字」或「給隊友名字 100 貝里」。</p>}
-      </section>
-      <RecoveryPanel world={world} player={player} suggest={suggest}/>
-    </>,
-    crew: <>
-      {review && joining.length > 0 && <section className="subsection callout"><h3>加入中的玩家</h3>
-        <ul className="roster">{joining.map(m => <li key={m.id}>
-          <div><strong>{m.character?.name ?? '未創角'}</strong>
-            <div className="hint">{!m.connected ? '離線' : !m.character ? '創角中' : !m.approved ? '等待角色審核' : '等待確認背景並準備'}</div></div>
-          {m.character && !m.approved && <button className="light" onClick={() => review(m.id, true)}>核准</button>}
-        </li>)}</ul>
-      </section>}
-      <ShipPanel world={world} player={player} suggest={suggest}/>
-      <CompanionPanel world={world} player={player} suggest={suggest}/>
-      <section className="subsection"><h3>團隊決議</h3>
-        <p className="hint">{world.crew ? '船團已成立' : '尚未成立船團'} · {world.ship ? '主船' + shipName(world.ship) : '尚無主船'}</p>
-        {world.proposals.filter(p => !p.passed).map(p => <div className="proposal" key={p.id}><strong>{p.title}</strong>
-          <p className="hint">{crew.filter(m => p.votes[m.id]).length}／{voteThreshold(crew.length, p.type !== 'ordinary')} 贊成</p>
-          <div className="button-row">
-            <button className="light" aria-pressed={p.votes[player] === true} disabled={paused} onClick={() => post({ kind: 'vote', id: p.id, yes: true })}>贊成</button>
-            <button className="light" aria-pressed={p.votes[player] === false} disabled={paused} onClick={() => post({ kind: 'vote', id: p.id, yes: false })}>反對</button>
-          </div>
-        </div>)}
-        <details><summary>提出新決議</summary>
-          <form onSubmit={e => { e.preventDefault(); post({ kind: 'propose', type: proposalType, title }); setTitle('') }}>
-            <Field label="提案類型"><select value={proposalType} onChange={e => setProposalType(e.target.value as typeof proposalType)}>
-              <option value="ordinary">一般決議</option><option value="formCrew" disabled={world.crew}>成立船團</option>
-              <option value="sellShip" disabled={!world.ship}>出售主船</option>
-            </select></Field>
-            <Field label="提案名稱"><input required maxLength={60} value={title} onChange={e => setTitle(e.target.value)}/></Field>
-            <button type="submit" className="light" disabled={paused}>提出決議</button>
-          </form>
-        </details>
-        {world.proposals.some(p => p.passed) && <details><summary>已通過的決議</summary>
-          <ul className="plain">{world.proposals.filter(p => p.passed).map(p => <li key={p.id}>{p.title}</li>)}</ul></details>}
-      </section>
-    </>,
-    news: <>
-      {showGap && <section className="subsection first callout" aria-label="重連摘要">
-        <h3>離線期間</h3>
-        <p className="hint">新增 {gap} 筆公開紀錄。</p>
-        <ul className="plain">{view.entries.slice(-gap).filter(entry => ['world', 'result'].includes(entry.type)).slice(-3).map(entry =>
-          <li key={entry.seq}>{entry.text}</li>)}</ul>
+    news: () => <>
+      {showGap && <Card title="離線期間" tone="gold" meta={'新增 ' + gap + ' 筆公開紀錄'}>
+        <Rows>{view.entries.slice(-gap).filter(entry => ['world', 'result'].includes(entry.type)).slice(-3).map(entry =>
+          <Row key={entry.seq} title={clock(entry.minute)} note={entry.text}/>)}</Rows>
         <button type="button" className="light" onClick={() => setShowGap(false)}>知道了</button>
-      </section>}
+      </Card>}
       <CalendarPanel world={world}/>
     </>,
-    luffy: <LuffyPanel world={world} player={player} suggest={suggest}/>,
+    luffy: () => <LuffyPanel {...panelProps}/>,
   }
 
   return <div className={'game screen-' + screen}>
@@ -337,7 +273,7 @@ export function Story({ view, send, history, connected, gap, review }: {
       ? <FightTray key={rolling.seq} {...fight} vitals={vitals()} showDice={dice.length > 0} onDone={() => setRolled(rolling.seq)}/>
       : dice.length > 0 && <DiceTray key={rolling.seq} rolls={dice.slice(0, 6)} onDone={() => setRolled(rolling.seq)}/>)}
     <header className="hud voyage-bar" aria-label="角色狀態">
-      <div className="hud-place"><strong>{islands[islandAt(character.place)].name}</strong><span>{location}</span><span>{clock(world.minute)}</span></div>
+      <div className="hud-place"><strong>{islands[island].name}</strong><span>{location}</span><span>{clock(world.minute)}</span></div>
       <div className="hud-stats">
         <Meter label="HP" value={character.hp} max={maxHP(character)} tone="hp"/>
         <Meter label="STA" value={character.sta} max={maxSTA(character)} tone="sta"/>
@@ -349,12 +285,12 @@ export function Story({ view, send, history, connected, gap, review }: {
     {showGap && <p className="notice">你離線期間有 {gap} 筆新紀錄。<button type="button" className="link" onClick={() => pickSide('news')}>看摘要</button></p>}
 
     <nav className="screen-tabs" role="tablist" aria-label="切換畫面">
-      <Tab selected={screen === 'story'} onClick={() => setScreen('story')}
+      <Tab icon="story" selected={screen === 'story'} onClick={() => setScreen('story')}
         badge={windows.reduce((sum, [id]) => sum + unread(id), 0)}>故事</Tab>
-      {sideTabs.map(([id, label]) => <Tab key={id} selected={screen === id} badge={sideBadge[id]} onClick={() => pickSide(id)}>{label}</Tab>)}
+      {sideTabs.map(([id, label]) => <Tab key={id} icon={id} selected={screen === id} badge={sideBadge[id]} onClick={() => pickSide(id)}>{label}</Tab>)}
     </nav>
 
-    <div className="game-grid">
+    <div className="game-grid" ref={grid}>
       <main className="story-column">
         <section className="bulletin world-log" aria-label="世界公告">
           <h2>世界公告</h2>
@@ -424,11 +360,11 @@ export function Story({ view, send, history, connected, gap, review }: {
         </form>
       </main>
 
-      <aside className="side-column details" aria-label="資訊面板">
+      <aside className="side-column" aria-label="資訊面板">
         <div className="side-tabs" role="tablist" aria-label="資訊分頁">
-          {sideTabs.map(([id, label]) => <Tab key={id} selected={side === id} badge={sideBadge[id]} onClick={() => pickSide(id)}>{label}</Tab>)}
+          {sideTabs.map(([id, label]) => <Tab key={id} icon={id} selected={side === id} badge={sideBadge[id]} onClick={() => pickSide(id)}>{label}</Tab>)}
         </div>
-        <div className="side-body">{panels[side]}</div>
+        <div className="side-body" key={side}>{panels[side]()}</div>
       </aside>
     </div>
   </div>

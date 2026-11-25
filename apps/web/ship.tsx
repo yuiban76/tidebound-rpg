@@ -5,10 +5,9 @@ import { beli } from '../../packages/world/scale.ts'
 import { islandAt } from '../../packages/world/sea.ts'
 import type { Ship } from '../../packages/world/sea.ts'
 import { crippled, holdCount, maxPart, modelOf, models, partLevel, partPrice, parts, sameIsland, shipName, shipSpeed, shipwright, shipyards, tradeIn, yardAt } from '../../packages/world/ships.ts'
-import type { View } from './network.ts'
+import { Bar, Card, Fold, meIn, More, Pips, Row, Rows, Tiles } from './side.tsx'
+import type { PanelProps } from './side.tsx'
 import './ship.css'
-
-type Props = { world: View['world'], player: string, suggest: (command: string) => void }
 
 const looks = {
   boat: { from: 95, to: 225, deck: 138, masts: [160], tall: 88, wood: '#a9713f', dark: '#7a4d28' },
@@ -58,72 +57,75 @@ function ShipArt({ ship }: { ship: Ship }) {
 }
 
 /** The party's ship: her name, condition, parts, and what lies in her hold. */
-export function ShipPanel({ world, player, suggest }: Props) {
+export function ShipPanel({ world, player, suggest }: PanelProps) {
   const title = useId()
   const [name, setName] = useState('')
-  const c = world.members.find(m => m.id === player)!.character!
+  const [renaming, setRenaming] = useState(false)
+  const c = meIn(world, player)
   const { ship } = world
   const yard = yardAt(c.place)
-  if (!ship) return <section className="subsection first" aria-labelledby={title}>
-    <h3 id={title}>我們的船</h3>
+  if (!ship) return <Card title="我們的船">
     <p className="hint">還沒有船。{Object.entries(shipyards).filter(([, shop]) => shop.models.includes('boat')).map(([place]) => locations[place as LocationId]).join('、')}買得到{models.boat.label}（{beli(models.boat.price)}）。</p>
-  </section>
+  </Card>
   const model = modelOf(ship)
   const here = c.place === ship.port
   const atYard = !!yard && sameIsland(ship, c.place)
   const wright = shipwright(world)
   const hold = Object.entries(ship.hold ?? {}).filter(([, n]) => n > 0)
-  return <section className="subsection first ship-panel" aria-labelledby={title}>
-    <h3 id={title}>{shipName(ship)}</h3>
-    <ShipArt ship={ship}/>
-    <p className="hint">{model.label} · 停在{locations[ship.port]} · 出航 {ship.trips} 次</p>
-    <label className="ship-hull">船體<meter min={0} max={100} low={30} high={60} optimum={100} value={ship.hull}/><span>{ship.hull}／100</span></label>
-    {crippled(ship) && <p className="hint">船體破損，航程多 25%。先修船吧。</p>}
-    <dl className="values ship-values">
-      <div><dt>航速</dt><dd>{Math.round(shipSpeed(ship) * 10) / 10}</dd></div>
-      <div><dt>座位</dt><dd>{model.seats}</dd></div>
-      <div><dt>木料</dt><dd>{ship.wood}</dd></div>
-      <div><dt>船艙</dt><dd>{holdCount(ship)}／{model.hold}</dd></div>
-      <div><dt>金庫</dt><dd>{(ship.safe ?? 0).toLocaleString('en-US')}</dd></div>
-    </dl>
-    <form className="ship-name" onSubmit={e => { e.preventDefault(); if (name.trim()) { suggest('替船取名「' + name.trim() + '」'); setName('') } }}>
-      <label className="sr-only" htmlFor={title + 'name'}>船名</label>
-      <input id={title + 'name'} maxLength={12} value={name} placeholder={ship.name ? '改成別的名字' : '替船取個名字'} onChange={e => setName(e.target.value)}/>
-      <button type="submit" className="light" disabled={!name.trim()}>{ship.name ? '改名' : '取名'}</button>
-    </form>
+  const bigger = atYard ? yard!.models.filter(id => models[id].price > model.price) : []
+  return <>
+    <section className="card ship-card" aria-labelledby={title}>
+      <ShipArt ship={ship}/>
+      <header className="card-head">
+        <h3 id={title}>{shipName(ship)}</h3>
+        {ship.name && <button type="button" className="light slim" aria-expanded={renaming} onClick={() => setRenaming(!renaming)}>改名</button>}
+      </header>
+      <p className="hint">{model.label} · 停在{locations[ship.port]} · 出航 {ship.trips} 次</p>
+      {(!ship.name || renaming) && <form className="ship-name" onSubmit={e => { e.preventDefault(); if (name.trim()) { suggest('替船取名「' + name.trim() + '」'); setName(''); setRenaming(false) } }}>
+        <label className="sr-only" htmlFor={title + 'name'}>船名</label>
+        <input id={title + 'name'} maxLength={12} value={name} placeholder={ship.name ? '改成別的名字' : '替船取個名字'} onChange={e => setName(e.target.value)}/>
+        <button type="submit" className="light" disabled={!name.trim()}>{ship.name ? '確定' : '取名'}</button>
+      </form>}
+      <Bar label="船體" value={ship.hull} max={100} tone={ship.hull < 30 ? 'hp' : 'sea'}/>
+      {crippled(ship) && <p className="hint">船體破損，航程多 25%。先修船吧。</p>}
+      <Tiles items={[['航速', Math.round(shipSpeed(ship) * 10) / 10], ['座位', model.seats], ['木料', ship.wood]]}/>
+    </section>
 
-    <h3>改裝</h3>
-    <ul className="roster ship-parts">{shipParts.map(part => {
-      const level = partLevel(ship, part)
-      const full = level >= maxPart(ship)
-      return <li key={part}>
-        <div><strong>{parts[part].label} {'◆'.repeat(level)}{'◇'.repeat(Math.max(0, maxPart(ship) - level))}</strong>
-          <div className="hint">{level ? parts[part].text(level) : '下一級：' + parts[part].text(1)}{!full && level ? '；下一級：' + parts[part].text(level + 1) : ''}</div></div>
-        {full ? <span className="hint">{maxPart(ship) < 3 ? '換船才能再升' : '最高級'}</span>
-          : <button type="button" className="light" disabled={!atYard || level + 1 > (yard?.level ?? 0)} onClick={() => suggest('升級' + parts[part].label)}>{beli(partPrice(world, part, level + 1))}</button>}
-      </li>
-    })}</ul>
-    <p className="hint">{atYard ? yard!.name + '可以改裝到 ' + yard!.level + ' 級。' : '改裝和換船的地方：' + Object.keys(shipyards).map(place => locations[place as LocationId]).join('、') + '。'}
-      {wright ? npcs[wright] + '在船上：改裝便宜兩成、修船多修 15。' : '有船匠夥伴（例如' + npcs.franky + '）時，改裝便宜兩成、修船多修 15。'}</p>
-    {atYard && yard!.models.some(id => models[id].price > model.price) && <>
-      <h3>換船</h3>
-      <ul className="roster">{yard!.models.filter(id => models[id].price > model.price).map(id => <li key={id}>
-        <div><strong>{models[id].label}</strong><div className="hint">{models[id].text} · 航速 {models[id].speed} · 座位 {models[id].seats} · 船艙 {models[id].hold} · 船體損傷 −{Math.round((1 - models[id].wear) * 100)}% · 改裝上限 {models[id].parts} 級{models[id].adamWood ? ' · 需要 ' + models[id].adamWood + ' 份亞當木' : ''}</div></div>
-        <button type="button" className="light" onClick={() => suggest('換成' + models[id].label)}>{beli(models[id].price - tradeIn(ship))}</button>
-      </li>)}</ul>
+    <Fold id="ship-hold" title="船艙與金庫" open meta={holdCount(ship) + '／' + model.hold}>
+      <div className="safe"><span>金庫</span><strong>{beli(ship.safe ?? 0)}</strong></div>
+      {hold.length > 0 && <ul className="items">{hold.map(([item, n]) => <li key={item}><span><strong>{item}</strong> <b>× {n}</b></span>
+        {here && <button type="button" className="link" onClick={() => suggest('從船艙拿出' + item)}>拿出</button>}</li>)}</ul>}
+      <p className="hint">{here ? '全隊共用。放在船上的貝里，被打倒時不會被搶走。' : islandAt(c.place) === islandAt(ship.port) ? '到' + locations[ship.port] + '的船邊才能拿放東西。' : '船不在這座島。'}</p>
+      {here && <More label="放進去、拿出來">
+        <div className="button-row">
+          {c.money >= 10_000 && <button type="button" className="light" onClick={() => suggest('把 ' + Math.floor(c.money / 2) + ' 貝里放進金庫')}>存一半貝里</button>}
+          {!!ship.safe && <button type="button" className="light" onClick={() => suggest('從金庫拿 ' + ship.safe + ' 貝里')}>拿出全部貝里</button>}
+          {Object.entries(c.inventory).filter(([, n]) => n > 0).map(([item]) => <button key={item} type="button" className="light" onClick={() => suggest('把 1 個' + item + '放進船艙')}>{item}</button>)}
+        </div>
+      </More>}
+    </Fold>
+
+    <Fold id="ship-parts" title="改裝" open meta={atYard ? yard!.name : '這裡不能改裝'}>
+      <Rows>{shipParts.map(part => {
+        const level = partLevel(ship, part)
+        const full = level >= maxPart(ship)
+        return <Row key={part} title={<>{parts[part].label}<Pips level={level} max={maxPart(ship)}/></>}
+          note={<>{level > 0 && <>{parts[part].text(level)}<br/></>}{!full && <>下一級：{parts[part].text(level + 1)}</>}</>}>
+          {full ? <span className="hint">{maxPart(ship) < 3 ? '換船才能再升' : '最高級'}</span>
+            : <button type="button" className="light price" data-poor={c.money < partPrice(world, part, level + 1) || undefined} disabled={!atYard || level + 1 > (yard?.level ?? 0)}
+              aria-label={'升級' + parts[part].label + '，' + beli(partPrice(world, part, level + 1))} onClick={() => suggest('升級' + parts[part].label)}>{beli(partPrice(world, part, level + 1))}</button>}
+        </Row>
+      })}</Rows>
+      <p className="hint">{atYard ? yard!.name + '可以改裝到 ' + yard!.level + ' 級。' : '改裝和換船的地方：' + Object.keys(shipyards).map(place => locations[place as LocationId]).join('、') + '。'}
+        {wright ? npcs[wright] + '在船上：改裝便宜兩成、修船多修 15。' : '有船匠夥伴（例如' + npcs.franky + '）時，改裝便宜兩成、修船多修 15。'}</p>
+    </Fold>
+    {bigger.length > 0 && <Fold id="ship-swap" title="換船" meta={bigger.length + ' 種'}>
+      <Rows>{bigger.map(id => <Row key={id} title={models[id].label}
+        note={<>{models[id].text}<br/>航速 {models[id].speed} · 座位 {models[id].seats} · 船艙 {models[id].hold} · 船體損傷 −{Math.round((1 - models[id].wear) * 100)}% · 改裝上限 {models[id].parts} 級{models[id].adamWood ? ' · 需要 ' + models[id].adamWood + ' 份亞當木' : ''}</>}>
+        <button type="button" className="light price" aria-label={'換成' + models[id].label + '，' + beli(models[id].price - tradeIn(ship))} data-poor={c.money < models[id].price - tradeIn(ship) || undefined}
+          onClick={() => suggest('換成' + models[id].label)}>{beli(models[id].price - tradeIn(ship))}</button>
+      </Row>)}</Rows>
       <p className="hint">價格已扣掉舊船折抵；船名、改裝、船艙和金庫都會搬過去。</p>
-    </>}
-
-    <h3>船艙與金庫</h3>
-    <p className="hint">{here ? '全隊共用。放在船上的貝里，被打倒時不會被搶走。' : islandAt(c.place) === islandAt(ship.port) ? '到' + locations[ship.port] + '的船邊才能拿放東西。' : '船不在這座島。'}</p>
-    {hold.length > 0 && <ul className="plain">{hold.map(([item, n]) => <li key={item}>{item} × {n}
-      {here && <> <button type="button" className="link" onClick={() => suggest('從船艙拿出' + item)}>拿出</button></>}</li>)}</ul>}
-    {here && <details><summary>放東西進去</summary>
-      <div className="button-row">
-        {c.money >= 10_000 && <button type="button" className="light" onClick={() => suggest('把 ' + Math.floor(c.money / 2) + ' 貝里放進金庫')}>存一半貝里</button>}
-        {!!ship.safe && <button type="button" className="light" onClick={() => suggest('從金庫拿 ' + ship.safe + ' 貝里')}>拿出全部貝里</button>}
-        {Object.entries(c.inventory).filter(([, n]) => n > 0).map(([item]) => <button key={item} type="button" className="light" onClick={() => suggest('把 1 個' + item + '放進船艙')}>{item}</button>)}
-      </div>
-    </details>}
-  </section>
+    </Fold>}
+  </>
 }

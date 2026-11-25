@@ -83,7 +83,7 @@ test('地圖在資訊分頁、輸入框不用捲動就看得到，手機也能�
   await create(page)
   await ready(page, '風向')
   await page.getByRole('button', { name: '開始遊戲' }).click()
-  const map = page.getByRole('region', { name: '世界地圖' })
+  const map = page.getByRole('region', { name: '島上地圖' })
   await expect(map).toBeVisible()
   // The world bulletin sits on top of the story and needs no switching.
   const bulletin = (await page.getByRole('region', { name: '世界公告' }).boundingBox())!
@@ -218,10 +218,18 @@ test('從船塢購船，出海後地圖更新並顯示登島委託，返航後�
   hostRef.store.save(calm)
   await ready(page, '燈火')
   await page.getByRole('button', { name: '開始遊戲' }).click()
-  const map = page.getByRole('region', { name: '世界地圖' })
+  const map = page.getByRole('region', { name: '島上地圖' })
   const voyage = page.getByRole('region', { name: '航海', exact: true })
-  await expect(map.getByRole('list', { name: '海圖' })).toContainText('謝爾茲鎮')
   await action(page, '前往風車村港口', '你抵達風車村港口')
+  // The shop folds down to its title; the sea has its own page on the map tab.
+  const shop = page.getByRole('region', { name: '港口補給鋪' })
+  await expect(shop.getByRole('button', { name: /^買繃帶/ })).toBeHidden()
+  await shop.getByText('港口補給鋪').click()
+  await shop.getByRole('button', { name: /^買繃帶/ }).click()
+  await expect(page.getByLabel('輸入行動或聊天')).toHaveValue('買繃帶')
+  await openTab(page, '出海')
+  await expect(map).toBeHidden()
+  await expect(voyage.getByRole('list', { name: '海圖' })).toContainText('謝爾茲鎮')
   await voyage.getByRole('button', { name: '買船' }).click()
   await expect(page.getByLabel('輸入行動或聊天')).toHaveValue('買船')
   await page.getByRole('button', { name: '送出行動' }).click()
@@ -233,10 +241,15 @@ test('從船塢購船，出海後地圖更新並顯示登島委託，返航後�
   await expect(page.getByLabel('輸入行動或聊天')).toHaveValue('替船取名「黎明號」')
   await page.getByRole('button', { name: '送出行動' }).click()
   await expect(page.getByRole('region', { name: '「黎明號」' })).toContainText('小帆船')
+  await openTab(page, '夥伴')
+  await expect(page.getByRole('region', { name: '「黎明號」' })).toBeHidden()
+  await expect(page.getByRole('region', { name: '夥伴', exact: true })).toContainText('成立船團後')
+  await openTab(page, '決議')
+  await expect(page.getByRole('region', { name: '團隊決議' })).toContainText('主船「黎明號」')
   await openTab(page, '地圖')
   await expect(voyage).toContainText('「黎明號」停在風車村港口')
   // The whole world map: pick an island, read its card, choose a course from it.
-  await map.getByRole('button', { name: '展開世界地圖' }).click()
+  await page.getByRole('button', { name: '展開世界地圖' }).click()
   const world = page.getByRole('dialog', { name: '世界地圖全圖' })
   await expect(world.getByRole('button', { name: '黎明島，你在這裡' })).toBeVisible()
   await world.getByRole('button', { name: '全圖' }).click()
@@ -249,6 +262,7 @@ test('從船塢購船，出海後地圖更新並顯示登島委託，返航後�
   await expect(page.getByLabel('輸入行動或聊天')).toHaveValue('選擇航線 謝爾茲鎮 快航')
   await voyage.getByRole('button', { name: '出海', exact: true }).click()
   await page.getByRole('button', { name: '送出行動' }).click()
+  // Ashore on another island the map tab turns back to the land by itself.
   await expect(map.locator('[aria-current="location"] strong')).toHaveAttribute('title', '謝爾茲鎮港口')
   await expect(page.getByRole('region', { name: '基地廣場上的劍士' })).toContainText('找莉卡接委託')
   await expect(map.getByRole('button', { name: '謝爾茲鎮大街，可直達' })).toBeVisible()
@@ -290,9 +304,9 @@ for (const count of [2, 3, 4]) test(count + ' 個瀏覽器用 WebRTC 開局與�
     // Each player's window stays separate (spec §5.1); the host opens the teammate's tab to read it.
     await page.getByRole('tab', { name: /^水手0/ }).click()
     await expect(page.getByText('你抵達風車村港口。', { exact: true })).toBeVisible()
-    const hostMap = page.getByRole('region', { name: '世界地圖' })
+    const hostMap = page.getByRole('region', { name: '島上地圖' })
     await expect(hostMap.locator('.map-party li').filter({ hasText: '水手0' })).toContainText('風車村港口')
-    await expect(guests[0].getByRole('region', { name: '世界地圖' }).locator('[aria-current="location"] strong')).toHaveAttribute('title', '風車村港口')
+    await expect(guests[0].getByRole('region', { name: '島上地圖' }).locator('[aria-current="location"] strong')).toHaveAttribute('title', '風車村港口')
     if (count === 2) {
       // Spec §1.3: a newcomer can join a running story and meets the party at the port.
       const late = await guestPage()

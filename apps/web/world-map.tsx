@@ -1,10 +1,9 @@
-import { useId, useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { locations } from '../../packages/shared/protocol.ts'
 import type { IslandId, LocationId, SailingPace } from '../../packages/shared/protocol.ts'
-import { hasFlag } from '../../packages/world/flags.ts'
 import { routeBetween } from '../../packages/world/explore.ts'
-import { islandAt, islands, routesFrom } from '../../packages/world/sea.ts'
+import { islandAt, islands } from '../../packages/world/sea.ts'
 import { party, paths, walkMinutes } from '../../packages/world/village.ts'
 import { chartIslands, coastline, seeded } from '../../packages/world/seachart.ts'
 import type { Biome } from '../../packages/world/seachart.ts'
@@ -12,6 +11,7 @@ import { canonIslands } from '../../packages/world/canon.ts'
 import { addedSites, islandLayouts } from '../../packages/world/sites.ts'
 import { biomes } from './island-art.tsx'
 import { SeaChartDialog, SeaPreview } from './sea-chart.tsx'
+import { Avatar, Card } from './side.tsx'
 import type { View } from './network.ts'
 import './world-map.css'
 
@@ -124,44 +124,44 @@ function Ground({ island, current, moving, hillClosed }: { island: IslandId, cur
   </svg>
 }
 
-export function WorldMap({ world, player, hideOnMobile, onTravel, onCourse }: {
-  world: View['world'], player: string, hideOnMobile: boolean,
-  onTravel: (place: LocationId) => void, onCourse: (island: IslandId, pace: SailingPace) => void,
-}) {
-  const title = useId()
+type MapProps = { world: View['world'], player: string, onCourse: (island: IslandId, pace: SailingPace) => void }
+
+/** The whole world map in a dialog, and how to open it. */
+function useChart({ world, player, onCourse }: MapProps) {
+  const [open, setOpen] = useState(false)
+  const here = islandAt(world.members.find(member => member.id === player)!.character!.place)
+  const dialog = open && <SeaChartDialog world={world} here={here} canSail={!!world.ship && islandAt(world.ship.port) === here}
+    onClose={() => setOpen(false)} onCourse={(id, pace) => { setOpen(false); onCourse(id, pace) }}/>
+  return { here, dialog, show: () => setOpen(true) }
+}
+
+/** The stretch of sea around the party. */
+export function SeaMap(props: MapProps) {
+  const { here, dialog, show } = useChart(props)
+  return <Card title="世界地圖" meta={'你在' + islands[here].name}>
+    <SeaPreview world={props.world} here={here} onOpen={show}/>
+    {dialog}
+  </Card>
+}
+
+/** The island the player is on: its places, the paths between them, and who else is where. */
+export function IslandMap({ onTravel, ...props }: MapProps & { onTravel: (place: LocationId) => void }) {
+  const { world, player } = props
+  const { dialog, show } = useChart(props)
   const character = world.members.find(member => member.id === player)!.character!
   const current = character.place
   const island = islandAt(current)
-  const routes = routesFrom(island)
   const teammates = party(world).filter(member => member.id !== player)
   const fighting = world.combat?.participants.includes(player)
   const moving = character.hp > 0 && !fighting
   const hillClosed = world.combat?.place === 'hill'
-  const [chartOpen, setChartOpen] = useState(false)
-  const ruined = (id: IslandId) => hasFlag(world, 'ruined:' + id)
-  const canSail = !!world.ship && islandAt(world.ship.port) === island
 
-  return <section className={'panel world-map' + (hideOnMobile ? ' mobile-hide' : '')} aria-labelledby={title}>
-    <header className="map-heading">
-      <h2 id={title}>世界地圖</h2>
-      <p className="map-location"><span aria-hidden="true"/>你在{locations[current]}</p>
+  return <section className="card world-map" aria-label="島上地圖">
+    <header className="card-head">
+      <h3>{islands[island].name}</h3>
+      <button type="button" className="light slim" onClick={show}>世界地圖</button>
     </header>
-    <SeaPreview world={world} here={island} onOpen={() => setChartOpen(true)}/>
-    {chartOpen && <SeaChartDialog world={world} here={island} canSail={canSail} onClose={() => setChartOpen(false)}
-      onCourse={(id, pace) => { setChartOpen(false); onCourse(id, pace) }}/>}
-    <ul className="sea-overview" aria-label="海圖">
-      {([island, ...routes.map(route => route.to)]).map(id => {
-        const route = routes.find(link => link.to === id)
-        return <li key={id}>
-          {route && canSail && !ruined(id)
-            ? <button type="button" className="sea-island" onClick={() => onCourse(id, 'steady')}>
-              <strong>{islands[id].name}</strong><span>{route.miles} 海里 · 選航線</span></button>
-            : <div className="sea-island" data-current={id === island} data-ruined={ruined(id) || undefined}>
-              <strong>{islands[id].name}</strong><span>{ruined(id) && route ? '已成廢墟 · 不能靠岸' : route ? route.miles + ' 海里 · 需船隻' : '所在島嶼'}</span></div>}
-        </li>
-      })}
-    </ul>
-    <h3 className="map-island-name">{islands[island].name}</h3>
+    {dialog}
     <div className="map-chart" data-biome={chartIslands[island].biome} data-dense={islands[island].places.length > 5 || undefined} aria-label={islands[island].name + '步行地圖'}>
       <Ground island={island} current={current} moving={moving} hillClosed={hillClosed}/>
       <ul className="map-sites" aria-label={islands[island].name + '的地點'}>
@@ -187,14 +187,14 @@ export function WorldMap({ world, player, hideOnMobile, onTravel, onCourse }: {
         })}
       </ul>
     </div>
-    <p className="hint map-instruction">{moving ? '點選可達地點，把移動指令帶入行動欄。'
+    <p className="hint">{moving ? '點地點，把移動指令帶入行動欄。'
       : fighting ? '戰鬥中暫時無法步行。' : '倒下時需要同伴協助。'}</p>
     {teammates.length > 0 && <div className="map-party">
-      <h3>隊友位置</h3>
+      <h4>隊友位置</h4>
       <ul>
         {teammates.map(member => <li key={member.id}>
-          <strong>{member.character!.name}</strong>
-          <span>{locations[member.character!.place]}{member.connected ? '' : ' · 離線'}</span>
+          <Avatar name={member.character!.name}/>
+          <span><strong>{member.character!.name}</strong><small>{locations[member.character!.place]}{member.connected ? '' : ' · 離線'}</small></span>
         </li>)}
       </ul>
     </div>}

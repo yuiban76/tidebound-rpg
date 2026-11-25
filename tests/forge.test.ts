@@ -69,6 +69,11 @@ test('口語指令：強化武器、買傷藥、喝傷藥、買火槍', () => {
   assert.deepEqual(familiarIntent('強化武器'), { kind: 'upgrade' })
   assert.deepEqual(familiarIntent('買傷藥'), { kind: 'buy', item: 'tonic' })
   assert.deepEqual(familiarIntent('喝傷藥'), { kind: 'use', item: '傷藥' })
+  // What the bag's buttons type needs no AI either.
+  for (const [text, item] of [['吃帶骨肉', '帶骨肉'], ['吃一塊恐龍肉', '恐龍肉'], ['服用櫻花藥', '櫻花藥'], ['使用亞當木', '亞當木']])
+    assert.deepEqual(familiarIntent(text), { kind: 'use', item })
+  assert.notEqual(familiarIntent('使用煙霧彈')?.kind, 'use')
+  assert.deepEqual(familiarIntent('吃烤麵包'), { kind: 'meal', dish: 'bread' })
   assert.deepEqual(familiarIntent('買普通火槍'), { kind: 'buy', item: 'musket' })
 })
 

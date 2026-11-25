@@ -100,19 +100,6 @@ legend { padding: 0 .3rem; font-weight: 700; }
 .composer textarea { display: block; margin: .55rem 0 .75rem; }
 .action-suggestions { margin-bottom: 0.65rem; }
 .action-suggestions .button-row { margin-top: 0.45rem; }
-.sea-panel { border-left: 3px solid #477772; }
-.sea-panel > p { margin: .5rem 0; }
-.sea-panel > .button-row { margin-top: .7rem; }
-.voyage-courses { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); gap: .65rem; list-style: none; padding: 0; }
-.voyage-courses li { border: 1px solid var(--line); background: #f3f8f4; padding: .65rem; }
-.voyage-courses li > span { display: block; margin: .28rem 0 .55rem; color: var(--muted); font-size: .86rem; }
-.voyage-team { display: flex; flex-wrap: wrap; gap: .35rem 1rem; list-style: none; padding: 0; font-size: .88rem; }
-.details dl { margin-block: .8rem .45rem; }
-.details dl div { display: flex; gap: .6rem; justify-content: space-between; border-bottom: 1px solid var(--line); padding-block: .2rem; }
-.details dd { margin: 0; font-weight: 700; }
-.details form button { margin-top: .55rem; }
-.proposal { border-top: 1px solid var(--line); margin-top: .7rem; padding-top: .6rem; }
-.proposal .button-row { margin-top: .5rem; }
 .older { justify-self: start; }
 .mobile-tabs { display: none; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
@@ -214,20 +201,6 @@ legend { padding: 0 .3rem; font-weight: 700; }
 .link:hover:not(:disabled) { background: none; color: #0d3f4a; }
 .notice .link { margin-left: .5rem; }
 
-.side-body { flex: 1; min-height: 0; overflow-y: auto; padding: .2rem 1rem 1rem; }
-.side-body .subsection.first { border-top: 0; margin-top: .4rem; }
-.side-body .panel { border: 0; padding: 0; background: transparent; border-top: 1px solid var(--line); margin-top: 1rem; padding-top: .85rem; }
-.side-body .panel:first-child { border-top: 0; margin-top: .4rem; padding-top: 0; }
-.side-body .panel h2 { font-size: 1rem; }
-.side-body .sea-panel { border-left: 0; }
-.side-body .voyage-courses { grid-template-columns: 1fr; }
-.callout { background: #fdf6e6; border: 1px solid #e8cf93; border-radius: 6px; padding: .7rem .8rem; }
-.plain { list-style: none; padding: 0; }
-.plain li { padding-block: .15rem; }
-.stat-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .3rem .8rem; margin-top: .4rem; }
-.stat-list div { display: flex; justify-content: space-between; border-bottom: 1px solid var(--line); }
-.stat-list dd { margin: 0; font-weight: 700; white-space: nowrap; }
-.race-bonus { color: var(--muted); font-size: .75em; font-weight: 600; }
 .skill-list { list-style: none; margin: .4rem 0 0; padding: 0; display: grid; gap: .2rem; }
 .skill-list li { display: flex; flex-wrap: wrap; gap: .1rem .5rem; font-size: .86rem; }
 .skill-list strong { min-width: 4.5rem; }
@@ -241,7 +214,6 @@ legend { padding: 0 .3rem; font-weight: 700; }
   .side-tabs { display: none; }
   .story-column { height: calc(100dvh - 9.5rem); min-height: 24rem; position: static; }
   .side-column { max-height: none; min-height: 0; position: static; }
-  .side-body { overflow: visible; }
   .hud { padding: .45rem .65rem; }
   .meter { grid-template-columns: auto 3.6rem auto; }
 }
@@ -250,7 +222,6 @@ legend { padding: 0 .3rem; font-weight: 700; }
   .composer-actions { flex-direction: row; }
   .composer-actions button { flex: 1; }
   .tab { padding-inline: .6rem; }
-  .screen-tabs .tab { flex: 1 0 auto; padding-inline: .3rem; }
 }
 .hud.voyage-bar { padding: .5rem .85rem; }
 .hud.voyage-bar span { border-left: 0; padding-left: 0; }
@@ -304,8 +275,3 @@ legend { padding: 0 .3rem; font-weight: 700; }
   .bulletin .log { flex: 1; max-height: none; min-height: 0; }
   .story-column .windows { flex: 1 1 66%; min-height: 7rem; }
 }
-
-.war-stages { margin: .3rem 0 .6rem; padding-left: 1.2rem; display: grid; gap: .25rem; }
-.war-stages li { display: flex; flex-wrap: wrap; gap: .1rem .6rem; }
-.war-stages li[data-state='changed'] strong { color: var(--accent, #1f605c); }
-.war-stages li[data-state='pending'] strong { color: var(--muted); font-weight: 600; }

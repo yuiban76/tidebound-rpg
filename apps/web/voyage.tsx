@@ -1,34 +1,27 @@
-import { useId } from 'react'
 import { locations, npcs } from '../../packages/shared/protocol.ts'
+import { hasFlag } from '../../packages/world/flags.ts'
 import { ballotCount, boatYard, islandAt, islands, islandStories, paceNames, routeNeeds, routesFrom, selectedRoute } from '../../packages/world/sea.ts'
+import { beli } from '../../packages/world/scale.ts'
 import { shipName } from '../../packages/world/ships.ts'
 import { npcPlace, party } from '../../packages/world/village.ts'
-import type { View } from './network.ts'
+import { Bar, Card, meIn, Pill } from './side.tsx'
+import type { PanelProps } from './side.tsx'
 
-type Props = { world: View['world'], player: string, suggest: (command: string) => void }
-
-export function VoyagePanel({ world, player, suggest }: Props) {
-  const title = useId()
-  const character = world.members.find(m => m.id === player)!.character!
+/** Where the ship lies, every course open from there, and everything needed before setting sail. */
+export function VoyagePanel({ world, player, suggest }: PanelProps) {
+  const character = meIn(world, player)
   const { ship, sailing } = world
   const crew = party(world)
-  if (!ship) return <section className="panel sea-panel" aria-labelledby={title}>
-    <h2 id={title}>航海</h2>
-    <p>{locations.dock}的船塢販售{boatYard.name}，可載全隊出海。售價 {boatYard.price.toLocaleString('en-US')} 貝里。</p>
-    <div className="button-row">
-      {character.place === 'dock' ? <button type="button" onClick={() => suggest('買船')}>買船</button> : <button type="button" className="light" onClick={() => suggest('前往' + locations.dock)}>前往船塢</button>}
-    </div>
-  </section>
-
-  const from = islandAt(ship.port)
+  const from = islandAt(ship?.port ?? character.place)
   const team = crew.length > 1
-  const chosen = selectedRoute(sailing, crew.length)
+  const chosen = ship && selectedRoute(sailing, crew.length)
   const ready = sailing?.ready.includes(player)
-  const atPort = character.place === ship.port
-  const gathered = crew.every(m => m.connected && m.character?.place === ship.port && m.character.hp > 0)
-  const canDepart = gathered && atPort && !world.combat && ship.hull > 0 &&
+  const atPort = !!ship && character.place === ship.port
+  const gathered = !!ship && crew.every(m => m.connected && m.character?.place === ship.port && m.character.hp > 0)
+  const canDepart = !!ship && gathered && atPort && !world.combat && ship.hull > 0 &&
     (!team || !!chosen && sailing?.ready.length === crew.length)
-  const hint = world.combat ? '戰鬥結束後才能出海。'
+  const hint = !ship ? ''
+    : world.combat ? '戰鬥結束後才能出海。'
     : !atPort ? '請先回到船邊。'
     : !gathered ? '出海前請全員上線並在船邊集合。'
     : !ship.hull ? '請先修好船體。'
@@ -36,45 +29,60 @@ export function VoyagePanel({ world, player, suggest }: Props) {
     : team && !canDepart ? '航線已通過。請每位玩家標記準備出航。'
     : chosen ? '已選定前往' + islands[chosen.to].name + '的' + paceNames[chosen.pace] + '航線。'
     : '單人可直接出海，也能先選島嶼和航速。'
-  return <section className="panel sea-panel" aria-labelledby={title}>
-    <h2 id={title}>航海</h2>
-    <p><strong>{shipName(ship)}</strong>停在{locations[ship.port]} · 船體 {ship.hull}／100 · 木料 {ship.wood}</p>
-    <ul className="voyage-courses" aria-label="可選航線">
-      {routesFrom(from).map(route => { const { to, miles } = route; const needs = routeNeeds(route); return <li key={to}>
-        <strong>{islands[to].name}</strong>
-        <span>{miles} 海里 · {islands[to].about}{needs.length ? ' · ' + needs.join('、') : ''}</span>
-        <div className="button-row">
-          {(['steady', 'fast'] as const).map(pace => <button key={pace} type="button" className="light"
-            aria-label={islands[to].name + '，' + paceNames[pace]} aria-pressed={sailing?.ballots[player]?.to === to && sailing?.ballots[player]?.pace === pace}
-            onClick={() => suggest('選擇航線 ' + islands[to].name + ' ' + paceNames[pace])}>
-            {paceNames[pace]}{team && ' · ' + ballotCount(sailing, { to, pace }) + ' 票'}
-          </button>)}
-        </div>
-      </li> })}
+  return <Card title="航海" meta={ship ? '木料 ' + ship.wood : undefined}>
+    {ship ? <>
+      <p><strong>{shipName(ship)}</strong>停在{locations[ship.port]}</p>
+      <Bar label="船體" value={ship.hull} max={100} tone={ship.hull < 30 ? 'hp' : 'sea'}/>
+    </> : <>
+      <p>{locations.dock}的船塢販售{boatYard.name}，可載全隊出海。售價 {beli(boatYard.price)}。</p>
+      {character.place === 'dock' ? <button type="button" className="wide" onClick={() => suggest('買船')}>買船</button>
+        : islandAt(character.place) === 'wind' && <button type="button" className="light wide" onClick={() => suggest('前往' + locations.dock)}>前往船塢</button>}
+    </>}
+    <h4>從{islands[from].name}出發的航線</h4>
+    <ul className="courses" aria-label="海圖">
+      {routesFrom(from).map(route => {
+        const { to, miles } = route
+        const ruined = hasFlag(world, 'ruined:' + to)
+        const needs = routeNeeds(route)
+        return <li key={to} data-picked={chosen && chosen.to === to || undefined} data-ruined={ruined || undefined}>
+          <div className="course-head"><strong>{islands[to].name}</strong><span>{miles} 海里</span></div>
+          {ship && !ruined ? <div className="course-paces">
+            {(['steady', 'fast'] as const).map(pace => <button key={pace} type="button" className="light"
+              aria-label={islands[to].name + '，' + paceNames[pace]} aria-pressed={sailing?.ballots[player]?.to === to && sailing?.ballots[player]?.pace === pace}
+              onClick={() => suggest('選擇航線 ' + islands[to].name + ' ' + paceNames[pace])}>
+              {paceNames[pace]}{team && ' ' + ballotCount(sailing, { to, pace }) + ' 票'}
+            </button>)}
+          </div> : <Pill tone={ruined ? 'alert' : undefined}>{ruined ? '已成廢墟 · 不能靠岸' : '需船隻'}</Pill>}
+          <p>{islands[to].about}</p>
+          {needs.length > 0 && <p className="course-needs">{needs.map(need => <Pill key={need} tone="gold">{need}</Pill>)}</p>}
+        </li>
+      })}
     </ul>
-    <p className="hint">快航會縮短航程，也可能增加船體損耗。</p>
-    {team && <ul className="voyage-team" aria-label="隊員出航狀態">
-      {crew.map(m => <li key={m.id}>{m.character?.name} · {
-        !m.connected ? '離線' : m.character?.place !== ship.port ? '未到船邊'
-          : sailing?.ready.includes(m.id) ? '已準備' : '在船邊'
-      }</li>)}
-    </ul>}
-    <p role="status">{hint}</p>
-    <div className="button-row">
-      {!atPort && islandAt(character.place) === from && <button type="button" className="light"
-        onClick={() => suggest('前往' + locations[ship.port])}>回船邊</button>}
-      {team && atPort && chosen && <button type="button" className="light"
-        onClick={() => suggest(ready ? '取消出航準備' : '準備出航')}>{ready ? '取消出航準備' : '我準備出航'}</button>}
-      {atPort && ship.hull < 100 && <button type="button" className="light" onClick={() => suggest('修船')}>修船</button>}
-      {atPort && <button type="button" className="light" onClick={() => suggest('買木料')}>買木料</button>}
-      <button type="button" disabled={!canDepart} onClick={() => suggest('出海')}>出海</button>
-    </div>
-  </section>
+    {ship && <>
+      <p className="hint">快航會縮短航程，也可能增加船體損耗。</p>
+      {team && <ul className="chips" aria-label="隊員出航狀態">
+        {crew.map(m => <li key={m.id}><Pill tone={m.connected && m.character?.place === ship.port && sailing?.ready.includes(m.id) ? 'on' : undefined}>{m.character?.name} · {
+          !m.connected ? '離線' : m.character?.place !== ship.port ? '未到船邊'
+            : sailing?.ready.includes(m.id) ? '已準備' : '在船邊'
+        }</Pill></li>)}
+      </ul>}
+      <p role="status" className="voyage-hint">{hint}</p>
+      <div className="button-row">
+        {!atPort && islandAt(character.place) === from && <button type="button" className="light"
+          onClick={() => suggest('前往' + locations[ship.port])}>回船邊</button>}
+        {team && atPort && chosen && <button type="button" className="light"
+          onClick={() => suggest(ready ? '取消出航準備' : '準備出航')}>{ready ? '取消出航準備' : '我準備出航'}</button>}
+        {atPort && ship.hull < 100 && <button type="button" className="light" onClick={() => suggest('修船')}>修船</button>}
+        {atPort && <button type="button" className="light" onClick={() => suggest('買木料')}>買木料</button>}
+        <button type="button" className="grow" disabled={!canDepart} onClick={() => suggest('出海')}>出海</button>
+      </div>
+    </>}
+  </Card>
 }
 
-export function IslandAdventure({ world, player, suggest }: Props) {
-  const title = useId()
-  const current = world.members.find(m => m.id === player)!.character!.place
+/** This island's own story: what to do next, and where. */
+export function IslandAdventure({ world, player, suggest }: PanelProps) {
+  const current = meIn(world, player).place
   const island = islandAt(current)
   const story = islandStories[island]
   if (!story) return null
@@ -87,9 +95,9 @@ export function IslandAdventure({ world, player, suggest }: Props) {
     : stage === 'closed' ? '這件事已經落幕，由別人了結了。'
     : stage === 'found' ? '搜索完成。回' + locations[story.meeting] + '找' + npcs[story.guide] + '。'
     : stage === 'active' ? story.lead : '可以到' + locations[story.meeting] + (npcPlace(world, story.guide) === story.meeting ? '找' + npcs[story.guide] : '') + '接委託。'
-  return <section className="panel sea-panel" aria-labelledby={title}>
-    <h2 id={title}>{story.title}</h2>
-    <p>{detail}</p>
+  const state = stage === 'done' ? '已完成' : stage === 'closed' ? '已落幕' : stage === 'found' ? '待回報' : stage === 'active' ? '進行中' : '委託'
+  return <Card title={story.title} tone={settled ? 'quiet' : undefined} meta={<Pill tone={stage === 'done' ? 'on' : settled ? undefined : 'gold'}>{state}</Pill>}>
+    <p className={settled ? 'hint' : undefined}>{detail}</p>
     {!settled && <button type="button" className="light" onClick={() => suggest(command)}>{command}</button>}
-  </section>
+  </Card>
 }

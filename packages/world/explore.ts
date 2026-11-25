@@ -302,6 +302,9 @@ export function familiarIntent(input: string, here?: LocationId): Intent | undef
   if (/^(?:強化|升級|鍛造|重新鍛打|打磨|精煉)(?:我的|目前的|手上的)?(?:武器|刀|槍|長槍|火槍|武士刀|拳套|護手)?$/.test(text)) return { kind: 'upgrade' }
   const potion = /^(?:使用|用|喝|喝下|服用)(?:一瓶|一罐)?傷藥$/.exec(text)
   if (potion) return { kind: 'use', item: '傷藥' }
+  // Specialty food and medicine by name ("吃帶骨肉", "服用櫻花藥", "使用亞當木"); the bag offers exactly these.
+  const supply = specialByLabel(/^(?:吃掉|吃下|吃|喝下|喝|服用|使用)(?:一[個份塊顆瓶])?\s*(.+)$/.exec(text)?.[1] ?? '')
+  if (supply && ['food', 'heal', 'ship'].includes(specials[supply].kind)) return { kind: 'use', item: specials[supply].label }
   if (/^(?:買|購買)(?:一把)?(?:普通)?火槍$/.test(text)) return { kind: 'buy', item: 'musket' }
   if (/^(?:買|購買)(?:一瓶|一罐|一份)?傷藥$/.test(text)) return { kind: 'buy', item: 'tonic' }
   if (/^(?:買|購買)(?:一把)?(?:普通)?武士刀$/.test(text)) return { kind: 'buy', item: 'sword' }
