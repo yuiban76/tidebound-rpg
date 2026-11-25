@@ -12,7 +12,9 @@ export type CastProfile = { tier: number, faction: Faction, bounty?: number, log
 /** From [day, hour] on, the character is at `place` (null: away at sea) and knows `facts`. Stops are sorted by time. */
 export type CastStop = { at: [number, number], place: LocationId | null, facts?: string,
   /** The stop is skipped when every flag holds (see flags.ts), e.g. no war after the Impel Down breakout. */
-  unless?: string[] }
+  unless?: string[],
+  /** The role people know them by from now on (a cover blown). */
+  role?: string }
 
 export const castPeople: Record<CastId, CastPerson> = {
   // East Blue
@@ -30,7 +32,7 @@ export const castPeople: Record<CastId, CastPerson> = {
   wapol: { place: null, role: '磁鼓島的前國王', known: '當年丟下國民逃走的國王。聽說他正帶著手下在海上漂流，想把王位搶回來。' },
   bonclay: { place: null, role: 'Mr.2・芭蕾舞者', known: '巴洛克工作社的二號人物，笑容比蝴蝶還誇張，總是邊旋轉邊說「不用在意，朋友」。' },
   // Water 7 and the Judicial Island
-  kokoro: { place: 'water7Port', role: '海列車的列車長', known: '她說海列車是七水之都的命脈，只要付一點車票錢，就能去水上各處。' },
+  kokoro: { place: 'blueStation', role: '海列車的列車長', known: '她說海列車是七水之都的命脈，只要付一點車票錢，就能去水上各處。' },
   paulie: { place: 'galleyLa', role: '卡雷拉公司的職工', known: '一邊擦汗一邊把木材搬上船的壯漢，說公司最近人心惶惶，大家都在互相猜疑。' },
   kaku: { place: 'galleyLa', role: '卡雷拉公司的造船工匠', known: '手藝好到工頭都挑不出錯的木匠，開玩笑時語尾拖得特別長，卻不願多談自己的來歷。' },
   kalifa: { place: 'galleyLa', role: '冰山市長的祕書', known: '戴眼鏡的優雅秘書，替市長整理文件從不出錯；有人說她的笑容完美得不像真的。' },
@@ -80,6 +82,18 @@ export const castPeople: Record<CastId, CastPerson> = {
   sandersonia: { place: 'kujaArena', role: '九蛇海賊團的副船長', known: '漢考克的妹妹，身材高大，常在競技場上和戰士們比試，背上藏著一個不能讓人看見的秘密。' },
   marigold: { place: 'kujaArena', role: '九蛇海賊團的副船長', known: '漢考克的另一個妹妹，在競技場上和姊姊一起看守著九蛇的戰士。' },
   hannyabal: { place: 'impelLevel4', role: '推進城副典獄長', known: '整天說要把典獄長的位子搶過來的副典獄長，嘴上囂張，守起監獄來卻從不偷懶。' },
+  jabra: { place: 'justiceTower', role: 'CP9 特務', known: '留著長辮子、能變成狼的特務，最看路基不順眼，動不動就說自己才是最強的。' },
+  kumadori: { place: 'justiceTower', role: 'CP9 特務', known: '像歌舞伎演員一樣說話的特務，一有過失就嚷著要切腹謝罪，卻從來切不進去。' },
+  fukurou: { place: 'justiceTower', role: 'CP9 特務', known: '嘴巴上有拉鍊的圓滾滾特務，管不住嘴，什麼祕密都會說溜出來。' },
+  nero: { place: null, role: 'CP9 新人', known: '剛補進 CP9 的海上暗殺者，六式只學會四式，說話卻比誰都狂。' },
+  oimo: { place: 'eniesGate', role: '守門的巨人', known: '他說自己守這扇門已經五十年了，只要守滿一百年，世界政府就會放了他們的首領。' },
+  kashii: { place: 'eniesGate', role: '守門的巨人', known: '來自艾爾巴夫的巨人戰士，為了救回被抓的首領，答應替世界政府守門一百年。' },
+  lulu: { place: 'galleyLa', role: '卡雷拉公司的工頭', known: '頭髮老是從奇怪的地方翹起來的工頭，按下去又會從別的地方冒出來，手藝倒是一流。' },
+  tilestone: { place: 'galleyLa', role: '卡雷拉公司的工頭', known: '嗓門大得像打雷的壯漢，一個人就能扛起整根桅杆。' },
+  kiwi: { place: 'frankyHouse', role: '佛朗基一家的方塊姐妹', known: '頂著方塊頭的姐妹之一，開口就是「老大最棒了哇哇」，跳起舞來停不下來。' },
+  mozu: { place: 'frankyHouse', role: '佛朗基一家的方塊姐妹', known: '頂著方塊頭的姐妹之一，總跟姐妹一搭一唱，誰敢說老大壞話就跟誰翻臉。' },
+  chimney: { place: 'blueStation', role: '可可蘿的孫女', known: '成天在車站玩耍的小女孩，說奶奶年輕時是美人魚，沒有人相信她。' },
+  gonbe: { place: 'blueStation', role: '車站的兔子', known: '長得像貓、叫聲像貓，但蒂姆妮堅持牠是一隻兔子。' },
   daz: { place: null, role: 'Mr.1・刀刃人', known: '巴洛克工作社的頭號殺手，全身都能變成刀刃；沉默寡言，只對克洛克達爾忠心。' },
   tsuru: { place: 'hqFortress', role: '海軍中將「大參謀」', known: '和戰國、卡普同一輩的老中將，說話溫和，卻能用洗洗果實把海賊「洗乾淨」。' },
   squard: { place: null, role: '白鬍子傘下的海賊船長', known: '人稱「大渦蜘蛛」的船長，把白鬍子當成父親；他的同伴多年前被海賊王的手下殺光，他至今恨著羅傑的一切。' },
@@ -125,6 +139,10 @@ export const castProfiles: Record<CastId, CastProfile> = {
   disco: { tier: 1, faction: 'tyrant' }, charloss: { tier: 1, faction: 'government' }, camie: { tier: 0, faction: 'civilian' },
   marguerite: { tier: 3, faction: 'pirate' }, sandersonia: { tier: 4, faction: 'pirate' }, marigold: { tier: 4, faction: 'pirate' },
   hannyabal: { tier: 4, faction: 'government' },
+  jabra: { tier: 4, faction: 'government' }, kumadori: { tier: 4, faction: 'government' }, fukurou: { tier: 4, faction: 'government' },
+  nero: { tier: 3, faction: 'government' }, oimo: { tier: 4, faction: 'government' }, kashii: { tier: 4, faction: 'government' },
+  lulu: { tier: 2, faction: 'civilian' }, tilestone: { tier: 2, faction: 'civilian' },
+  kiwi: { tier: 1, faction: 'bandit' }, mozu: { tier: 1, faction: 'bandit' }, chimney: { tier: 0, faction: 'civilian' }, gonbe: { tier: 0, faction: 'beast' },
   daz: { tier: 4, faction: 'pirate' }, tsuru: { tier: 5, faction: 'marine' },
   squard: { tier: 4, faction: 'pirate' }, oarsJr: { tier: 5, faction: 'pirate' }, izo: { tier: 4, faction: 'pirate' },
   namur: { tier: 4, faction: 'pirate' }, rakuyo: { tier: 4, faction: 'pirate' }, curiel: { tier: 4, faction: 'pirate' }, blenheim: { tier: 4, faction: 'pirate' },
@@ -141,11 +159,34 @@ const breakout = (facts: string): CastStop[] => [
   ...war(15, 'oris', facts),
 ]
 
+/** Water 7 and Enies Lobby: whoever the players already took along or beat does not follow the canon calendar. */
+const unless = (flag: string, stops: CastStop[]): CastStop[] => stops.map(stop => ({ ...stop, unless: [flag] }))
+/** The Straw Hats through Enies Lobby and back to the shipyard until they sail on Day 53. */
+const enies = (facts: string, from: [number, number] = [47, 18]): CastStop[] => [
+  { at: from, place: from[1] === 18 ? 'blueStation' : null }, { at: [47, 22], place: null },
+  { at: [48, 6], place: 'eniesFront' }, { at: [48, 7], place: 'courthouse', facts }, { at: [48, 9], place: 'justiceTower' }, { at: [48, 14], place: null },
+]
+const home: CastStop[] = [{ at: [49, 8], place: 'galleyLa' }, { at: [53, 8], place: null }]
+/** CP9 in hiding: the masks come off in the mansion, and the Judicial Tower is where they wait. */
+const cp9 = (npc: NpcId, last: string): CastStop[] => [
+  ...unless('defeated:' + npc, [
+    { at: [46, 22], place: 'iceburgMansion', role: 'CP9 特務', facts: '面具已經摘下。五年的偽裝，只為了今晚。' },
+    { at: [48, 1], place: npc === 'blueno' ? 'courthouse' : 'justiceTower', facts: '任務完成，只等把人送進正義之門。' },
+  ]),
+  { at: [48, 13], place: null, facts: last },
+]
+/** Galley-La's foremen and the Franky Family ride the Rocketman to Enies Lobby. */
+const riders = (back: LocationId, facts: string): CastStop[] => [
+  { at: [47, 22], place: null }, { at: [48, 5], place: 'eniesFront', facts }, { at: [48, 14], place: null }, { at: [49, 8], place: back },
+]
+
 /** Where each character goes after Day 1. Only people who actually move have an entry. */
 export const castRoutes: Partial<Record<CastId, CastStop[]>> = {
   koby: [
     { at: [2, 6], place: 'shellsTown', facts: '他抖著腿站在鎮上，卻說自己一定要成為海軍。' },
     { at: [2, 13], place: 'marineBase', facts: '他剛加入海軍，從打雜的見習生做起，說有朝一日要追上自己心中的英雄。' },
+    { at: [4, 6], place: null, facts: '他被海軍英雄卡普帶走，當起了見習生。' },
+    { at: [50, 12], place: 'water7Port', facts: '他長高了，也變強了。他說下次見面，會以海軍的身分抓住那個朋友。' }, { at: [50, 20], place: null },
     ...war(10, 'marinefordBay', '他被調來馬林福特，親眼看著這場戰爭。'),
   ],
   nami: [
@@ -153,6 +194,11 @@ export const castRoutes: Partial<Record<CastId, CastStop[]>> = {
     { at: [3, 18], place: null, facts: '暫時和一個戴草帽的少年同路，她說這只是合作關係。' },
     { at: [7, 8], place: 'arlongPark', facts: '她替惡龍畫著海圖，臉上的笑容一點也不真心。' },
     { at: [8, 17], place: null, facts: '惡龍樂園倒下後，她成了草帽一夥的航海士。' },
+    ...unless('recruited:nami', [
+      { at: [40, 10], place: 'water7Port', role: '草帽一夥的航海士', facts: '她抱著從空島帶回來的黃金，笑得合不攏嘴，說終於能好好修船了。' },
+      { at: [41, 12], place: 'galleyLa' }, { at: [44, 12], place: 'water7Port' }, { at: [46, 20], place: 'iceburgMansion' }, { at: [47, 8], place: 'backStreet' },
+      ...enies('她說不管來幾個政府的人，羅賓一定要搶回來。'), ...home,
+    ]),
   ],
   buggy: [
     { at: [3, 16], place: null, facts: '被趕出橘子鎮後乘著小船逃走，嘴裡仍在揚言報仇。' },
@@ -198,18 +244,9 @@ export const castRoutes: Partial<Record<CastId, CastStop[]>> = {
     { at: [64, 6], place: 'impelLevel5', facts: '他在推進城裡替落難者打氣，說只要夠熱情，監獄也能變成舞台。' },
     { at: [70, 6], place: 'impelGate', facts: '他留在推進城的正義之門控制室，替大家打開了門，自己被留了下來。' },
   ],
-  kaku: [
-    { at: [46, 12], place: 'justiceTower', facts: '他撤回了司法塔，不再裝成木匠。' },
-    { at: [48, 16], place: null, facts: '司法島陷落後，他不知逃去了哪裡。' },
-  ],
-  kalifa: [
-    { at: [46, 12], place: 'justiceTower', facts: '她已經摘下秘書的面具，回到司法塔。' },
-    { at: [48, 16], place: null, facts: '司法島陷落後，她下落不明。' },
-  ],
-  blueno: [
-    { at: [46, 12], place: 'justiceTower', facts: '他關了酒吧，一語不發地回到司法塔。' },
-    { at: [48, 16], place: null, facts: '司法島陷落後，他下落不明。' },
-  ],
+  kaku: cp9('kaku', '司法島一戰後，他不知逃去了哪裡。'),
+  kalifa: cp9('kalifa', '司法島一戰後，她下落不明。'),
+  blueno: cp9('blueno', '司法島一戰後，他下落不明。'),
   perona: [
     { at: [55, 12], place: 'graveyard', facts: '她負責在墓園放鬼魂，替摩利亞看守這座船。' },
     { at: [56, 12], place: null, facts: '摩利亞倒下後，她揪著腳邊的玩偶逃走了。' },
@@ -262,7 +299,11 @@ export const castRoutes: Partial<Record<CastId, CastStop[]>> = {
     { at: [73, 6], place: null },
   ],
   doflamingo: war(12, 'marinefordBay', '身為七武海，他被召來頂上戰場，一直笑著。'),
-  garp: war(12, 'scaffold', '他守在處刑台前，拳頭一直沒放下。'),
+  garp: [
+    { at: [50, 12], place: 'water7Port', facts: '他一拳捶醒了睡著的孫子，又哭又罵，把人家的牆打穿了一個大洞。' },
+    { at: [50, 20], place: 'hqFortress', facts: '他回到海軍本部，仙貝吃得比平常少。' },
+    ...war(12, 'scaffold', '他守在處刑台前，拳頭一直沒放下。'),
+  ],
   akainu: war(12, 'scaffold', '他站在處刑台前，每一拳都像岩漿。'),
   aokiji: war(12, 'marinefordBay', '他在海灣一側，把海面凍成冰面。'),
   kizaru: [
@@ -273,6 +314,22 @@ export const castRoutes: Partial<Record<CastId, CastStop[]>> = {
   marco: war(9, 'marinefordBay', '他隨白鬍子艦隊趕來，站在戰場最前線。'),
   jozu: war(9, 'marinefordBay', '他隨白鬍子艦隊趕來，擋在老爹身前。'),
   vista: war(9, 'marinefordBay', '他隨白鬍子艦隊趕來，雙劍已經出鞘。'),
+  jabra: [{ at: [48, 13], place: null, facts: '司法島一戰後下落不明。' }],
+  kumadori: [{ at: [48, 13], place: null, facts: '司法島一戰後下落不明。' }],
+  fukurou: [{ at: [48, 13], place: null, facts: '司法島一戰後下落不明。' }],
+  nero: [
+    { at: [47, 14], place: 'blueStation', facts: '他守在海列車旁，說要讓大家見識新人的厲害。' },
+    { at: [47, 20], place: null, facts: '他在海列車上被人撂倒，從此沒再出現。' },
+  ],
+  paulie: [{ at: [46, 5], place: 'iceburgMansion', facts: '他守在冰山床邊，發誓要把兇手綁在桅杆上。' }, ...riders('galleyLa', '冰山先生的仇，我要親手討回來！')],
+  lulu: [{ at: [46, 5], place: 'iceburgMansion' }, ...riders('galleyLa', '他帶著船匠們衝進司法島，頭髮翹得比平常還高。')],
+  tilestone: [{ at: [46, 5], place: 'iceburgMansion' }, ...riders('galleyLa', '他扛著大槌替大家開路，吼聲蓋過了砲聲。')],
+  zambai: riders('backStreet', '老大被抓走了，我們就是爬也要爬到司法島！'),
+  kiwi: riders('backStreet', '老大等我們哇哇！'),
+  mozu: riders('backStreet', '老大等我們哇哇！'),
+  kokoro: [{ at: [48, 0], place: null }, { at: [48, 5], place: 'eniesGate', facts: '火箭人撞壞了大門，也撞壞了自己。嗯嘎嘎嘎，老太婆的駕駛技術不錯吧。' }, { at: [48, 14], place: null }, { at: [49, 8], place: 'blueStation' }],
+  chimney: [{ at: [48, 0], place: null }, { at: [48, 5], place: 'eniesGate' }, { at: [48, 14], place: null }, { at: [49, 8], place: 'blueStation', facts: '奶奶真的是美人魚喔！大家都看到了！' }],
+  gonbe: [{ at: [48, 0], place: null }, { at: [48, 5], place: 'eniesGate' }, { at: [48, 14], place: null }, { at: [49, 8], place: 'blueStation' }],
   daz: [
     { at: [27, 6], place: 'impelLevel4', facts: '輸給一個綠髮劍士後被押進推進城，關在第四層的焦熱地獄。' },
     ...breakout('他跟著老闆克洛克達爾從天而降，兩隻手臂已經變成了刀刃。'),
@@ -289,6 +346,7 @@ export const castRoutes: Partial<Record<CastId, CastStop[]>> = {
   helmeppo: [
     { at: [2, 13], place: 'marineBase', facts: '父親倒台後，他被留在基地從雜工做起，嘴上還是不服氣。' },
     { at: [4, 6], place: null, facts: '他跟著可比一起被海軍英雄卡普帶走，當起了見習生。' },
+    { at: [50, 12], place: 'water7Port', facts: '他跟在卡普身後，雙刀已經有模有樣了。' }, { at: [50, 20], place: null },
     ...war(10, 'marinefordBay', '他跟著可比被調來馬林福特，嚇得腿都在抖。'),
   ],
   // Buggy's officers leave Orange Town with him and sail with him afterwards (see crews.ts).
@@ -314,6 +372,37 @@ export const castRoutes: Partial<Record<CastId, CastStop[]>> = {
 
 /** Main canon characters (canon.ts) on the same kind of calendar, for Impel Down and the Summit War. */
 export const canonRoutes: Partial<Record<NpcId, CastStop[]>> = {
+  // The Straw Hats in Water 7 and Enies Lobby.
+  zoro: unless('recruited:zoro', [
+    { at: [40, 10], place: 'water7Port', role: '草帽一夥的劍士', facts: '他留在船上看守，結果睡著了。' }, { at: [46, 20], place: 'iceburgMansion' }, { at: [47, 8], place: 'galleyLa' },
+    ...enies('他說要走的人別攔，要救的人就一定救到底。'), ...home,
+  ]),
+  usopp: unless('recruited:usopp', [
+    { at: [40, 10], place: 'water7Port', role: '草帽一夥的狙擊手', facts: '他說梅利號的傷要趕快修，那是可雅送的船，是最重要的夥伴。' }, { at: [41, 18], place: 'frankyHouse' },
+    { at: [42, 8], place: 'water7Port' }, { at: [45, 8], place: 'backStreet' }, { at: [47, 10], place: 'frankyHouse' },
+    ...enies('他戴上面具，說自己不是騙人布，是來自狙擊島的狙擊王。', [47, 20]), { at: [49, 8], place: 'backStreet' }, { at: [53, 6], place: 'water7Port' }, { at: [53, 8], place: null },
+  ]),
+  sanji: unless('recruited:sanji', [
+    { at: [40, 10], place: 'water7Port', role: '草帽一夥的廚師', facts: '他說這裡的水水肉很適合做成宴會大餐。' }, { at: [41, 12], place: 'backStreet' }, { at: [47, 12], place: 'blueStation' },
+    ...enies('誰敢讓美麗的小姐掉眼淚，我就踢飛誰。', [47, 20]), ...home,
+  ]),
+  chopper: unless('recruited:chopper', [
+    { at: [40, 10], place: 'water7Port', role: '草帽一夥的船醫', facts: '他第一次看到這麼多船，眼睛都亮了。' }, { at: [46, 10], place: 'backStreet' }, { at: [47, 8], place: 'galleyLa' },
+    ...enies('他把藍波球握得緊緊的，說這次換他來保護羅賓。'), ...home,
+  ]),
+  robin: unless('recruited:robin', [
+    { at: [40, 10], place: 'water7Port', role: '草帽一夥的考古學家', facts: '她望著海列車的鐵軌，若有所思地笑了笑。' }, { at: [41, 14], place: null },
+    { at: [46, 22], place: 'iceburgMansion', facts: '我不會再回去了。這是我自己的決定，請不要追問。' }, { at: [49, 8], place: 'galleyLa', facts: '能活著，真是太好了。' }, { at: [53, 8], place: null },
+  ]),
+  franky: unless('recruited:franky', [
+    { at: [48, 6], place: 'eniesFront' }, { at: [48, 7], place: 'courthouse', facts: '那張設計圖，我當著他們的面燒了。超級痛快！' }, { at: [48, 9], place: 'justiceTower' }, { at: [48, 14], place: null },
+    { at: [49, 8], place: 'galleyLa', facts: '我要造一艘夢想之船，能撐到世界盡頭的那種！超級期待吧！' }, { at: [53, 8], place: null, role: '草帽一夥的船匠' },
+  ]),
+  iceburg: [{ at: [49, 8], place: 'galleyLa', facts: '海列車會修好，城市也會修好。那孩子終於要出海了，湯姆先生一定也很高興。' }],
+  lucci: unless('defeated:lucci', [
+    { at: [46, 22], place: 'iceburgMansion', role: 'CP9 特務', facts: '他不再讓鴿子替他說話：「任務就是任務，五年的交情也一樣。」' },
+    { at: [48, 1], place: 'justiceTower', facts: '他相信「黑暗的正義」，為了政府可以不擇手段。' }, { at: [48, 10], place: 'gateOfJustice' },
+  ]),
   crocodile: [
     { at: [27, 6], place: 'impelLevel6', facts: '他失去七武海的頭銜，被關進推進城最底層的無限地獄。' },
     ...breakout('他從天而降，說自己不是來救人的，只是要取白鬍子的命。'),

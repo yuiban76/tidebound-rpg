@@ -5,7 +5,7 @@ import { expireOffers } from '../rules/fruits.ts'
 import { canonRoutes, castRoutes } from './cast.ts'
 import type { CastStop } from './cast.ts'
 import { eventPhases } from './phases.ts'
-import { flagsHold, hasFlag, queuePaper } from './flags.ts'
+import { flagsHold, hasFlag, queuePaper, setFlag } from './flags.ts'
 import { locations, npcs } from '../shared/protocol.ts'
 import { islandAt, islands, seaLanes } from './sea.ts'
 import { npcPlace, party } from './village.ts'
@@ -26,6 +26,19 @@ export function applyEffect(world: World, effect?: WorldEffect) {
     if (world.islandTasks?.[id]?.stage !== 'done') (world.islandTasks ??= {})[id] = { stage: 'closed' }
   }
   if (effect.repairShip && world.ship) world.ship.hull = 100
+  for (const [npc, role] of Object.entries(effect.roles ?? {})) (world.npcRoles ??= {})[npc as NpcId] = role
+  for (const flag of effect.flags ?? []) setFlag(world, flag)
+  if (effect.evacuate) {
+    const { from, to } = effect.evacuate
+    for (const member of party(world)) {
+      const c = member.character!
+      if (islandAt(c.place) !== from) continue
+      c.place = to
+      c.conversingWith = null
+    }
+    if (world.combat && islandAt(world.combat.place) === from) delete world.combat
+    if (world.ship && islandAt(world.ship.port) === from) { world.ship.port = to; delete world.sailing }
+  }
 }
 
 const hours = (n: number) => n * 60
@@ -126,7 +139,7 @@ export function advanceTimeline(world: World) {
         })
       }
     }
-    if (at > world.minute) continue
+    if (at > world.minute || (event.after && !world.timeline?.[event.after])) continue
     if (flagsHold(world, event.skip)) {
       ;(world.timeline ??= {})[event.id] = 'changed'
       phases[key('fired')] = world.minute
@@ -200,7 +213,7 @@ function followCast(world: World, news: { minute: number, text: string }[], here
       if (at > world.minute || world.timeline?.[key]) continue
       ;(world.timeline ??= {})[key] = 'canon'
       if (world.companions?.[npc] || flagsHold(world, stop.unless)) continue
-      applyEffect(world, { move: { [npc]: stop.place }, ...(stop.facts && { facts: { [npc]: stop.facts } }) })
+      applyEffect(world, { move: { [npc]: stop.place }, ...(stop.facts && { facts: { [npc]: stop.facts } }), ...(stop.role && { roles: { [npc]: stop.role } }) })
       if (stop.place && here.has(islandAt(stop.place)) && world.minute - at <= 360) {
         const spot = sightings.get(at + '|' + stop.place) ?? { minute: at, place: stop.place, names: [] }
         spot.names.push(npcs[npc])

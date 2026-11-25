@@ -9,7 +9,7 @@ import { raceSummary, stat } from '../../packages/world/races.ts'
 import { skillCap, skillUses } from '../../packages/world/skills.ts'
 import { forges, weaponLabel } from '../../packages/world/forge.ts'
 import { canonTimeline } from '../../packages/world/canon.ts'
-import { fightingStyles, fightingSummary, goods, masteryOf, npcsAt, party, people, shops, weaponItems, weaponNames } from '../../packages/world/village.ts'
+import { fightingStyles, fightingSummary, goods, masteryOf, npcRole, npcsAt, party, shops, weaponItems, weaponNames } from '../../packages/world/village.ts'
 import type { Good } from '../../packages/world/village.ts'
 import type { View } from './network.ts'
 import type { Entry } from '../host/store.ts'
@@ -21,7 +21,9 @@ import { CompanionPanel } from './companions.tsx'
 import { FruitPanel } from './fruit.tsx'
 import { RecoveryPanel } from './recovery.tsx'
 import { CalendarPanel } from './calendar.tsx'
+import { LuffyPanel } from './luffy.tsx'
 import { WarPanel } from './war.tsx'
+import { SagaPanel } from './saga.tsx'
 import { MarketPanel } from './market.tsx'
 
 const phaseText = { queued: '排隊中', interpret: 'AI 理解與規則驗證中', narrate: '結果已存檔，旁白生成中' }
@@ -30,8 +32,8 @@ const entryTag: Record<string, string> = { world: '世界', chat: '聊天', canc
 export const clock = (minutes: number) => '第 ' + (Math.floor(minutes / 1440) + 1) + ' 日 ' +
   String(Math.floor(minutes / 60) % 24).padStart(2, '0') + ':' + String(minutes % 60).padStart(2, '0')
 
-type Side = 'map' | 'me' | 'bag' | 'crew' | 'news'
-const sideTabs: [Side, string][] = [['map', '地圖'], ['me', '角色'], ['bag', '背包'], ['crew', '船團'], ['news', '消息']]
+type Side = 'map' | 'me' | 'bag' | 'crew' | 'news' | 'luffy'
+const sideTabs: [Side, string][] = [['map', '地圖'], ['me', '角色'], ['bag', '背包'], ['crew', '船團'], ['news', '消息'], ['luffy', npcs.luffy]]
 
 function Log({ entries, names, draft }: { entries: Entry[], names: Record<string, string>, draft?: string }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -125,7 +127,7 @@ export function Story({ view, send, history, connected, gap, review }: {
   const fruitWaiting = (world.fruitOffers ?? []).some(offer => offer.to === player)
   const sideBadge: Record<Side, number | boolean> = {
     map: false, me: character.unspent + (character.skillPoints ?? 0), bag: fruitWaiting,
-    crew: openVotes + (review ? joining.filter(m => m.character && !m.approved).length : 0), news: liveScenes,
+    crew: openVotes + (review ? joining.filter(m => m.character && !m.approved).length : 0), news: liveScenes, luffy: false,
   }
 
   function suggest(text: string) {
@@ -162,12 +164,13 @@ export function Story({ view, send, history, connected, gap, review }: {
       <section className="subsection"><h3>這裡</h3>
         <p>{location}</p>
         {visibleNpcs.length > 0 && <ul className="chips">{visibleNpcs.map(id =>
-          <li key={id}><button type="button" className="chip" onClick={() => suggest('找' + npcs[id] + '聊聊')}>{npcs[id]}<small>{people[id].role}</small></button></li>)}</ul>}
+          <li key={id}><button type="button" className="chip" onClick={() => suggest('找' + npcs[id] + '聊聊')}>{npcs[id]}<small>{npcRole(world, id)}</small></button></li>)}</ul>}
         {shops[character.place] && <details><summary>{shops[character.place]}</summary><ul className="plain">{(Object.keys(goods) as Good[])
           .filter(id => goods[id].shop === character.place).map(id =>
             <li key={id}><button type="button" className="link" onClick={() => suggest('買' + goods[id].label)}>{goods[id].label}</button> · {goods[id].price.toLocaleString('en-US')} 貝里 · 剩 {world.stock[id]}</li>)}</ul></details>}
       </section>
       <MarketPanel world={world} player={player} suggest={suggest}/>
+      <SagaPanel world={world} player={player} suggest={suggest}/>
       <WarPanel world={world} player={player} suggest={suggest}/>
       <IslandAdventure world={world} player={player} suggest={suggest}/>
       <VoyagePanel world={world} player={player} suggest={suggest}/>
@@ -268,6 +271,7 @@ export function Story({ view, send, history, connected, gap, review }: {
       </section>}
       <CalendarPanel world={world}/>
     </>,
+    luffy: <LuffyPanel world={world} player={player} suggest={suggest}/>,
   }
 
   return <div className={'game screen-' + screen}>

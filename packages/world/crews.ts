@@ -19,6 +19,10 @@ export type Crew = {
   name: string, captain: NpcId, faction: Faction, members: CrewMember[]
   /** Unnamed crewmen who only show up on the crew's home ground. */
   grunts?: { name: string, tier: number, count: number, home: LocationId[] }
+  /** The name strangers know them by until [day, hour]. */
+  cover?: { name: string, until: [number, number] }
+  /** Places where they take on challengers one by one. */
+  duels?: LocationId[]
 }
 
 const straw = (npc: NpcId, from: [number, number], until: [number, number] = [59, 12]): CrewMember => ({ npc, from, until, sails: true })
@@ -28,7 +32,7 @@ export const crews: Record<string, Crew> = {
   strawHat: { name: '草帽一夥', captain: 'luffy', faction: 'pirate', members: [
     straw('zoro', [2, 16]), straw('usopp', [4, 12]), straw('sanji', [6, 18]), straw('nami', [8, 17]),
     straw('vivi', [12, 4], [27, 8]), straw('chopper', [18, 14]), straw('robin', [27, 8]),
-    straw('franky', [49, 8]), straw('brook', [56, 12]),
+    straw('franky', [53, 8]), straw('brook', [56, 12]),
   ] },
   buggy: { name: '小丑巴其海賊團', captain: 'buggy', faction: 'pirate', members: [{ npc: 'cabaji', sails: true, until: [60, 6] }, { npc: 'mohji', sails: true, until: [60, 6] }],
     grunts: { name: '巴其海賊團團員', tier: 1, count: 2, home: ['buggyBar', 'orangeStreet', 'orangePort'] } },
@@ -48,7 +52,13 @@ export const crews: Record<string, Crew> = {
   bellamy: { name: '貝拉米海賊團', captain: 'bellamy', faction: 'pirate', members: [],
     grunts: { name: '貝拉米海賊團團員', tier: 2, count: 2, home: ['mockTown'] } },
   baroque: { name: '巴洛克工作社', captain: 'crocodile', faction: 'tyrant', members: [{ npc: 'galdino' }, { npc: 'bonclay' }, { npc: 'daz' }] },
-  cp9: { name: 'CP9', captain: 'lucci', faction: 'government', members: [{ npc: 'kaku' }, { npc: 'kalifa' }, { npc: 'blueno' }, { npc: 'spandam' }] },
+  cp9: { name: 'CP9', captain: 'lucci', faction: 'government', members: [{ npc: 'kaku' }, { npc: 'kalifa' }, { npc: 'blueno' }, { npc: 'spandam' },
+    { npc: 'jabra' }, { npc: 'kumadori' }, { npc: 'fukurou' }, { npc: 'nero' }],
+    cover: { name: '卡雷拉公司的船匠們', until: [46, 22] }, duels: ['justiceTower'] },
+  frankyFamily: { name: '佛朗基一家', captain: 'zambai', faction: 'bandit', members: [{ npc: 'kiwi' }, { npc: 'mozu' }],
+    grunts: { name: '佛朗基一家的小弟', tier: 1, count: 2, home: ['frankyHouse', 'backStreet'] } },
+  enGiants: { name: '守門的巨人', captain: 'oimo', faction: 'government', members: [{ npc: 'kashii' }],
+    grunts: { name: '司法島的守軍', tier: 2, count: 2, home: ['eniesGate'] } },
   moria: { name: '摩利亞一行', captain: 'moria', faction: 'tyrant', members: [{ npc: 'perona' }, { npc: 'hogback' }, { npc: 'absalom' }],
     grunts: { name: '殭屍', tier: 2, count: 2, home: ['moriaMansion', 'graveyard', 'thrillerForest'] } },
   enel: { name: '艾涅爾的神官們', captain: 'enel', faction: 'tyrant', members: [{ npc: 'ohm' }] },
@@ -73,8 +83,9 @@ const active = (world: Pick<World, 'minute'>, member: CrewMember) =>
  * plus the crew's unnamed hands on its home ground. Players' companions and knocked-out NPCs are left out.
  */
 export function crewmates(world: World, target: NpcId, place: LocationId): { crew?: Crew, npcs: NpcId[], grunts: Foe[] } {
-  const crew = crewOf(target)
-  if (!crew) return { npcs: [], grunts: [] }
+  const band = crewOf(target)
+  if (!band || band.duels?.includes(place)) return { npcs: [], grunts: [] }
+  const crew = band.cover && world.minute < minuteOf(band.cover.until) ? { ...band, name: band.cover.name } : band
   const available = (npc: NpcId) => npc !== target && !world.companions?.[npc] && (world.npcDown?.[npc] ?? 0) <= world.minute
   const captainHere = npcPlace(world, crew.captain) === place
   const npcs: NpcId[] = []

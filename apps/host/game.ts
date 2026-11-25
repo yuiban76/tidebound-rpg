@@ -4,7 +4,7 @@ import { aiInput, locations, npcs } from '../../packages/shared/protocol.ts'
 import type { Intent, Message, NpcId } from '../../packages/shared/protocol.ts'
 import { allocatePoint, guideFor, makeCharacter, needsReview, resolve, trainSkill, voteThreshold } from '../../packages/rules/engine.ts'
 import { addressedNpc, asksAboutShipPurchase, dialogueQuestion, familiarIntent, sceneQuestion } from '../../packages/world/explore.ts'
-import { npcFacts, npcPlace, npcsAt, opening, party, paths, people, selfMade } from '../../packages/world/village.ts'
+import { npcFacts, npcPlace, npcRole, npcsAt, opening, party, paths, people, selfMade } from '../../packages/world/village.ts'
 import { advanceTimeline } from '../../packages/world/timeline.ts'
 import { companionIds, companionMaxHp, isCompanion, recruitable } from '../../packages/world/companions.ts'
 import { islandAt, islands, routesFrom, shipPurchaseInfo } from '../../packages/world/sea.ts'
@@ -12,6 +12,9 @@ import { sellMainShip, shipSaleBlock } from '../../packages/rules/sailing.ts'
 import type { Character, Member, World } from '../../packages/world/village.ts'
 import { traitOf } from '../../packages/world/races.ts'
 import { warOn, warSides, warState } from '../../packages/world/war.ts'
+import { canonTimeline, minuteOf } from '../../packages/world/canon.ts'
+import { hasFlag } from '../../packages/world/flags.ts'
+import { sagaFlag, sagas } from '../../packages/world/water7.ts'
 
 /** During the war the narrator hears the latest stage and the party's side, so every turn is not the same melee. */
 function warContext(world: World, place: Character['place']) {
@@ -19,6 +22,14 @@ function warContext(world: World, place: Character['place']) {
   const fired = warState(world).stages.filter(item => item.result)
   const last = fired.at(-1)?.stage
   return { war: { side: warSides[world.warSide ?? 'none'], stage: last ? last.title : '開戰前的對峙' } }
+}
+/** During a story arc the narrator hears its latest stage, and the classifier which goals are open right here. */
+function sagaContext(world: World, place: Character['place']) {
+  const saga = sagas.find(item => item.islands.includes(islandAt(place)) && world.minute >= minuteOf(item.from) && world.minute < minuteOf(item.until))
+  if (!saga) return {}
+  const last = canonTimeline.filter(event => saga.stages.includes(event.id) && world.timeline?.[event.id]).at(-1)
+  const goals = saga.goals.filter(goal => goal.place === place && !hasFlag(world, sagaFlag(goal.id)) && world.minute >= minuteOf(goal.from) && world.minute < minuteOf(goal.until))
+  return { saga: { title: saga.title, stage: last?.title, ruined: hasFlag(world, 'ruined:' + islandAt(place)) || undefined, goals: goals.map(goal => goal.title) } }
 }
 import type { Store } from './store.ts'
 
@@ -403,7 +414,7 @@ export class Game {
   private context(world: World, actor: Member, intent?: Intent, forNarration = false) {
     const c = actor.character!
     const local = npcsAt(world, c.place).map(key => {
-      return { id: key, name: npcs[key], role: people[key].role,
+      return { id: key, name: npcs[key], role: npcRole(world, key),
         ...(isCompanion(world, key) ? { companion: true, trait: recruitable[key]?.trait } : {}),
         ...(intent?.kind === 'talk' && intent.npc === key
           ? {
@@ -425,6 +436,7 @@ export class Game {
       actor: c.name, race: c.race + '（' + traitOf(c).perk + '）', place: locations[c.place], ...navigation,
       local,
       ...warContext(world, c.place),
+      ...sagaContext(world, c.place),
       combat: world.combat && { foes: world.combat.foes.map(foe => ({ name: foe.name, hp: foe.hp, maxHp: foe.maxHp, down: !!foe.down })), atSea: !!world.combat.sea },
       speaker: intent?.kind === 'talk' ? npcs[intent.npc] : undefined,
       // Who the player is facing, so 「來對戰阿」 without a name means this person.

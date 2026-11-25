@@ -1,14 +1,13 @@
 // Rules for the Summit War: picking a side and taking on battlefield goals (packages/world/war.ts).
-import { locations, npcs } from '../shared/protocol.ts'
+import { locations } from '../shared/protocol.ts'
 import type { Intent } from '../shared/protocol.ts'
-import { setFlag, hasFlag } from '../world/flags.ts'
-import { stat } from '../world/races.ts'
+import { hasFlag } from '../world/flags.ts'
 import { islandAt } from '../world/sea.ts'
-import { npcPlace, party } from '../world/village.ts'
+import { party } from '../world/village.ts'
 import { beli } from '../world/scale.ts'
 import type { Member, World } from '../world/village.ts'
 import { goalById, sideAllies, warFlag, warGoals, warMinute, warOn, warSides } from '../world/war.ts'
-import { grantXp, maxHP } from './engine.ts'
+import { attemptGoal } from './goals.ts'
 import type { Roll } from './engine.ts'
 
 type WarIntent = Extract<Intent, { kind: 'war' }>
@@ -45,29 +44,13 @@ export function resolveWar(world: World, actor: Member, intent: WarIntent, roll:
     return stop('這裡的對手是傳說級的人物，貿然衝上去只會被一擊打飛（建議等級 ' + goal.minLevel + '，隊伍最高等級 ' + level + '）。')
 
   // Earlier goals open the way, your side's fighters on the spot help, and every failed try teaches you something.
-  const helped = (goal.helpedBy ?? []).filter(id => hasFlag(world, warFlag(id))).length * 2
-  const allies = sideAllies[goal.side].filter(npc => npcPlace(world, npc) === goal.place)
-  const help = Math.min(3, allies.length)
-  const tries = world.warTries?.[goal.id] ?? 0
-  const natural = roll(20)
-  const total = natural + stat(c, goal.check.attr) + (c.skillRanks[goal.check.skill] ?? 0) + helped + help + tries
-  const success = natural === 20 || (natural !== 1 && total >= goal.check.dc)
-  const line = goal.title + '：D20 ' + natural + '，合計 ' + total + '／' + goal.check.dc +
-    (helped || help || tries ? '（' + [helped && '先前的戰果 +' + helped, help && allies.slice(0, 3).map(npc => npcs[npc]).join('、') + '在旁 +' + help, tries && '再試 +' + tries].filter(Boolean).join('，') + '）' : '') + '。'
-  if (!success) {
-    ;(world.warTries ??= {})[goal.id] = tries + 1
-    const hurt = Math.min(c.hp, Math.ceil(maxHP(c) * .15))
-    c.hp -= hurt
-    return { text: line + goal.miss + '你在混戰中受了傷（HP −' + hurt + '）。' + (c.hp ? '還有時間就再試一次。' : '你倒下了，需要同伴救援。'), minutes: 30 }
-  }
-  setFlag(world, warFlag(goal.id))
-  const here = party(world).filter(m => m.character!.place === goal.place)
-  const rewards = here.map(m => {
-    if (goal.side === 'marine') m.character!.money += marinePay
-    return grantXp(m.character!, 150, 'war:' + goal.id)
-  }).filter(Boolean)
-  return {
-    text: line + goal.done + (goal.side === 'marine' ? '海軍發給在場的每個人 ' + beli(marinePay) + '。' : '') + (rewards.length ? '\n' + rewards.join('\n') : ''),
-    minutes: 30, announce: true,
-  }
+  return attemptGoal(world, actor, goal, {
+    flag: warFlag(goal.id), allies: sideAllies[goal.side], xpKey: 'war:' + goal.id,
+    helped: (goal.helpedBy ?? []).filter(id => hasFlag(world, warFlag(id))).length * 2,
+    onDone: here => {
+      if (goal.side !== 'marine') return ''
+      for (const m of here) m.character!.money += marinePay
+      return '海軍發給在場的每個人 ' + beli(marinePay) + '。'
+    },
+  }, roll)
 }

@@ -3,10 +3,11 @@ import type { CharacterInput, Intent, NpcId, Skill } from '../shared/protocol.ts
 import { asksAboutBoatCrew, asksAboutShipPurchase, dialogueQuestion, directions, routeBetween } from '../world/explore.ts'
 import { forges, maxTier, tierCost, tierDamage, tierHit, tierLevel, tierOf, weaponLabel } from '../world/forge.ts'
 import { beli, scale } from '../world/scale.ts'
-import { boatCrewReplies, goods, meals, npcFacts, npcPlace, npcsAt, party, shops, walkMinutes, weaponItems, weaponNames } from '../world/village.ts'
+import { boatCrewReplies, goods, meals, npcFacts, npcPlace, npcRole, npcsAt, party, shops, walkMinutes, weaponItems, weaponNames } from '../world/village.ts'
 import { islandAt, islands, shipPurchaseInfo } from '../world/sea.ts'
 import { resolveIslandTask, resolveSailing } from './sailing.ts'
 import { resolveWar } from './war.ts'
+import { resolveGoal, rideTrain } from './saga.ts'
 import { alertWithin } from '../world/timeline.ts'
 import { dismissCompanion, handoverCompanion, recruitCompanion } from './companions.ts'
 import { buyFruit, chooseFruit, learnFruitArts } from './fruits.ts'
@@ -203,6 +204,8 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
     case 'sail': return resolveSailing(world, actor, intent, roll, connected)
     case 'islandTask': return resolveIslandTask(world, actor, intent, roll)
     case 'war': return resolveWar(world, actor, intent, roll)
+    case 'goal': return resolveGoal(world, actor, intent.goal, roll)
+    case 'train': return rideTrain(world, actor, roll, connected)
     case 'move': {
       if (c.place === intent.to)
         return intent.talkTo ? converse(world, c, intent.talkTo, raw) : reject('你已經在' + locations[c.place] + '。')
@@ -435,7 +438,7 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
   }
 }
 
-export function guideFor(world: Pick<World, 'npcPlaces'> & Partial<Pick<World, 'companions' | 'members' | 'crew'>> & { combat?: Pick<NonNullable<World['combat']>, 'participants' | 'place'> & { foes?: { name: string, hp: number, maxHp: number, down?: boolean, surrendered?: boolean }[] } }, actor: Member) {
+export function guideFor(world: Pick<World, 'npcPlaces' | 'npcRoles'> & Partial<Pick<World, 'companions' | 'members' | 'crew'>> & { combat?: Pick<NonNullable<World['combat']>, 'participants' | 'place'> & { foes?: { name: string, hp: number, maxHp: number, down?: boolean, surrendered?: boolean }[] } }, actor: Member) {
   const character = actor.character!
   const inCombat = world.combat?.participants.includes(actor.id)
   if (inCombat && world.combat?.foes && character.hp > 0) {
@@ -450,6 +453,7 @@ export function guideFor(world: Pick<World, 'npcPlaces'> & Partial<Pick<World, '
     inCombat,
     down: character.hp <= 0,
     present: npcsAt(world, character.place),
+    role: id => npcRole(world, id),
   })
   if (character.hp <= 0 || inCombat) return guide
   // Hurt or tired players are told, in plain words, how to recover.

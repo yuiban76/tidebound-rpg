@@ -1,5 +1,5 @@
 import { locations, npcs } from '../shared/protocol.ts'
-import type { Intent } from '../shared/protocol.ts'
+import type { Intent, IslandId } from '../shared/protocol.ts'
 import { ballotCount, boatYard, islandAt, islands, islandStories, paceNames, routesFrom, sameRoute, selectedRoute, shipPurchaseInfo } from '../world/sea.ts'
 import type { RouteChoice } from '../world/sea.ts'
 import { party } from '../world/village.ts'
@@ -11,7 +11,7 @@ import { rollSeaEncounter, tierNames } from '../world/foes.ts'
 import { startSeaFight } from './combat.ts'
 import { minuteOf } from '../world/canon.ts'
 import { beli } from '../world/scale.ts'
-import { setFlag } from '../world/flags.ts'
+import { hasFlag, setFlag } from '../world/flags.ts'
 import { warFlag } from '../world/war.ts'
 import { applyEffect } from '../world/timeline.ts'
 import { grantXp } from './engine.ts'
@@ -61,7 +61,10 @@ export function resolveSailing(world: World, actor: Member, intent: SeaIntent, r
   if (!ship) return stop(shipPurchaseInfo)
   if (world.combat) return stop('遭遇仍在進行。結束戰鬥後才能處理航行。')
   const from = islandAt(ship.port)
-  const options = routesFrom(from)
+  // A Buster Call leaves nothing to land on.
+  const ruined = (id: IslandId) => hasFlag(world, 'ruined:' + id)
+  const options = routesFrom(from).filter(route => !ruined(route.to))
+  if (intent.destination && ruined(intent.destination)) return stop(islands[intent.destination].name + '已在屠魔令下化為廢墟，沒有地方能靠岸。')
   const atPort = c.place === ship.port
   const requirement = Math.floor(party(world).length / 2) + 1
 
@@ -217,7 +220,8 @@ export function resolveIslandTask(world: World, actor: Member, intent: TaskInten
     const dc = story.dc ?? 11
     const minutes = story.searchMinutes ?? 10
     const die = roll(20)
-    const check = die + stat(c, attr) + (c.skillRanks[skill] ?? 0) + (task.attempts ?? 0) * (story.retry ?? 3)
+    const check = die + stat(c, attr) + (c.skillRanks[skill] ?? 0) + (task.attempts ?? 0) * (story.retry ?? 3) +
+      (story.helpedBy ?? []).filter(flag => hasFlag(world, flag)).length * 2
     const line = '判定 D20 ' + die + '，合計 ' + check + '／' + dc + '。'
     if (check >= dc) {
       task.stage = 'found'

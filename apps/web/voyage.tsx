@@ -1,7 +1,7 @@
 import { useId } from 'react'
 import { locations, npcs } from '../../packages/shared/protocol.ts'
 import { ballotCount, boatYard, islandAt, islands, islandStories, paceNames, routeNeeds, routesFrom, selectedRoute } from '../../packages/world/sea.ts'
-import { party } from '../../packages/world/village.ts'
+import { npcPlace, party } from '../../packages/world/village.ts'
 import type { View } from './network.ts'
 
 type Props = { world: View['world'], player: string, suggest: (command: string) => void }
@@ -85,7 +85,7 @@ export function IslandAdventure({ world, player, suggest }: Props) {
   const detail = stage === 'done' ? story.close
     : stage === 'closed' ? '這件事已經落幕，由別人了結了。'
     : stage === 'found' ? '搜索完成。回' + locations[story.meeting] + '找' + npcs[story.guide] + '。'
-    : stage === 'active' ? story.lead : '可以到' + locations[story.meeting] + '找' + npcs[story.guide] + '接委託。'
+    : stage === 'active' ? story.lead : '可以到' + locations[story.meeting] + (npcPlace(world, story.guide) === story.meeting ? '找' + npcs[story.guide] : '') + '接委託。'
   return <section className="panel sea-panel" aria-labelledby={title}>
     <h2 id={title}>{story.title}</h2>
     <p>{detail}</p>

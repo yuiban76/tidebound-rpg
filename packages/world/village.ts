@@ -4,7 +4,8 @@ import type { Ship, SailingPlan, IslandTask, RouteChoice } from './sea.ts'
 import type { Foe } from './foes.ts'
 import type { FruitId } from './fruits.ts'
 import { beli, beliScale, scale } from './scale.ts'
-import { canonIslands, canonPeople } from './canon.ts'
+import { canonIslands, canonPeople, minuteOf } from './canon.ts'
+import { water7Aftermath, water7Stages } from './water7.ts'
 import { castPeople } from './cast.ts'
 import { traders, traderWares } from './traders.ts'
 import { addedSites, islandLayouts } from './sites.ts'
@@ -220,6 +221,10 @@ export type World = {
   npcPlaces?: Partial<Record<NpcId, LocationId | null>>
   /** NPC knowledge changed by the timeline or quests. Overrides people[npc].known. */
   npcFacts?: Partial<Record<NpcId, string>>
+  /** Roles changed by the timeline. Overrides people[npc].role. */
+  npcRoles?: Partial<Record<NpcId, string>>
+  /** Set once the Water 7 stages exist in this save; older saves mark the past ones as done without news. */
+  sagaVersion?: number
   /** Timeline events that already fired, and whether players changed the outcome. */
   timeline?: Record<string, 'canon' | 'changed'>
   /** What the players did, by flag name (see world/flags.ts). The value is the minute it first happened. */
@@ -273,6 +278,10 @@ export function npcPlace(world: PlaceWorld, npc: NpcId): LocationId | null {
 export function npcFacts(world: Pick<World, 'npcFacts'>, npc: NpcId) {
   return world.npcFacts?.[npc] ?? people[npc].known
 }
+/** How people know this NPC right now: a cover identity until it is blown. */
+export function npcRole(world: Pick<World, 'npcRoles'>, npc: NpcId) {
+  return world.npcRoles?.[npc] ?? people[npc].role
+}
 export function npcsAt(world: PlaceWorld, place: LocationId) {
   return (Object.keys(people) as NpcId[]).filter(npc => npcPlace(world, npc) === place)
 }
@@ -289,7 +298,7 @@ export function newWorld(code: string, host: string): World {
   return {
     code, version: 0, started: false, minute: 8 * 60,
     members: [{ id: host, host: true, ready: false, agree: false, approved: false }],
-    scale, economy: beliScale,
+    scale, economy: beliScale, sagaVersion: 1,
     stock: initialStock(), memories: emptyMemories(), proposals: [], crew: false,
   }
 }
@@ -334,6 +343,16 @@ export function normalizeWorld(world: World): World {
     applyRace(c)
   }
   dropRemovedContent(world)
+  // The Water 7 stages were added later: what already lies in an old save's past is history, not news.
+  if (!world.sagaVersion) {
+    for (const event of [...water7Stages, ...water7Aftermath]) {
+      if (minuteOf(event.at) > world.minute) continue
+      ;(world.timeline ??= {})[event.id] ??= 'canon'
+      ;(world.phases ??= {})[event.id + ':after'] ??= -1
+    }
+    if (world.timeline?.enies) for (const event of water7Stages) world.timeline[event.id] ??= 'canon'
+    world.sagaVersion = 1
+  }
   return world
 }
 

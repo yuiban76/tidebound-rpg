@@ -250,6 +250,7 @@ legend { padding: 0 .3rem; font-weight: 700; }
   .composer-actions { flex-direction: row; }
   .composer-actions button { flex: 1; }
   .tab { padding-inline: .6rem; }
+  .screen-tabs .tab { flex: 1 0 auto; padding-inline: .3rem; }
 }
 .hud.voyage-bar { padding: .5rem .85rem; }
 .hud.voyage-bar span { border-left: 0; padding-left: 0; }

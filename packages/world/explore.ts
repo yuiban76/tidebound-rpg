@@ -8,6 +8,7 @@ import { islandAt, islands, islandStories } from './sea.ts'
 import { beli } from './scale.ts'
 import { wildPlaces } from './skills.ts'
 import { warGoals } from './war.ts'
+import { sagaGoals } from './water7.ts'
 
 const locationNames: Record<string, LocationId> = {
   ...Object.fromEntries(Object.entries(locations).map(([id, name]) => [name, id as LocationId])),
@@ -89,7 +90,7 @@ export function routeBetween(from: LocationId, to: LocationId, hillClosed = fals
   return []
 }
 
-export function directions(place: LocationId, { hillClosed = false, inCombat = false, down = false, present = undefined as NpcId[] | undefined } = {}) {
+export function directions(place: LocationId, { hillClosed = false, inCombat = false, down = false, present = undefined as NpcId[] | undefined, role = (id: NpcId) => people[id].role } = {}) {
   const nearby = paths[place].filter(id => !hillClosed || id !== 'hill')
   const local = present ?? Object.keys(people).filter(id => people[id as NpcId].place === place) as NpcId[]
   if (down) return { text: '你倒在' + locations[place] + '。可以原地「睡覺」恢復，或請同伴用繃帶包紮。', suggestions: place === 'hill' ? [] : ['睡覺'] }
@@ -101,7 +102,7 @@ export function directions(place: LocationId, { hillClosed = false, inCombat = f
   const text = [
     '你在' + locations[place] + '。',
     ...nearby.map(id => '可以去' + locations[id] + '，' + landmarks[id] + '。'),
-    ...local.map(id => '這裡有' + npcs[id] + '（' + people[id].role + '），可以找對方交談。'),
+    ...local.map(id => '這裡有' + npcs[id] + '（' + role(id) + '），可以找對方交談。'),
     ...(place === 'tavern' ? ['酒吧有烤麵包 ' + beli(meals.bread.price) + '、燉肉飯 ' + beli(meals.rice.price) + '。'] : []),
     ...(wares.length ? [shops[place] + '販售' + wares.map(id => goods[id].label + ' ' + beli(goods[id].price)).join('、') + '。'] : []),
     ...local.filter(isTrader).map(id => npcs[id] + '販售' + traderOffer +
@@ -248,6 +249,9 @@ export function familiarIntent(input: string, here?: LocationId): Intent | undef
   if (/^(?:只)?(?:旁觀|觀戰|在一旁觀戰)$/.test(text)) return { kind: 'war', side: 'none' }
   const warGoal = warGoals.find(goal => text === goal.title || text === '執行' + goal.title)
   if (warGoal) return { kind: 'war', goal: warGoal.id }
+  const sagaGoal = sagaGoals.find(goal => text === goal.title || text === '執行' + goal.title)
+  if (sagaGoal) return { kind: 'goal', goal: sagaGoal.id }
+  if (/^(?:搭|搭乘|坐|搭上|跳上)(?:海列車|火箭人|火車)(?:去司法島|到司法島)?$/.test(text)) return { kind: 'train' }
   if (/^(?:吸收|吃下|吃掉|吞下)(?:那顆|這顆|該顆)?(?:惡魔)?果實$/.test(text)) return { kind: 'fruit', take: true }
   if (/^(?:放走|放棄|不吸收|不吃|丟掉|放生)(?:那顆|這顆|該顆)?(?:惡魔)?果實$/.test(text)) return { kind: 'fruit', take: false }
   const absorb = /^(?:吸收|吃下|吃掉|吞下)(.{1,12}果實.*)$/.exec(text)

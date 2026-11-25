@@ -96,6 +96,9 @@ export const castNpcs = {
   marguerite: '瑪格麗特', sandersonia: '桑達索尼亞', marigold: '馬里哥爾特', hannyabal: '漢尼巴爾',
   // The rest of Whitebeard's sons who matter at the Summit War.
   daz: '達茲・波涅斯', tsuru: '鶴中將',
+  // Water 7 and Enies Lobby (names follow the Chinese Wikipedia entries).
+  jabra: '賈布拉', kumadori: '偎取', fukurou: '梟', nero: '奈洛', oimo: '歐伊摩', kashii: '卡西',
+  lulu: '露露', tilestone: '戴魯斯通', kiwi: '基威', mozu: '摩茲', chimney: '蒂姆妮', gonbe: '公貝',
   squard: '斯庫亞多', oarsJr: '小奧茲Jr.', izo: '以藏', namur: '那謬爾', rakuyo: '拉克約', curiel: '庫利', blenheim: '布倫海姆',
 } as const
 

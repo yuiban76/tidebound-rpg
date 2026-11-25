@@ -4,6 +4,7 @@
 import type { IslandId, LocationId, NpcId } from '../shared/protocol.ts'
 import type { canonIslandIds, canonNpcs } from '../shared/atlas.ts'
 import { warEndings, warStages } from './war.ts'
+import { water7Aftermath, water7Stages } from './water7.ts'
 
 type CanonIslandId = (typeof canonIslandIds)[number]
 type Attribute = 'STR' | 'AGI' | 'CON' | 'PER' | 'INT' | 'WIL'
@@ -17,6 +18,12 @@ export type WorldEffect = {
   /** Island quests that can no longer be taken because the matter is settled. */
   close?: IslandId[]
   repairShip?: boolean
+  /** Custom flags to remember (flags.ts). */
+  flags?: string[]
+  /** Takes every player (and the party's ship) off an island: someone came to fetch them. */
+  evacuate?: { from: IslandId, to: LocationId }
+  /** How people are known from now on. */
+  roles?: Partial<Record<NpcId, string>>
 }
 
 export type IslandStory = {
@@ -29,6 +36,8 @@ export type IslandStory = {
   /** Search difficulty (default 11), retry bonus per failed attempt (default 3) and minutes per try (default 10). */
   dc?: number, retry?: number, searchMinutes?: number
   check?: { attr: Attribute, skill: string }
+  /** Flags that each make the search easier by 2. */
+  helpedBy?: string[]
   /** Highest party level needed before the quest can be accepted (spec §7.7: luck alone can't bridge power gaps). */
   minLevel?: number
   /** [day, hour] before which the situation does not exist yet. */
@@ -57,6 +66,8 @@ export type CanonEvent = {
   changed?: { by?: IslandId, defeated?: NpcId, /** Every flag must hold (see flags.ts). */ when?: string[], text: string, effect?: WorldEffect }[]
   /** When every flag holds the event passes silently: it never happens (e.g. no war after the Impel Down breakout). */
   skip?: string[]
+  /** Waits until this other event has happened. */
+  after?: string
 }
 
 /** What happens to the world right away when the players beat a canon villain in a fight. */
@@ -73,7 +84,7 @@ export const bossDefeats: Partial<Record<NpcId, { text: string, effect: WorldEff
   crocodile: { text: '七武海克洛克達爾敗了！他的陰謀隨之瓦解，海軍很快就會趕到雨地。',
     effect: { move: { crocodile: null }, facts: { pell: '克洛克達爾被打倒了，真相終於能讓國民知道。' } } },
   enel: { text: '自稱為神的艾涅爾倒下了，空島的人們終於從恐懼中解放。', effect: { move: { enel: null } } },
-  lucci: { text: 'CP9 最強的羅布・路基被打倒了，司法島陷入一片混亂。', effect: { move: { lucci: null } } },
+  lucci: { text: 'CP9 最強的羅布・路基被打倒了，世界政府的諜報機關一片混亂。', effect: { move: { lucci: null } } },
   moria: { text: '七武海月光・摩利亞倒下了，被奪走的影子紛紛回到主人身上。', effect: { move: { moria: null }, facts: { brook: '我的影子……回來了！喲吼吼吼！' } } },
 }
 
@@ -149,7 +160,7 @@ export const canonPeople: Record<keyof typeof canonNpcs, { place: LocationId | n
   iceburg: { place: 'galleyLa', role: '七水之都市長', known: '卡雷拉公司的社長兼市長。他說最近總覺得船塢裡有人在盯著他。' },
   franky: { place: 'frankyHouse', role: '解體屋的老大', known: '喜歡可樂、開口閉口都是「超級」的改造人，年輕時是造船大師湯姆的弟子。' },
   spandam: { place: 'justiceTower', role: 'CP9 長官', known: '世界政府諜報機關 CP9 的長官，滿腦子想著立功升官。' },
-  lucci: { place: 'justiceTower', role: 'CP9 特務', known: '他相信「黑暗的正義」，為了政府可以不擇手段。' },
+  lucci: { place: 'galleyLa', role: '卡雷拉公司的船匠', known: '從不開口說話的船匠，肩上的鴿子替他回答一切；手藝和力氣都是船塢第一。' },
   robin: { place: null, role: '考古學家', known: '能讀懂歷史本文的考古學家，從小被世界政府追捕。' },
   brook: { place: 'graveyard', role: '只剩骨頭的音樂家', known: '吃了黃泉果實復活的骷髏。影子被摩利亞奪走，不能在陽光下行走。' },
   moria: { place: 'moriaMansion', role: '王下七武海', known: '能奪走他人影子、放進殭屍體內的七武海。' },
@@ -281,11 +292,12 @@ export const canonStories: Record<CanonIslandId, IslandStory> = {
     samples: ['接下甘・佛爾的請託', '搜索上層雲', '回報甘・佛爾'],
   },
   water7: {
-    title: '市長遇襲事件', guide: 'iceburg', meeting: 'galleyLa', search: 'frankyHouse',
+    title: '市長遇襲事件', guide: 'iceburg', meeting: 'iceburgMansion', search: 'frankyHouse',
     lead: '冰山市長昨夜遇襲。他說兇手可能就在身邊，請你暗中找出線索。',
     find: '你在佛朗基之家附近撿到一張 CP9 的密令，上面寫著要奪取古代兵器的設計圖。',
     close: '冰山看完密令嘆了口氣，請你們小心世界政府，並讓卡雷拉公司免費把你們的船修好。',
     miss: '船塢的工人起了疑心，你只好先離開。', reward: 30_000, xp: 250, dc: 13,
+    availableFrom: [46, 4],
     onDone: { repairShip: true },
     samples: ['接下冰山的請託', '調查佛朗基之家', '把密令交給冰山'],
   },
@@ -295,7 +307,8 @@ export const canonStories: Record<CanonIslandId, IslandStory> = {
     find: '你在正義之門的吊橋上擋下押送的 CP9，把羅賓從鐐銬裡救了出來。',
     close: '羅賓終於說出「我想活下去」。你們帶著她撤離了司法島。',
     miss: 'CP9 的六式把你擊退，你只能先找掩護。', reward: 40_000, xp: 400,
-    dc: 16, retry: 2, searchMinutes: 30, minLevel: 5, availableFrom: [46, 10],
+    dc: 18, retry: 2, searchMinutes: 30, minLevel: 5, availableFrom: [48, 8],
+    helpedBy: ['saga:en.giants', 'saga:en.court', 'saga:en.keys', 'defeated:lucci'],
     onDone: { move: { robin: null }, facts: { robin: '她被你們從正義之門前救了出來，第一次說出想活下去。' } },
     samples: ['決定救出羅賓', '衝向正義之門', '帶羅賓撤離'],
   },
@@ -392,12 +405,20 @@ export const luffyRoute: RouteStop[] = [
   { at: [33, 12], place: 'godShrine' },
   { at: [34, 8], place: null, facts: '從空島回來了，說天上真的有黃金。' },
   { at: [40, 10], place: 'water7Port' },
-  { at: [44, 10], place: 'galleyLa' },
-  { at: [46, 12], place: null, facts: '羅賓被帶走了，他正追著海列車去司法島。' },
-  { at: [48, 8], place: 'justiceTower' },
+  { at: [41, 12], place: 'galleyLa', facts: '他們帶著空島的黃金來修船，每個船匠都說那艘船很了不起。' },
+  { at: [44, 21], place: 'water7Port' },
+  { at: [45, 8], place: 'galleyLa' },
+  { at: [46, 20], place: 'iceburgMansion', facts: '他要自己問羅賓，為什麼要走。' },
+  { at: [47, 8], place: 'galleyLa' },
+  { at: [47, 18], place: 'blueStation', facts: '羅賓說的話不是真心的，他要追到司法島去。' },
+  { at: [47, 22], place: null },
+  { at: [48, 6], place: 'eniesFront' },
+  { at: [48, 7], place: 'courthouse' },
+  { at: [48, 9], place: 'justiceTower' },
+  { at: [48, 12], place: 'gateOfJustice' },
   { at: [48, 14], place: null },
-  { at: [49, 8], place: 'water7Port', joins: 'franky', facts: '從司法島救回羅賓。佛朗基替他們造了新船千陽號，也成了船匠夥伴。' },
-  { at: [53, 8], place: null },
+  { at: [49, 8], place: 'galleyLa', facts: '從司法島救回了羅賓。梅利號走了，現在等著新船下水。' },
+  { at: [53, 8], place: null, joins: 'franky', facts: '佛朗基替他們造了新船千陽號，也成了船匠夥伴。' },
   { at: [55, 10], place: 'thrillerDock' },
   { at: [56, 4], place: 'moriaMansion', skip: 'defeated:moria', skipFacts: '聽說摩利亞已經被打倒，影子都回來了，他沒有登上那艘鬼船。' },
   { at: [56, 12], place: null, joins: 'brook', facts: '骷髏音樂家布魯克加入了，草帽一夥共有九個人。' },
@@ -495,21 +516,21 @@ export const canonTimeline: CanonEvent[] = [
     effect: { move: { enel: null }, facts: { ganfall: '鐘聲響了，空島的人們終於能放下四百年的仇恨。' }, close: ['skypiea'] },
     changed: [{ defeated: 'enel', text: '艾涅爾早已被一群地上來的旅人打倒，黃金鐘的聲音響徹空島。', effect: { close: ['skypiea'] } },
       { when: ['recruited:enel'], text: '艾涅爾已被一群地上來的旅人收服、帶離了空島，黃金鐘的聲音響徹空島。', effect: { close: ['skypiea'] } }] },
-  { id: 'water7', at: [46, 10], island: 'water7', title: '海列車的乘客',
-    text: 'CP9 在七水之都襲擊市長冰山後，押著考古學家妮可・羅賓搭上海列車前往司法島。',
-    effect: { move: { robin: 'justiceTower' }, facts: { iceburg: '兇手是我的秘書和船匠……他們是 CP9。羅賓被押往司法島了。' }, close: ['water7'] } },
-  { id: 'enies', at: [48, 12], island: 'eniesLobby', title: '向世界政府宣戰',
-    text: '草帽一夥向世界政府宣戰，在正義之門前救出妮可・羅賓；司法島在屠魔令下化為廢墟。',
+  ...water7Stages,
+  { id: 'enies', at: [48, 12], island: 'eniesLobby', title: '猶豫橋的決戰',
+    text: '魯夫在猶豫橋旁打倒了 CP9 最強的路基，草帽一夥在正義之門前救出妮可・羅賓。',
     effect: { move: { robin: null, lucci: null, spandam: null }, close: ['eniesLobby'] },
-    changed: [{ defeated: 'lucci', text: '路基早已被打倒，CP9 押送失手，妮可・羅賓獲救；屠魔令依然落下，司法島化為廢墟。',
+    changed: [{ defeated: 'lucci', text: '路基早已被打倒，CP9 押送失手，妮可・羅賓獲救。',
       effect: { move: { robin: null, spandam: null } } },
-      { by: 'eniesLobby', text: '妮可・羅賓在被押進正義之門前就獲救了。屠魔令依然落下，司法島化為廢墟。',
+      { by: 'eniesLobby', text: '妮可・羅賓在被押進正義之門前就被一群旅人救走了，魯夫趕到橋上時，只剩下路基在等他。',
       effect: { move: { lucci: null, spandam: null } } },
-      { when: ['recruited:lucci'], text: '路基已被一群旅人收服、帶離，CP9 押送失手，妮可・羅賓獲救；屠魔令依然落下，司法島化為廢墟。',
+      { when: ['recruited:lucci'], text: '路基已被一群旅人收服、帶離，CP9 押送失手，妮可・羅賓獲救。',
         effect: { move: { robin: null, spandam: null } } }] },
+  ...water7Aftermath.filter(event => event.at[0] < 52),
   { id: 'aceCaptured', at: [52, 8], island: 'impelDown', title: '火拳艾斯被捕',
     text: '白鬍子海賊團第二隊隊長火拳艾斯被黑鬍子擊敗，押進了推進城。',
     effect: { move: { ace: 'impelLevel6' }, facts: { ace: '他被黑鬍子擊敗後關進推進城的最下層，仍然不肯低頭。' } } },
+  ...water7Aftermath.filter(event => event.at[0] >= 52),
   { id: 'thriller', at: [56, 6], island: 'thrillerBark', title: '影子回到主人身上',
     text: '王下七武海月光・摩利亞被擊敗，被奪走的影子回到主人身上；音樂家布魯克加入草帽一夥。',
     effect: { move: { brook: null }, close: ['thrillerBark'] },
