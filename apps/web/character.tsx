@@ -14,7 +14,7 @@ import { Bar, Card, meIn, More, Pill, Segments, Tiles, useSegment } from './side
 import type { PanelProps } from './side.tsx'
 
 /** Who the player is on top; abilities and moves on two pages below. Points to spend show up right where they go. */
-export function CharacterPanel({ view, world, player, suggest, send, post, paused }: PanelProps & { view: Pick<View, 'player' | 'portraits'>, send: (msg: Message) => Promise<unknown>, post: (msg: Message) => void, paused: boolean }) {
+export function CharacterPanel({ view, world, player, suggest, send, post, paused }: PanelProps & { view: View, send: (msg: Message) => Promise<unknown>, post: (msg: Message) => void, paused: boolean }) {
   const [page, setPage] = useSegment<'skills' | 'moves'>('me', 'skills')
   const c = meIn(world, player)
   const locked = paused || !!world.combat?.participants.includes(player)

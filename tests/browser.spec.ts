@@ -89,7 +89,7 @@ async function photo(page: Page, hue: number) {
 }
 /** Picks a portrait in the dialog behind the round button. */
 async function setPortrait(page: Page, hue: number) {
-  await page.getByRole('button', { name: '換頭貼' }).click()
+  await page.getByRole('button', { name: '換頭貼' }).first().click()
   const dialog = page.getByRole('dialog')
   await dialog.locator('input[type=file]').setInputFiles({ name: 'x.png', mimeType: 'image/png', buffer: Buffer.from('not a picture') })
   await expect(dialog.getByRole('alert')).toContainText('打不開')
@@ -346,10 +346,12 @@ for (const count of [2, 3, 4]) test(count + ' 個瀏覽器用 WebRTC 開局與�
       const first = await face.getAttribute('src')
       expect(first).toMatch(/^data:image\/jpeg;base64,/)
       await expect(page.locator('.hud .avatar img')).toBeVisible()
-      await openTab(guests[0], '角色')
+      // In the game: the round button in the status bar, whatever tab is open.
+      await expect(guests[0].locator('.hud').getByRole('button', { name: '換頭貼' })).toBeVisible()
       await setPortrait(guests[0], 120)
       await expect.poll(() => face.getAttribute('src'), { timeout: 15_000 }).not.toBe(first)
-      await guests[0].getByRole('button', { name: '換頭貼' }).click()
+      await openTab(guests[0], '角色')
+      await guests[0].getByRole('region', { name: '角色資料' }).getByRole('button', { name: '換頭貼' }).click()
       await guests[0].getByRole('button', { name: '移除頭貼' }).click()
       await expect(face).toHaveCount(0, { timeout: 15_000 })
     }

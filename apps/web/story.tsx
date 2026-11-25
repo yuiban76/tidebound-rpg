@@ -30,7 +30,7 @@ import { diceIn } from '../../packages/shared/dice.ts'
 import { partLevel } from '../../packages/world/ships.ts'
 import { VoiceBar, VoiceSettingsPanel, VoiceSwitch } from './voice-panel.tsx'
 import { useNarrator } from './voice.ts'
-import { MemberAvatar, usePortraits } from './portrait.tsx'
+import { MemberAvatar, PortraitPicker, usePortraits } from './portrait.tsx'
 import { WarPanel } from './war.tsx'
 import { SagaPanel } from './saga.tsx'
 import { MarketPanel } from './market.tsx'
@@ -275,7 +275,7 @@ export function Story({ view, send, history, connected, gap, review }: {
       ? <FightTray key={rolling.seq} {...fight} faces={Object.fromEntries(crew.map(m => [m.character!.name, portraits[m.id]]))} vitals={vitals()} showDice={dice.length > 0} onDone={() => setRolled(rolling.seq)}/>
       : dice.length > 0 && <DiceTray key={rolling.seq} rolls={dice.slice(0, 6)} onDone={() => setRolled(rolling.seq)}/>)}
     <header className="hud voyage-bar" aria-label="角色狀態">
-      <div className="hud-me">{portraits[player] && <MemberAvatar id={player} name={character.name} size="small"/>}
+      <div className="hud-me"><PortraitPicker view={view} name={character.name} send={send} size="small"/>
         <div className="hud-place"><strong>{islands[island].name}</strong><span>{location}</span><span>{clock(world.minute)}</span></div></div>
       <div className="hud-stats">
         <Meter label="HP" value={character.hp} max={maxHP(character)} tone="hp"/>

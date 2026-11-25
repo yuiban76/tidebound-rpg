@@ -103,7 +103,7 @@ export function Lobby({ view, send, start, review, busy }: {
           {review && m.character && !m.approved && <button className="light" onClick={() => review(m.id, true)}>核准</button>}
         </li>)}
       </ul>
-      <div className="lobby-me"><PortraitPicker view={view} name={me.character?.name ?? ''} send={send}><p className="hint">{view.portraits ? '點圓圈換上自己的頭貼，遊戲中隨時能換。' : '房主更新後就能換頭貼。'}</p></PortraitPicker></div>
+      <div className="lobby-me"><PortraitPicker view={view} name={me.character?.name ?? ''} send={send}/><p className="hint">點圓圈換上自己的頭貼，遊戲中隨時能換。</p></div>
       <p className="hint">你們原本就是朋友。其他共同行動或私交由當事人同意後決定。</p>
       <label className="check"><input type="checkbox" checked={confirm} disabled={me.ready} onChange={e => setConfirm(e.target.checked)}/> 我確認這段共同背景</label>
       <div className="button-row">

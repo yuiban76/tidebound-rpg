@@ -150,19 +150,32 @@ function PortraitDialog({ name, current, send, onClose }: {
   </dialog>
 }
 
-/** The player's own portrait as a button to change it. A host that is not up to date yet cannot keep one. */
-export function PortraitPicker({ view, name, send, children }: {
-  view: Pick<View, 'player' | 'portraits'>, name: string, send: (msg: Message) => Promise<unknown>, children?: ReactNode,
+/** The player's own portrait as a button to change it. */
+export function PortraitPicker({ view, name, send, size = 'large' }: {
+  view: View, name: string, send: (msg: Message) => Promise<unknown>, size?: 'small' | 'large',
 }) {
   const [open, setOpen] = useState(false)
   const current = usePortraits()[view.player]
-  if (!view.portraits) return <><Avatar name={name || '？'} src={current} size="large"/>{children}</>
   return <>
     <button type="button" className="portrait-button" aria-label="換頭貼" title="換頭貼" onClick={() => setOpen(true)}>
-      <Avatar name={name || '？'} src={current} size="large"/>
+      <Avatar name={name || '？'} src={current} size={size}/>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5h3.2L8.8 6h6.4l1.6 2.5H20V18.5H4ZM12 16a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/></svg>
     </button>
-    {children}
-    {open && <PortraitDialog name={name} current={current} send={send} onClose={() => setOpen(false)}/>}
+    {open && (view.portraits
+      ? <PortraitDialog name={name} current={current} send={send} onClose={() => setOpen(false)}/>
+      : <OldHostDialog host={!!view.world.members.find(m => m.id === view.player)?.host} onClose={() => setOpen(false)}/>)}
   </>
+}
+
+/** The page is newer than the host program, which cannot keep a portrait yet: say what to do about it. */
+function OldHostDialog({ host, onClose }: { host: boolean, onClose: () => void }) {
+  const title = useId()
+  const dialog = useRef<HTMLDialogElement>(null)
+  useEffect(() => { dialog.current!.showModal() }, [])
+  return <dialog ref={dialog} className="portrait-dialog" aria-labelledby={title} onClose={onClose}>
+    <h2 id={title}>房主程式還是舊版</h2>
+    <p>{host ? '網頁已經更新，但房主程式還在跑舊版，存不了頭貼。請關掉房主程式的視窗，再重新啟動一次，然後重新整理這個頁面。進度都在存檔裡，不會不見。'
+      : '房主的程式還沒更新，存不了頭貼。請房主關掉房主程式，再重新啟動一次。'}</p>
+    <div className="button-row"><button type="button" className="light" onClick={onClose}>知道了</button></div>
+  </dialog>
 }

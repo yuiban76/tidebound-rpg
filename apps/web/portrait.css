@@ -13,6 +13,11 @@
   position: absolute; right: -.35rem; bottom: -.3rem; width: 1.35rem; height: 1.35rem; padding: .18rem; border: 1px solid #87662a; border-radius: 50%;
   background: var(--brass); fill: none; stroke: var(--navy); stroke-width: 2; stroke-linejoin: round;
 }
+.hud .portrait-button { margin-block: -.3rem; }
+.hud .portrait-button .avatar { width: 2.2rem; height: 2.2rem; font-size: 1.05rem; }
+.hud .portrait-button > svg { width: 1.1rem; height: 1.1rem; padding: .12rem; }
+.portrait-dialog > p { margin-top: .8rem; text-align: left; }
+.portrait-dialog > p.hint { text-align: center; }
 .portrait-dialog { width: min(23rem, calc(100vw - 2rem)); padding: 1.1rem 1.2rem 1.2rem; border: 4px double #8a6a2c; border-radius: 12px; color: var(--ink); background: #fbf5e3; text-align: center; }
 .portrait-dialog::backdrop { background: #0d1d27b8; }
 .portrait-dialog h2 { font-family: "Noto Serif TC", "Songti TC", PMingLiU, serif; letter-spacing: .06em; overflow-wrap: anywhere; }
