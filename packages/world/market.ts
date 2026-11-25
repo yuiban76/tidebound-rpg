@@ -35,7 +35,7 @@ export const specials = {
   salt: { label: '鹽', price: 1_000, kind: 'combat', effect: 'salt', text: '塞進殭屍嘴裡，影子就會離開，殭屍當場倒下' },
   leather: { label: '皮甲', price: 200_000, kind: 'armor', def: 1, text: '輕便的皮甲：防禦 +1' },
   cloak: { label: '沙漠斗篷', price: 250_000, kind: 'armor', def: 1, text: '擋得住風沙也擋得住刀：防禦 +1' },
-  iron: { label: '鐵甲', price: 800_000, kind: 'armor', def: 2, agi: -1, text: '厚重的鐵甲：防禦 +2，但敏捷 −1' },
+  iron: { label: '鐵甲', price: 800_000, kind: 'armor', def: 3, agi: -1, text: '厚重的鐵甲：防禦 +3，但敏捷 −1（實際防禦 +2，出手和閃躲較慢）' },
   snakeskin: { label: '蛇皮護甲', price: 1_500_000, kind: 'armor', def: 2, text: '九蛇島的蛇皮護甲，又輕又韌：防禦 +2' },
   marineArmor: { label: '海軍制式護甲', price: 1_200_000, kind: 'armor', def: 2, lawful: true, text: '海軍的制式護甲：防禦 +2；軍需商不賣給有懸賞金的人' },
   adamWood: { label: '亞當木', price: 2_000_000, kind: 'ship', text: '傳說中的寶樹木材：在船邊使用，船體一次修滿；三份可以打造亞當木大帆船' },
@@ -72,10 +72,12 @@ export const slipName = (target: string, bounty: number) => '賞金單：' + tar
 export const slipValue = (item: string) => item.startsWith('賞金單：') ? Number(/（([\d,]+) 貝里）$/.exec(item)?.[1].replaceAll(',', '') ?? 0) : 0
 export const slipsOf = (c: Pick<Character, 'inventory'>) => Object.keys(c.inventory).filter(item => slipValue(item) > 0)
 
-/** The armor a character carries that protects best (armor is not equipped: carrying it is enough). */
+/** What a piece adds to defense once its agility cost (which lowers defense too) is paid. */
+const protection = (item: Special) => (item.def ?? 0) + (item.agi ?? 0)
+/** The armor a character carries that protects best; of two equals, the lighter one (armor is not equipped: carrying it is enough). */
 export function armorOf(c: Pick<Character, 'inventory'>): Special | undefined {
   return (Object.values(specials) as Special[]).filter(item => item.kind === 'armor' && c.inventory[item.label])
-    .sort((a, b) => (b.def ?? 0) - (a.def ?? 0))[0]
+    .sort((a, b) => protection(b) - protection(a) || (b.agi ?? 0) - (a.agi ?? 0))[0]
 }
 
 export const specialByLabel = (label: string) =>

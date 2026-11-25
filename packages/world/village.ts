@@ -305,6 +305,9 @@ export function newWorld(code: string, host: string): World {
   }
 }
 
+/** More than anyone earned without bounties under the old prices (a full voyage to Jaya brought in about 11,000). */
+const oldEarnings = 20_000
+
 /** Fills fields added after a save was written. Idempotent; never changes values that already exist. */
 export function normalizeWorld(world: World): World {
   // Saves written before (or under another) number scale: multiply every stored HP once.
@@ -321,10 +324,14 @@ export function normalizeWorld(world: World): World {
     for (const member of world.members) if (member.character) member.character.sta = Math.round(member.character.sta * staRatio)
     world.staScale = staScale
   }
-  // Prices moved to canon beli (×50): money saved under the old numbers keeps its buying power.
+  // Prices moved to canon beli (×50): money saved under the old numbers keeps its buying power. Bounties were paid in
+  // canon beli even then, so whatever lies beyond what the old prices let anyone earn is bounty money and stays as it is.
   if ((world.economy ?? 1) !== beliScale) {
     const factor = beliScale / (world.economy ?? 1)
-    for (const member of world.members) if (member.character) member.character.money = Math.round(member.character.money * factor)
+    for (const member of world.members) if (member.character) {
+      const earned = Math.min(member.character.money, oldEarnings)
+      member.character.money = Math.round(earned * factor) + member.character.money - earned
+    }
     world.economy = beliScale
   }
   const stock = initialStock()

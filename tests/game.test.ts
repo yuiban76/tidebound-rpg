@@ -12,7 +12,7 @@ import { Game } from '../apps/host/game.ts'
 import { makeHost } from '../apps/host/http.ts'
 import { Store } from '../apps/host/store.ts'
 import { allocatePoint, attackCheck, grantXp, makeCharacter, maxHP, maxSTA, resolve as resolveAction, voteThreshold } from '../packages/rules/engine.ts'
-import { newWorld } from '../packages/world/village.ts'
+import { newWorld, normalizeWorld } from '../packages/world/village.ts'
 import { routeBetween } from '../packages/world/explore.ts'
 import { character, compatibilityFixture } from './fixtures.ts'
 import { scale } from '../packages/world/scale.ts'
@@ -869,6 +869,11 @@ test('舊存檔載入時補上新欄位而不改動既有資料', () => {
     assert.deepEqual(loaded.memories.mayor, [])
     assert.deepEqual([loaded.members[0].character?.unspent, loaded.members[0].character?.xpLog, loaded.members[0].character?.money], [0, {}, 777 * 50])
     assert.equal(loaded.members[0].character?.sta, 26)
+    // Bounties were already paid in canon beli: only the small old money is converted.
+    const rich = JSON.parse(JSON.stringify(legacy))
+    rich.members[0].character.money = 66_010_735
+    assert.equal(normalizeWorld(rich).members[0].character?.money, 66_010_735 - 20_000 + 1_000_000)
+    assert.equal(normalizeWorld(rich).members[0].character?.money, 66_990_735, '只換算一次')
     store.save(loaded)
     assert.equal(store.get('ABCDEF0123')!.members[0].character?.sta, 26, '只換算一次')
   } finally { store.db.close() }

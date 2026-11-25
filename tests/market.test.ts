@@ -98,7 +98,7 @@ test('食物和櫻花藥可以直接吃喝；亞當木在停船處把船修滿',
   assert.equal(world.ship.hull, 100)
 })
 
-test('防具只算最好的一件；鐵甲加防禦但減敏捷', () => {
+test('防具只算實際最好的一件；鐵甲加防禦但減敏捷', () => {
   const { world, member, c } = solo('square')
   const agi = stat(c, 'AGI')
   c.inventory['皮甲'] = 1
@@ -108,7 +108,9 @@ test('防具只算最好的一件；鐵甲加防禦但減敏捷', () => {
   const bare = solo('square')
   const a = def(act(bare.world, bare.member, { kind: 'attack', target: '村長' }, dice(5, 1, 10, 1)).text)
   const b = def(act(world, member, { kind: 'attack', target: '村長' }, dice(5, 1, 10, 1)).text)
-  assert.equal(b - a, 2 - 1, '防禦 +2、敏捷 −1，防禦值淨 +1')
+  assert.equal(b - a, 3 - 1, '防禦 +3、敏捷 −1，防禦值淨 +2，比皮甲好')
+  c.inventory['蛇皮護甲'] = 1
+  assert.equal(stat(c, 'AGI'), agi, '同樣淨 +2 時選不拖慢人的蛇皮護甲')
 })
 
 test('戰鬥道具：火藥星讓對手沒能出手、火焰貝造成傷害、煙霧彈全隊撤離、鹽打倒殭屍', () => {
