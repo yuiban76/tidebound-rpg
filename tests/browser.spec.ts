@@ -153,16 +153,36 @@ test('單人須先實際生成回覆才能開房，開局後可執行 D20、問�
   await page.keyboard.press('Escape')
   await expect(page.locator('.dice-tray')).toHaveCount(0)
   await expect(page.locator('.entry-result').filter({ hasText: '觀察 D20' })).toHaveCount(1)
+  await page.getByText('動畫與語音').click()
   await page.getByLabel('骰子動畫').uncheck()
   await page.getByLabel('攻擊動畫').uncheck()
   await action(page, '檢查地上的鞋印', '觀察 D20')
   await expect(page.locator('.entry-narrative').last()).toBeVisible()
+  // The storyteller is off until asked, reads only what comes after that, and falls silent on request.
+  await page.evaluate(() => {
+    const seen = window as unknown as { heard: string[] }
+    seen.heard = []
+    speechSynthesis.speak = line => { seen.heard.push(line.text); setTimeout(() => line.onstart?.(new Event('start') as SpeechSynthesisEvent), 5); setTimeout(() => line.onend?.(new Event('end') as SpeechSynthesisEvent), 400) }
+    speechSynthesis.cancel = () => {}
+  })
+  const heard = () => page.evaluate(() => (window as unknown as { heard: string[] }).heard)
+  await page.getByLabel('語音說故事').check()
+  await expect(page.getByRole('group', { name: '語音設定' })).toBeVisible()
+  expect(await heard()).toEqual([])
+  await page.getByRole('button', { name: '試聽' }).click()
+  await expect(page.getByRole('group', { name: '語音播放' })).toContainText('旁白')
+  await expect.poll(heard).toContain('我要成為海賊王！')
+  await page.getByRole('button', { name: '停止', exact: true }).click()
+  await expect(page.getByRole('group', { name: '語音播放' })).toHaveCount(0)
+  await page.getByText('動畫與語音').click()
   await action(page, '去派對酒吧，找瑪琪諾聊天', '瑪琪諾與你交談')
   await expect(page.locator('.voyage-bar')).toContainText('派對酒吧')
   await expect(page.locator('.action-suggestions')).toContainText('你正和瑪琪諾交談。')
   await action(page, '小艇上是誰', '是魯夫喔')
   await action(page, '說明小艇上的人員狀況是如何', '是魯夫喔')
   await expect(page.locator('.entry-result').filter({ hasText: '瑪琪諾說：「是魯夫喔。' })).toHaveCount(2)
+  await expect.poll(heard).toContain('是魯夫喔。')
+  expect((await heard()).some(line => /D20|XP/.test(line))).toBe(false)
   await action(page, '瑪琪諾\n我要買船要去哪買', '風車村港口的船塢販售可載八人的小帆船')
   await expect(page.locator('.entry-result').last()).toContainText('瑪琪諾說：「')
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390)

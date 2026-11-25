@@ -1,0 +1,16 @@
+.voice-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .5rem; margin: 0; padding: .35rem 1rem; border-top: 1px solid var(--line); background: #eef4f1; font-size: .88rem; }
+.voice-bar button { min-height: 34px; padding: .15rem .6rem; font-size: .84rem; }
+.voice-now { display: flex; align-items: center; gap: .45rem; flex: 1 1 8rem; min-width: 0; font-weight: 700; }
+.voice-now i { width: .8rem; height: .8rem; border-radius: 50%; background: #2f8f6f; animation: voice-beat 1s ease-in-out infinite; }
+/* Animation and voice switches stay folded away under the action box. */
+.play-options summary { min-height: 32px; padding: .2rem 0; font-size: .86rem; color: var(--muted); }
+.play-options .composer-foot { justify-content: flex-start; gap: 0 1.2rem; }
+.voice-settings { padding: 0 0 .3rem; }
+.voice-fields { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: center; gap: .3rem .7rem; font-size: .9rem; }
+.voice-fields select, .voice-fields input { min-height: 36px; margin: 0; }
+.voice-settings .button-row { margin-top: .4rem; }
+.entry-speaking { border-left: 4px solid #2f8f6f; padding-left: .55rem; }
+.entry header .entry-play { min-height: 0; margin-left: auto; padding: 0 .45rem; border: 0; background: none; color: #2f6f66; font-size: .78rem; font-weight: 700; line-height: 1.4; }
+.entry header .entry-play:hover { text-decoration: underline; background: none; }
+@keyframes voice-beat { 50% { transform: scale(.55); opacity: .5; } }
+@media (prefers-reduced-motion: reduce) { .voice-now i { animation: none; } }

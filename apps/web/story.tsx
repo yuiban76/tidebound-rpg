@@ -30,6 +30,8 @@ import { lineUp, pickStrikes, strikesIn } from '../../packages/world/strikes.ts'
 import { companionIds, companionMaxHp } from '../../packages/world/companions.ts'
 import { diceIn } from '../../packages/shared/dice.ts'
 import { partLevel, shipName } from '../../packages/world/ships.ts'
+import { VoiceBar, VoiceSettingsPanel, VoiceSwitch } from './voice-panel.tsx'
+import { useNarrator } from './voice.ts'
 import { WarPanel } from './war.tsx'
 import { SagaPanel } from './saga.tsx'
 import { MarketPanel } from './market.tsx'
@@ -43,7 +45,12 @@ export const clock = (minutes: number) => '第 ' + (Math.floor(minutes / 1440) +
 type Side = 'map' | 'me' | 'bag' | 'crew' | 'news' | 'luffy'
 const sideTabs: [Side, string][] = [['map', '地圖'], ['me', '角色'], ['bag', '背包'], ['crew', '船團'], ['news', '消息'], ['luffy', npcs.luffy]]
 
-function Log({ entries, names, draft }: { entries: Entry[], names: Record<string, string>, draft?: string }) {
+/** Entry kinds the storyteller can read. */
+const readable = new Set(['narrative', 'world', 'result'])
+
+function Log({ entries, names, draft, speaking, onPlay }: {
+  entries: Entry[], names: Record<string, string>, draft?: string, /** The entry being read aloud, and how to hear one again. */ speaking?: number, onPlay?: (entry: Entry) => void,
+}) {
   const ref = useRef<HTMLDivElement>(null)
   const latest = entries.at(-1)?.seq
   useEffect(() => {
@@ -52,10 +59,11 @@ function Log({ entries, names, draft }: { entries: Entry[], names: Record<string
   }, [latest, draft])
   return <div className="log" ref={ref} role="log" aria-live="polite">
     {!entries.length && <p className="hint empty">這裡還沒有紀錄。</p>}
-    {entries.map(entry => <article key={entry.seq} className={'entry entry-' + entry.type}>
+    {entries.map(entry => <article key={entry.seq} className={'entry entry-' + entry.type + (speaking === entry.seq ? ' entry-speaking' : '')}>
       <header>
         <span>{entry.type === 'input' ? (entry.actor ? names[entry.actor] ?? '玩家' : '') + ' ▸' : entryTag[entry.type] ?? ''}</span>
         <time>{clock(entry.minute)}</time>
+        {onPlay && readable.has(entry.type) && <button type="button" className="entry-play" onClick={() => onPlay(entry)}>▶ 唸</button>}
       </header>
       <p>{entry.text}</p>
     </article>)}
@@ -155,6 +163,8 @@ export function Story({ view, send, history, connected, gap, review }: {
   const disabled = !connected || sending ||
     (!chat && !sceneQuestion(draft) && (!!rolling || !!current || paused || !!combat?.locked.includes(player)))
   const names = Object.fromEntries(crew.map(m => [m.id, m.character!.name]))
+  const writing = rolling ? undefined : view.pending.find(job => job.actor === player && job.draft)
+  const voice = useNarrator({ entries, player, players: crew.map(m => m.character!.name), draft: writing && { id: writing.id, text: writing.draft! } })
 
   // Spec §5.1: the world bulletin is its own always-visible window on top; each player's window below holds their own lines.
   const windowEntries = (id: string) => id === 'world' ? entries.filter(e => e.actor === null) : entries.filter(e => e.actor === id)
@@ -190,6 +200,8 @@ export function Story({ view, send, history, connected, gap, review }: {
     const text = draft.trim()
     if (!text || disabled) return
     setSending(true)
+    // Acting means the player has heard enough of what came before.
+    if (!chat) voice.stop()
     const previous = retryId.current
     const id = previous?.text === text && previous?.chat === chat ? previous.id : crypto.randomUUID()
     retryId.current = { id, text, chat }
@@ -346,7 +358,7 @@ export function Story({ view, send, history, connected, gap, review }: {
       <main className="story-column">
         <section className="bulletin world-log" aria-label="世界公告">
           <h2>世界公告</h2>
-          <Log entries={windowEntries('world')} names={names}/>
+          <Log entries={windowEntries('world')} names={names} speaking={voice.now?.seq} onPlay={voice.settings.on ? voice.replay : undefined}/>
         </section>
         {/* Teammates' windows are a tab away; playing alone there is nothing to switch. */}
         {windows.length > 1 && <div className="window-tabs" role="tablist" aria-label="切換視窗">
@@ -356,7 +368,7 @@ export function Story({ view, send, history, connected, gap, review }: {
           {crew.map(member => <section key={member.id} className={'window personal' + (windowId === member.id ? '' : ' window-hidden')}
             aria-label={member.character!.name + '的視窗'}>
             <h2 className="sr-only">{member.character!.name}{member.id === player ? '（你）' : member.connected ? '' : '・離線'}</h2>
-            <Log entries={windowEntries(member.id)} names={names} draft={rolling ? undefined : view.pending.find(job => job.actor === member.id)?.draft}/>
+            <Log entries={windowEntries(member.id)} names={names} speaking={voice.now?.seq} onPlay={voice.settings.on ? voice.replay : undefined} draft={rolling ? undefined : view.pending.find(job => job.actor === member.id)?.draft}/>
           </section>)}
           {connected && hasMore && entries.length >= 60 && <button className="light older" onClick={async () => {
             try {
@@ -367,6 +379,7 @@ export function Story({ view, send, history, connected, gap, review }: {
           }}>載入較早紀錄</button>}
         </div>
 
+        <VoiceBar voice={voice}/>
         {combat && <CombatPanel combat={combat} guns={combat.atSea ? partLevel(world.ship, 'cannon') : 0} character={character} player={player} suggest={suggest}/>}
         <form className="composer" onSubmit={submit}>
           {!chat && !combat && <div className="action-suggestions">
@@ -390,18 +403,24 @@ export function Story({ view, send, history, connected, gap, review }: {
           </div>
           <div className="composer-foot">
             <label className="check"><input type="checkbox" checked={chat} onChange={e => setChat(e.target.checked)}/> 聊天模式</label>
-            <label className="check"><input type="checkbox" checked={diceOn} onChange={e => {
-              setDiceOn(e.target.checked)
-              setRolled(view.entries.at(-1)?.seq ?? 0)
-              try { localStorage.setItem('tide-dice', e.target.checked ? 'on' : 'off') } catch { /* The choice just lasts for this visit. */ }
-            }}/> 骰子動畫</label>
-            <label className="check"><input type="checkbox" checked={attackOn} onChange={e => {
-              setAttackOn(e.target.checked)
-              setRolled(view.entries.at(-1)?.seq ?? 0)
-              try { localStorage.setItem('tide-attacks', e.target.checked ? 'on' : 'off') } catch { /* The choice just lasts for this visit. */ }
-            }}/> 攻擊動畫</label>
             <p className="hint" role="status">{current ? phaseText[current.phase as keyof typeof phaseText] : draft ? '草稿' : '每次可提交一項正式行動。'}</p>
           </div>
+          <details className="play-options"><summary>動畫與語音{voice.settings.on ? '（語音開）' : ''}</summary>
+            <div className="composer-foot">
+              <label className="check"><input type="checkbox" checked={diceOn} onChange={e => {
+                setDiceOn(e.target.checked)
+                setRolled(view.entries.at(-1)?.seq ?? 0)
+                try { localStorage.setItem('tide-dice', e.target.checked ? 'on' : 'off') } catch { /* The choice just lasts for this visit. */ }
+              }}/> 骰子動畫</label>
+              <label className="check"><input type="checkbox" checked={attackOn} onChange={e => {
+                setAttackOn(e.target.checked)
+                setRolled(view.entries.at(-1)?.seq ?? 0)
+                try { localStorage.setItem('tide-attacks', e.target.checked ? 'on' : 'off') } catch { /* The choice just lasts for this visit. */ }
+              }}/> 攻擊動畫</label>
+              <VoiceSwitch voice={voice}/>
+            </div>
+            <VoiceSettingsPanel voice={voice}/>
+          </details>
         </form>
       </main>
 
