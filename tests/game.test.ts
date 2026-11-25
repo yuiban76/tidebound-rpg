@@ -373,10 +373,10 @@ test('指名瑪琪諾並換行問去哪買船會得到購船回答，單純問�
   const [player] = ids
   const before = ai.seen.length
   const info = await act(game, code, player, '我可以去哪裡買船？')
-  assert.match(info, /^風車村港口的船塢販售可載四人的小帆船/)
+  assert.match(info, /^風車村港口的船塢販售可載八人的小帆船/)
   await act(game, code, player, '去派對酒吧')
   const reply = await act(game, code, player, '瑪琪諾 \n我要買船要去哪買')
-  assert.match(reply, /^瑪琪諾說：「風車村港口的船塢販售可載四人的小帆船/)
+  assert.match(reply, /^瑪琪諾說：「風車村港口的船塢販售可載八人的小帆船/)
   assert.doesNotMatch(reply, /可以去風車村廣場|酒吧有烤麵包|D20/)
   assert.equal(game.room(code).members[0].character?.conversingWith, 'keeper')
   assert.match(await act(game, code, player, '我要買船要去哪買'), /^瑪琪諾說：「/)

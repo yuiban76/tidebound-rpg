@@ -45,8 +45,8 @@ export function routeNeeds(route: Route) {
   ].filter(Boolean) as string[]
 }
 
-export const boatYard = { name: '小帆船', price: 32_500, speed: 7, seats: 4, sale: 24_000, woodPrice: 2_500, repairGain: 25 }
-export const shipPurchaseInfo = locations.dock + '的船塢販售可載四人的' + boatYard.name + '，售價 ' + beli(boatYard.price) + '。到碼頭輸入「買船」即可。'
+export const boatYard = { name: '小帆船', price: 32_500, speed: 7, seats: 8, sale: 24_000, woodPrice: 2_500, repairGain: 25 }
+export const shipPurchaseInfo = locations.dock + '的船塢販售可載八人的' + boatYard.name + '，售價 ' + beli(boatYard.price) + '。到碼頭輸入「買船」即可。'
 export const paceNames: Record<SailingPace, string> = { steady: '穩健', fast: '快航' }
 export type Ship = {
   owner: string, port: LocationId, hull: number, wood: number, trips: number

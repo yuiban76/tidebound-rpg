@@ -5,7 +5,8 @@ import type { LocationId, Race } from '../packages/shared/protocol.ts'
 import { characterInput, races } from '../packages/shared/protocol.ts'
 import { makeCharacter, maxHP, needsReview, resolve } from '../packages/rules/engine.ts'
 import { npcFoe } from '../packages/world/foes.ts'
-import { raceSummary, stat } from '../packages/world/races.ts'
+import { raceSeats, raceSummary, stat } from '../packages/world/races.ts'
+import { modelOf } from '../packages/world/ships.ts'
 import { newWorld, normalizeWorld, selfMade } from '../packages/world/village.ts'
 import type { Member, World } from '../packages/world/village.ts'
 import { character } from './fixtures.ts'
@@ -117,15 +118,17 @@ test('空島居民用衝擊貝讓自然系多現形 1 回合', () => {
   }
 })
 
-test('巨人上船佔 2 個座位：四人隊伍有巨人就坐不下小帆船', () => {
+test('巨人上船佔 2 個座位：四個玩家都是巨人也坐得下小帆船', () => {
   const world = newWorld('RACES00002', 'host')
   world.started = true
   world.calmSeas = true
   const ids = ['host', 'b', 'c', 'd']
-  world.members = ids.map((id, i) => ({ id, host: i === 0, ready: true, agree: true, approved: true, character: { ...make(i === 3 ? '巨人' : '人類'), place: 'dock' as const } }))
+  world.members = ids.map((id, i) => ({ id, host: i === 0, ready: true, agree: true, approved: true, character: { ...make('巨人'), place: 'dock' as const } }))
   world.ship = { owner: 'host', port: 'dock', hull: 100, wood: 2, trips: 0 }
-  const text = resolve(world, world.members[0], { kind: 'sail', order: 'depart', destination: 'shells' }, '', dice(), new Set(ids)).text
-  assert.match(text, /座位不足.*巨人佔 2 個座位/)
+  world.sailing = { from: 'wind', ballots: Object.fromEntries(ids.map(id => [id, { to: 'shells' as const, pace: 'steady' as const }])), ready: ids }
+  assert.equal(world.members.reduce((sum, m) => sum + raceSeats(m.character!), 0), modelOf(world.ship).seats)
+  const result = resolve(world, world.members[0], { kind: 'sail', order: 'depart', destination: 'shells' }, '', dice(), new Set(ids))
+  assert.match(result.text, /全隊抵達謝爾茲鎮/)
 })
 
 test('舊存檔：自訂種族「其他」改成人類並補 1 點，毛皮族補上電擊，只補一次', () => {

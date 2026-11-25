@@ -17,8 +17,8 @@ export type Model = {
   text: string
 }
 export const models: Record<ShipModel, Model> = {
-  boat: { label: '小帆船', price: 32_500, speed: 7, seats: 4, hold: 20, wear: 1, parts: 1, text: '一根桅杆的小船，能載四個人' },
-  caravel: { label: '卡拉維爾帆船', price: 1_500_000, speed: 8.5, seats: 8, hold: 60, wear: .8, parts: 2, text: '兩根桅杆、有甲板下的船艙，適合遠洋冒險' },
+  boat: { label: '小帆船', price: 32_500, speed: 7, seats: 8, hold: 20, wear: 1, parts: 1, text: '一根桅杆的小船，四個巨人也擠得下' },
+  caravel: { label: '卡拉維爾帆船', price: 1_500_000, speed: 8.5, seats: 10, hold: 60, wear: .8, parts: 2, text: '兩根桅杆、有甲板下的船艙，適合遠洋冒險' },
   brig: { label: '雙桅橫帆船', price: 10_000_000, speed: 10, seats: 12, hold: 120, wear: .65, parts: 3, text: '船身高大、帆面寬闊，裝得下整排船砲' },
   adam: { label: '亞當木大帆船', price: 60_000_000, speed: 12, seats: 16, hold: 240, wear: .5, parts: 3, adamWood: 3, text: '用寶樹亞當打造的船，戰火也燒不垮' },
 }

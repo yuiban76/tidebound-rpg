@@ -153,7 +153,7 @@ test('單人須先實際生成回覆才能開房，開局後可執行 D20、問�
   await action(page, '小艇上是誰', '是魯夫喔')
   await action(page, '說明小艇上的人員狀況是如何', '是魯夫喔')
   await expect(page.locator('.entry-result').filter({ hasText: '瑪琪諾說：「是魯夫喔。' })).toHaveCount(2)
-  await action(page, '瑪琪諾\n我要買船要去哪買', '風車村港口的船塢販售可載四人的小帆船')
+  await action(page, '瑪琪諾\n我要買船要去哪買', '風車村港口的船塢販售可載八人的小帆船')
   await expect(page.locator('.entry-result').last()).toContainText('瑪琪諾說：「')
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390)
   await page.reload()
