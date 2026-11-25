@@ -214,8 +214,8 @@ export function paint(c: CanvasRenderingContext2D, beats: Beat[], time: number, 
 export type Vital = { hp: number, max: number, /** HP once the whole round is over. */ end: number }
 
 /** A round of fighting: everyone's dice roll under their names, then each blow that landed flies from name to name. */
-export function FightTray({ ours, foes, more, strikes, vitals, showDice, onDone }: {
-  ours: Fighter[], foes: Fighter[], more: number, strikes: Strike[], vitals: Record<string, Vital>, showDice: boolean, onDone: () => void,
+export function FightTray({ ours, foes, more, strikes, vitals, faces, showDice, onDone }: {
+  ours: Fighter[], foes: Fighter[], more: number, strikes: Strike[], vitals: Record<string, Vital>, /** Players' portraits by name. */ faces: Record<string, string | undefined>, showDice: boolean, onDone: () => void,
 }) {
   const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   const [phase, setPhase] = useState<'roll' | 'read' | 'strike'>(showDice && !still ? 'roll' : 'read')
@@ -314,6 +314,7 @@ export function FightTray({ ours, foes, more, strikes, vitals, showDice, onDone 
     <ul>{fighters.map((fighter, n) => {
       const vital = vitals[fighter.name]
       return <li key={fighter.name} className="fighter" data-name={fighter.name}>
+        {id === 'ours' && faces[fighter.name] && <img className="fighter-face" src={faces[fighter.name]} alt=""/>}
         <span className="fighter-name">{fighter.name}</span>
         {vital && <span className="fighter-hp"><i style={{ width: clamp01(vital.hp / vital.max) * 100 + '%' }}/></span>}
         {showDice && fighter.rolls.length > 0 && <div className="fighter-dice">{fighter.rolls.map((roll, i) => {

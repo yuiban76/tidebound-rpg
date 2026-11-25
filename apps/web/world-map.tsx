@@ -11,7 +11,8 @@ import { canonIslands } from '../../packages/world/canon.ts'
 import { addedSites, islandLayouts } from '../../packages/world/sites.ts'
 import { biomes } from './island-art.tsx'
 import { SeaChartDialog, SeaPreview } from './sea-chart.tsx'
-import { Avatar, Card } from './side.tsx'
+import { MemberAvatar, usePortraits } from './portrait.tsx'
+import { Card } from './side.tsx'
 import type { View } from './network.ts'
 import './world-map.css'
 
@@ -148,6 +149,7 @@ export function SeaMap(props: MapProps) {
 export function IslandMap({ onTravel, ...props }: MapProps & { onTravel: (place: LocationId) => void }) {
   const { world, player } = props
   const { dialog, show } = useChart(props)
+  const portraits = usePortraits()
   const character = world.members.find(member => member.id === player)!.character!
   const current = character.place
   const island = islandAt(current)
@@ -170,14 +172,15 @@ export function IslandMap({ onTravel, ...props }: MapProps & { onTravel: (place:
           const route = moving ? routeBetween(current, place, hillClosed) : []
           const here = place === current
           const reachable = route.length > 1
-          const visitors = teammates.filter(member => member.character!.place === place)
+          // Teammates always show; the player's own face only once it is a picture, the gold sign says the rest.
+          const faces = [...here && portraits[player] ? [world.members.find(member => member.id === player)!] : [], ...teammates.filter(member => member.character!.place === place)]
           const state = here ? '你在這裡' : route.length === 2 ? '可直達'
             : reachable ? via(route.slice(1, -1)) : '暫不可達'
           const label = locations[place] + '，' + state
           const contents = <>
             <strong title={locations[place]}>{place === islands[island].port && <svg className="map-anchor" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 4V14M3 9Q3 14 8 14Q13 14 13 9M5.5 6.5H10.5"/><circle cx="8" cy="2.6" r="1.6"/></svg>}{shortNames[place] ?? locations[place]}</strong>
             <span className="map-site-status">{state}</span>
-            {visitors.length > 0 && <span className="map-occupancy" aria-hidden="true">{visitors.length}</span>}
+            {faces.length > 0 && <span className="map-faces" aria-hidden="true">{faces.map(member => <MemberAvatar key={member.id} id={member.id} name={member.character!.name} size="tiny"/>)}</span>}
           </>
           return <li key={place} className="map-site-position" style={{ left: x + '%', top: y + '%' }}>
             {reachable
@@ -193,7 +196,7 @@ export function IslandMap({ onTravel, ...props }: MapProps & { onTravel: (place:
       <h4>隊友位置</h4>
       <ul>
         {teammates.map(member => <li key={member.id}>
-          <Avatar name={member.character!.name}/>
+          <MemberAvatar id={member.id} name={member.character!.name}/>
           <span><strong>{member.character!.name}</strong><small>{locations[member.character!.place]}{member.connected ? '' : ' · 離線'}</small></span>
         </li>)}
       </ul>

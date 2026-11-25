@@ -8,11 +8,13 @@ import { skillCap, skillUses } from '../../packages/world/skills.ts'
 import { fightingStyles, fightingSummary, selfMade } from '../../packages/world/village.ts'
 import { Techniques } from './combat.tsx'
 import { FruitPanel } from './fruit.tsx'
-import { Avatar, Bar, Card, meIn, More, Pill, Segments, Tiles, useSegment } from './side.tsx'
+import { PortraitPicker } from './portrait.tsx'
+import type { View } from './network.ts'
+import { Bar, Card, meIn, More, Pill, Segments, Tiles, useSegment } from './side.tsx'
 import type { PanelProps } from './side.tsx'
 
 /** Who the player is on top; abilities and moves on two pages below. Points to spend show up right where they go. */
-export function CharacterPanel({ world, player, suggest, post, paused }: PanelProps & { post: (msg: Message) => void, paused: boolean }) {
+export function CharacterPanel({ view, world, player, suggest, send, post, paused }: PanelProps & { view: Pick<View, 'player' | 'portraits'>, send: (msg: Message) => Promise<unknown>, post: (msg: Message) => void, paused: boolean }) {
   const [page, setPage] = useSegment<'skills' | 'moves'>('me', 'skills')
   const c = meIn(world, player)
   const locked = paused || !!world.combat?.participants.includes(player)
@@ -30,7 +32,7 @@ export function CharacterPanel({ world, player, suggest, post, paused }: PanelPr
   return <>
     <section className="card profile" aria-label="角色資料">
       <div className="profile-head">
-        <Avatar name={c.name}/>
+        <PortraitPicker view={view} name={c.name} send={send}/>
         <div><h3>{c.name}</h3><p className="hint">{c.race} · {fightingStyles[c.fighting].label}</p></div>
         <span className="level"><small>等級</small>{c.level}</span>
       </div>

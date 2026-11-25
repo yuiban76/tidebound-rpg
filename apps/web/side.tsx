@@ -79,10 +79,11 @@ export function Pips({ level, max }: { level: number, max: number }) {
   return <span className="pips" role="img" aria-label={level + '／' + max + ' 級'}>{Array.from({ length: max }, (_, i) => <i key={i} data-on={i < level || undefined}/>)}</span>
 }
 
-/** The first character of a name in a round frame, always the same colour for the same name. */
-export function Avatar({ name }: { name: string }) {
+/** A picture in a round frame, or the first character of a name: always the same colour for the same name. */
+export function Avatar({ name, src, size }: { name: string, src?: string, size?: 'tiny' | 'small' | 'large' | 'huge' }) {
+  if (src) return <span className="avatar" data-size={size} aria-hidden="true"><img src={src} alt="" draggable={false}/></span>
   const hue = [...name].reduce((sum, letter) => (sum * 31 + letter.codePointAt(0)!) % 360, 7)
-  return <span className="avatar" aria-hidden="true" style={{ background: `hsl(${hue} 32% 40%)` }}>{[...name][0]}</span>
+  return <span className="avatar" data-size={size} aria-hidden="true" style={{ background: `hsl(${hue} 32% 40%)` }}>{[...name][0]}</span>
 }
 
 /** Pages inside a tab. */

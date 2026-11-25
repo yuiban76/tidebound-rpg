@@ -72,6 +72,32 @@ async function ready(page: Page, name: string) {
 async function openTab(page: Page, name: string) {
   await page.locator('[role=tab]:visible', { hasText: name }).first().click()
 }
+/** A picture of this colour, as noisy as a photo, so its size is a fair test. */
+async function photo(page: Page, hue: number) {
+  const data = await page.evaluate(hue => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 900
+    canvas.height = 600
+    const c = canvas.getContext('2d')!
+    for (let x = 0; x < 900; x += 6) for (let y = 0; y < 600; y += 6) {
+      c.fillStyle = `hsl(${hue + Math.random() * 40} 70% ${30 + Math.random() * 40}%)`
+      c.fillRect(x, y, 6, 6)
+    }
+    return canvas.toDataURL('image/png').split(',')[1]
+  }, hue)
+  return { name: 'me.png', mimeType: 'image/png', buffer: Buffer.from(data, 'base64') }
+}
+/** Picks a portrait in the dialog behind the round button. */
+async function setPortrait(page: Page, hue: number) {
+  await page.getByRole('button', { name: '換頭貼' }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.locator('input[type=file]').setInputFiles({ name: 'x.png', mimeType: 'image/png', buffer: Buffer.from('not a picture') })
+  await expect(dialog.getByRole('alert')).toContainText('打不開')
+  await dialog.locator('input[type=file]').setInputFiles(await photo(page, hue))
+  await dialog.getByLabel('縮放').fill('1.5')
+  await dialog.getByRole('button', { name: '使用這張' }).click()
+  await expect(dialog).toBeHidden()
+}
 async function action(page: Page, actionText: string, result: string) {
   await page.getByLabel('輸入行動或聊天').fill(actionText)
   await page.getByRole('button', { name: '送出行動' }).click()
@@ -297,6 +323,14 @@ for (const count of [2, 3, 4]) test(count + ' 個瀏覽器用 WebRTC 開局與�
     if (count === 4) await expect(guests[3].getByText('房間已滿，最多四位真人。')).toBeVisible({ timeout: 15_000 })
     await expect(page.getByText(count + '／4 人')).toBeVisible()
     await Promise.all([ready(page, '港口'), ...guests.slice(0, count - 1).map((guest, i) => ready(guest, '水手' + i))])
+    if (count === 2) {
+      // Portraits reach the other browsers over WebRTC, before the story starts and after a change.
+      await setPortrait(guests[0], 200)
+      await expect(guests[0].locator('.roster .avatar img')).toHaveCount(1)
+      await expect(page.locator('.lobby-grid .roster .avatar img')).toHaveCount(1, { timeout: 15_000 })
+      await setPortrait(page, 20)
+      await expect(guests[0].locator('.roster .avatar img')).toHaveCount(2, { timeout: 15_000 })
+    }
     await page.getByRole('button', { name: '開始遊戲' }).click()
     for (const client of [page, ...guests.slice(0, count - 1)])
       await expect(client.locator('.personal')).toHaveCount(count)
@@ -307,6 +341,18 @@ for (const count of [2, 3, 4]) test(count + ' 個瀏覽器用 WebRTC 開局與�
     const hostMap = page.getByRole('region', { name: '島上地圖' })
     await expect(hostMap.locator('.map-party li').filter({ hasText: '水手0' })).toContainText('風車村港口')
     await expect(guests[0].getByRole('region', { name: '島上地圖' }).locator('[aria-current="location"] strong')).toHaveAttribute('title', '風車村港口')
+    if (count === 2) {
+      const face = hostMap.locator('.map-party li').filter({ hasText: '水手0' }).locator('img')
+      const first = await face.getAttribute('src')
+      expect(first).toMatch(/^data:image\/jpeg;base64,/)
+      await expect(page.locator('.hud .avatar img')).toBeVisible()
+      await openTab(guests[0], '角色')
+      await setPortrait(guests[0], 120)
+      await expect.poll(() => face.getAttribute('src'), { timeout: 15_000 }).not.toBe(first)
+      await guests[0].getByRole('button', { name: '換頭貼' }).click()
+      await guests[0].getByRole('button', { name: '移除頭貼' }).click()
+      await expect(face).toHaveCount(0, { timeout: 15_000 })
+    }
     if (count === 2) {
       // Spec §1.3: a newcomer can join a running story and meets the party at the port.
       const late = await guestPage()

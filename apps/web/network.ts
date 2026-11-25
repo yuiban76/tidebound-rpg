@@ -8,9 +8,10 @@ import type { Entry } from '../host/store.ts'
 export type View = ReturnType<Game['view']>
 export type Save = { code: string, started: boolean, minute: number, count: number }
 export type LocalStatus = { admin: string, ai: AiStatus, saves: Save[] }
-export type Command = (msg: Message) => Promise<View | Entry[]>
+export type Pictures = { pictures: Record<string, string> }
+export type Command = (msg: Message) => Promise<View | Entry[] | Pictures>
 type Greeting = { token: string, view: View }
-type Reply = { id: string, ok?: View | Entry[] | Greeting, error?: string }
+type Reply = { id: string, ok?: View | Entry[] | Pictures | Greeting, error?: string }
 type Turn = { urls: string, username: string, credential: string }
 export const isLocal = ['localhost', '127.0.0.1'].includes(location.hostname)
 export const initialRoom = new URLSearchParams(location.hash.slice(1)).get('join') ?? ''
@@ -119,7 +120,7 @@ export function bridge(code: string, admin: string, status: (text: string) => vo
           await conn.send({ id, ok: joined } satisfies Reply)
         } else {
           if (!token || sessions.get(token) !== conn) throw new Error('請先加入或重連。')
-          const ok = await localRpc<View | Entry[]>(admin, { op: 'guest', code, token, message: body })
+          const ok = await localRpc<View | Entry[] | Pictures>(admin, { op: 'guest', code, token, message: body })
           if (!closed) await conn.send({ id, ok } satisfies Reply)
         }
       } catch (error) {
@@ -259,8 +260,8 @@ export function connect(code: string, entrance: Entrance, onView: (view: View) =
   open()
   return {
     command: async (message: Message) => {
-      const result = await request(message) as View | Entry[]
-      if (!Array.isArray(result)) publish(result)
+      const result = await request(message) as View | Entry[] | Pictures
+      if ('world' in result) publish(result)
       return result
     },
     close: () => { disposed = true; down('已離線。', false) },

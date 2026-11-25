@@ -5,6 +5,7 @@ import type { CharacterInput, Message, Race, Weapon } from '../../packages/share
 import { fightingStyles, fightingSummary } from '../../packages/world/village.ts'
 import { skillUses } from '../../packages/world/skills.ts'
 import { raceSummary } from '../../packages/world/races.ts'
+import { MemberAvatar, PortraitPicker } from './portrait.tsx'
 import type { View } from './network.ts'
 
 export function Field({ label, children }: { label: string, children: React.ReactNode }) {
@@ -95,12 +96,14 @@ export function Lobby({ view, send, start, review, busy }: {
       <div className="section-head"><h2>出發名冊</h2><span>{view.world.members.length}／4 人</span></div>
       <ul className="roster">
         {view.world.members.map(m => <li key={m.id}>
+          <MemberAvatar id={m.id} name={m.character?.name ?? '？'}/>
           <div><strong>{m.character?.name ?? '未創角'}</strong> <small>{m.host ? '房主' : ''}{m.id === me.id ? ' · 你' : ''}</small>
             <div className="hint">{!m.connected ? '離線' : !m.character ? '創角中' : !m.approved ? '等待角色審核' : m.ready ? '已準備' : '未準備'}</div>
           </div>
           {review && m.character && !m.approved && <button className="light" onClick={() => review(m.id, true)}>核准</button>}
         </li>)}
       </ul>
+      <div className="lobby-me"><PortraitPicker view={view} name={me.character?.name ?? ''} send={send}><p className="hint">{view.portraits ? '點圓圈換上自己的頭貼，遊戲中隨時能換。' : '房主更新後就能換頭貼。'}</p></PortraitPicker></div>
       <p className="hint">你們原本就是朋友。其他共同行動或私交由當事人同意後決定。</p>
       <label className="check"><input type="checkbox" checked={confirm} disabled={me.ready} onChange={e => setConfirm(e.target.checked)}/> 我確認這段共同背景</label>
       <div className="button-row">

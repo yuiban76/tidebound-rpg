@@ -31,7 +31,8 @@ function sagaContext(world: World, place: Character['place']) {
   const goals = saga.goals.filter(goal => goal.place === place && !hasFlag(world, sagaFlag(goal.id)) && world.minute >= minuteOf(goal.from) && world.minute < minuteOf(goal.until))
   return { saga: { title: saga.title, stage: last?.title, ruined: hasFlag(world, 'ruined:' + islandAt(place)) || undefined, goals: goals.map(goal => goal.title) } }
 }
-import type { Store } from './store.ts'
+import { portraitRevision } from './portrait.ts'
+import type { Entry, Store } from './store.ts'
 
 export class GameError extends Error {}
 const demand: (condition: unknown, message: string) => asserts condition = (condition, message) => {
@@ -235,6 +236,7 @@ export class Game {
       world.version++
       this.store.save(world)
       this.store.revoke(code, id)
+      this.store.dropPortrait(code, id)
     })
     this.#transfers.delete(id)
     this.disconnect(code, id)
@@ -275,7 +277,10 @@ export class Game {
     const entries = this.store.entries(code)
     const { memories: _memories, members, combat, ...publicWorld } = w
     const ticket = this.#transfers.get(player)
+    const portraits = this.store.portraits(code)
     return {
+      /** This host keeps portraits. */
+      portraits: true,
       // Only the seat that asked for a device code ever sees it; a code from the host is for someone whose device is gone.
       transfer: ticket?.own && ticket.until > Date.now() ? { code: ticket.code, until: ticket.until } : undefined,
       player, ai: { ...this.ai.status },
@@ -284,7 +289,7 @@ export class Game {
       canStart: this.#room === code && !w.started && this.ready(w) && this.ai.status.state === 'passed',
       world: {
         ...publicWorld,
-        members: members.map(m => ({ ...m, connected: connected.has(m.id) })),
+        members: members.map(m => ({ ...m, connected: connected.has(m.id), portrait: portraits[m.id] })),
         combat: combat && {
           round: combat.round, place: combat.place, participants: combat.participants, locked: Object.keys(combat.choices),
           atSea: !!combat.sea,
@@ -299,6 +304,8 @@ export class Game {
       unread: after ? this.store.unseen(code, after) : 0,
     }
   }
+  message(code: string, id: string, msg: Exclude<Message, { kind: 'portraits' }>): ReturnType<Game['view']> | Entry[]
+  message(code: string, id: string, msg: Message): ReturnType<Game['view']> | Entry[] | { pictures: Record<string, string> }
   message(code: string, id: string, msg: Message) {
     const world = this.room(code)
     const actor = world.members.find(m => m.id === id)
@@ -315,6 +322,15 @@ export class Game {
       return this.view(code, id, msg.after)
     }
     if (msg.kind === 'history') return this.store.entries(code, msg.before)
+    if (msg.kind === 'portraits')
+      return { pictures: Object.fromEntries(msg.want.map(revision => [revision, this.store.picture(code, revision)] as const).filter((row): row is readonly [string, string] => !!row[1])) }
+    if (msg.kind === 'portrait') {
+      const revision = msg.image === null ? null : portraitRevision(msg.image)
+      demand(revision !== undefined, '這張圖片不能當頭貼，請換一張。')
+      if (revision === null) this.store.dropPortrait(code, id)
+      else this.store.setPortrait(code, id, revision, msg.image!)
+      return this.view(code, id)
+    }
     if (msg.kind === 'transfer') {
       this.issueTransfer(code, id, true)
       return this.view(code, id)

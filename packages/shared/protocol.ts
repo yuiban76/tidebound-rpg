@@ -142,6 +142,8 @@ export const intentSchema = z.discriminatedUnion('kind', [
 ])
 export type Intent = z.infer<typeof intentSchema>
 export const proposals = ['formCrew', 'ordinary', 'depart', 'sellShip'] as const
+/** Longest portrait as a data URL. It has to fit into one request of a remote player (see bridge in network.ts). */
+export const portraitLimit = 14_000
 export const messageSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('character'), character: characterInput }),
   z.strictObject({ kind: z.literal('ready'), ready: z.boolean(), agree: z.boolean() }),
@@ -152,6 +154,9 @@ export const messageSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('chat'), id: identifier, text: text(500) }),
   // Ask for a code that moves this seat to another device.
   z.strictObject({ kind: z.literal('transfer') }),
+  // The player's own portrait (null takes it away), and the pictures of the room by revision.
+  z.strictObject({ kind: z.literal('portrait'), image: z.string().max(portraitLimit).regex(/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/).nullable() }),
+  z.strictObject({ kind: z.literal('portraits'), want: z.array(z.string().regex(/^[a-f0-9]{16}$/)).min(1).max(4) }),
   z.strictObject({ kind: z.literal('propose'), type: z.enum(proposals), title: text(60) }),
   z.strictObject({ kind: z.literal('vote'), id: identifier, yes: z.boolean() }),
   z.strictObject({ kind: z.literal('allocate'), attr: z.enum(attributes) }),

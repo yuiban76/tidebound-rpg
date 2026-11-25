@@ -23,10 +23,6 @@
 .map-site-closed { border-style: dashed; background: #ece8d8ee; color: var(--muted); box-shadow: none; }
 .map-site-status { margin-top: .12rem; font-size: .74rem; font-weight: 500; }
 .map-anchor { width: .85rem; height: .85rem; margin-right: .2rem; vertical-align: -.08em; fill: none; stroke: #1f605c; stroke-width: 1.8; stroke-linecap: round; }
-.map-occupancy {
-  position: absolute; top: -.54rem; right: -.46rem; min-width: 1.1rem; padding: .125rem .28rem; border: 1px solid #f7fbf6;
-  border-radius: 1rem; background: #285d65; color: white; font-size: .72rem; line-height: 1.1;
-}
 .map-party ul { display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: .4rem; margin: 0; padding: 0; list-style: none; }
 .map-party li { display: flex; align-items: center; gap: .5rem; }
 .map-party li strong, .map-party li small { display: block; line-height: 1.35; }

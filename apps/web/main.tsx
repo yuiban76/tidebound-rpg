@@ -5,8 +5,9 @@ import { aiCategoryLabels, aiLabels } from '../../packages/shared/protocol.ts'
 import type { AiStatus, Message } from '../../packages/shared/protocol.ts'
 import type { Entry } from '../host/store.ts'
 import { bridge, connect, hasSeat, initialRoom, inviteUrl, isLocal, localRpc, localStatus, setTurn } from './network.ts'
-import type { Command, Entrance, LocalStatus, View } from './network.ts'
+import type { Command, Entrance, LocalStatus, Pictures, View } from './network.ts'
 import { Field, Lobby } from './lobby.tsx'
+import { PortraitProvider } from './portrait.tsx'
 import { clock } from './side.tsx'
 import { Story } from './story.tsx'
 import { SeatPanel, TransferPanel } from './transfer.tsx'
@@ -155,9 +156,9 @@ function Host() {
     setError('')
     try {
       generation.current++
-      const result = await localRpc<View | Entry[]>(admin, { op: 'host', code, message: msg })
+      const result = await localRpc<View | Entry[] | Pictures>(admin, { op: 'host', code, message: msg })
       generation.current++
-      if (!Array.isArray(result)) publish(result)
+      if ('world' in result) publish(result)
       return result
     } catch (e) {
       setError((e as Error).message)
@@ -242,7 +243,7 @@ function Host() {
           </div>
         </section>
       </div>}
-      {view && <>
+      {view && <PortraitProvider members={view.world.members} load={want => localRpc<Pictures>(admin!, { op: 'host', code, message: { kind: 'portraits', want } })}>
         <details className="panel invites">
           <summary>遠端邀請與房間設定</summary>
           <p role="status">{network || '遠端邀請已停用。'}</p>
@@ -264,7 +265,7 @@ function Host() {
           : <Lobby key={code} view={view} send={async msg => { await send(msg) }} busy={busy || !healthy}
             review={(id, approved) => void perform({ op: 'review', code, id, approved })}
             start={() => void perform<View>({ op: 'start', code }, publish)}/>}
-      </>}
+      </PortraitProvider>}
     </main>
   </>
 }
@@ -329,10 +330,12 @@ function Guest() {
       </form>}
       {!view && <RelaySettings/>}
       {view && <TransferPanel view={view} send={send} online={online}/>}
-      {view?.world.started && !joining && <Story view={view} send={async msg => { await send(msg) }} history={async before => await send({ kind: 'history', before }) as Entry[]} connected={online} gap={gap}/>}
-      {view && (!view.world.started || joining) && <><div className="page-heading"><h1>{joining ? '加入進行中的冒險' : '遊戲大廳'}</h1>
+      {view && <PortraitProvider members={view.world.members} load={want => command.current ? command.current({ kind: 'portraits', want }) as Promise<Pictures> : Promise.reject(new Error('尚未連線。'))}>
+      {view.world.started && !joining && <Story view={view} send={async msg => { await send(msg) }} history={async before => await send({ kind: 'history', before }) as Entry[]} connected={online} gap={gap}/>}
+      {(!view.world.started || joining) && <><div className="page-heading"><h1>{joining ? '加入進行中的冒險' : '遊戲大廳'}</h1>
         {joining && <p>故事已經開始。完成角色卡、確認共同背景並準備後，你會在隊伍所在的港口與大家會合。</p>}</div>
         <Lobby view={view} busy={busy || !online} send={async msg => { await send(msg) }}/></>}
+      </PortraitProvider>}
     </main>
   </>
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Message } from '../../packages/shared/protocol.ts'
+import { MemberAvatar } from './portrait.tsx'
 import type { View } from './network.ts'
 
 type Ticket = { code: string, until: number }
@@ -48,6 +49,7 @@ export function SeatPanel({ view, issue, remove, busy }: {
     <ul className="roster">{guests.map(m => {
       const loose = !view.world.started || m.pendingJoin
       return <li key={m.id}>
+        <MemberAvatar id={m.id} name={m.character?.name ?? '？'}/>
         <div><strong>{name(m.id)}</strong><div className="hint">{m.connected ? '在線' : '離線'}{m.pendingJoin ? ' · 還沒入隊' : ''}</div></div>
         <div className="button-row">
           <button type="button" className="light" disabled={busy} onClick={() => void issue(m.id).then(ticket => ticket && setGiven({ id: m.id, ticket }))}>換設備碼</button>

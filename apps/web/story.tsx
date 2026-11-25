@@ -30,6 +30,7 @@ import { diceIn } from '../../packages/shared/dice.ts'
 import { partLevel } from '../../packages/world/ships.ts'
 import { VoiceBar, VoiceSettingsPanel, VoiceSwitch } from './voice-panel.tsx'
 import { useNarrator } from './voice.ts'
+import { MemberAvatar, usePortraits } from './portrait.tsx'
 import { WarPanel } from './war.tsx'
 import { SagaPanel } from './saga.tsx'
 import { MarketPanel } from './market.tsx'
@@ -60,7 +61,7 @@ function Log({ entries, names, draft, speaking, onPlay }: {
     {!entries.length && <p className="hint empty">這裡還沒有紀錄。</p>}
     {entries.map(entry => <article key={entry.seq} className={'entry entry-' + entry.type + (speaking === entry.seq ? ' entry-speaking' : '')}>
       <header>
-        <span>{entry.type === 'input' ? (entry.actor ? names[entry.actor] ?? '玩家' : '') + ' ▸' : entryTag[entry.type] ?? ''}</span>
+        <span>{entry.actor && (entry.type === 'input' || entry.type === 'chat') && <MemberAvatar id={entry.actor} name={names[entry.actor] ?? '？'} size="tiny"/>}{entry.type === 'input' ? (entry.actor ? names[entry.actor] ?? '玩家' : '') + ' ▸' : entryTag[entry.type] ?? ''}</span>
         <time>{clock(entry.minute)}</time>
         {onPlay && readable.has(entry.type) && <button type="button" className="entry-play" onClick={() => onPlay(entry)}>▶ 唸</button>}
       </header>
@@ -94,6 +95,7 @@ export function Story({ view, send, history, connected, gap, review }: {
   review?: (id: string, approved: boolean) => void,
 }) {
   const { player } = view
+  const portraits = usePortraits()
   // Dice: a result with rolls in it waits for its animation. Until the dice lie still the page keeps showing the
   // world as it was, so neither the log nor an HP bar gives the outcome away.
   const [diceOn, setDiceOn] = useState(() => { try { return localStorage.getItem('tide-dice') !== 'off' } catch { return true } })
@@ -242,11 +244,11 @@ export function Story({ view, send, history, connected, gap, review }: {
         <VoyagePanel {...panelProps}/>
       </>}
     </>,
-    me: () => <CharacterPanel {...panelProps} post={post} paused={paused}/>,
+    me: () => <CharacterPanel {...panelProps} view={view} send={send} post={post} paused={paused}/>,
     bag: () => <BagPanel {...panelProps}/>,
     crew: () => <>
       {review && joining.length > 0 && <Card title="加入中的玩家" tone="gold">
-        <Rows>{joining.map(m => <Row key={m.id} title={m.character?.name ?? '未創角'}
+        <Rows>{joining.map(m => <Row key={m.id} lead={<MemberAvatar id={m.id} name={m.character?.name ?? '？'}/>} title={m.character?.name ?? '未創角'}
           note={!m.connected ? '離線' : !m.character ? '創角中' : !m.approved ? '等待角色審核' : '等待確認背景並準備'}>
           {m.character && !m.approved && <button type="button" className="light" onClick={() => review(m.id, true)}>核准</button>}
         </Row>)}</Rows>
@@ -270,10 +272,11 @@ export function Story({ view, send, history, connected, gap, review }: {
 
   return <div className={'game screen-' + screen}>
     {rolling && (fight
-      ? <FightTray key={rolling.seq} {...fight} vitals={vitals()} showDice={dice.length > 0} onDone={() => setRolled(rolling.seq)}/>
+      ? <FightTray key={rolling.seq} {...fight} faces={Object.fromEntries(crew.map(m => [m.character!.name, portraits[m.id]]))} vitals={vitals()} showDice={dice.length > 0} onDone={() => setRolled(rolling.seq)}/>
       : dice.length > 0 && <DiceTray key={rolling.seq} rolls={dice.slice(0, 6)} onDone={() => setRolled(rolling.seq)}/>)}
     <header className="hud voyage-bar" aria-label="角色狀態">
-      <div className="hud-place"><strong>{islands[island].name}</strong><span>{location}</span><span>{clock(world.minute)}</span></div>
+      <div className="hud-me">{portraits[player] && <MemberAvatar id={player} name={character.name} size="small"/>}
+        <div className="hud-place"><strong>{islands[island].name}</strong><span>{location}</span><span>{clock(world.minute)}</span></div></div>
       <div className="hud-stats">
         <Meter label="HP" value={character.hp} max={maxHP(character)} tone="hp"/>
         <Meter label="STA" value={character.sta} max={maxSTA(character)} tone="sta"/>
@@ -298,7 +301,7 @@ export function Story({ view, send, history, connected, gap, review }: {
         </section>
         {/* Teammates' windows are a tab away; playing alone there is nothing to switch. */}
         {windows.length > 1 && <div className="window-tabs" role="tablist" aria-label="切換視窗">
-          {windows.map(([id, label]) => <Tab key={id} selected={windowId === id} badge={unread(id)} onClick={() => setWindowId(id)}>{label}</Tab>)}
+          {windows.map(([id, label]) => <Tab key={id} selected={windowId === id} badge={unread(id)} onClick={() => setWindowId(id)}><MemberAvatar id={id} name={label} size="tiny"/>{label}</Tab>)}
         </div>}
         <div className="windows">
           {crew.map(member => <section key={member.id} className={'window personal' + (windowId === member.id ? '' : ' window-hidden')}

@@ -39,6 +39,8 @@ export class Store {
       COMMIT;
     `)
     if (schema !== 0 && schema !== 1) throw new Error('存檔版本不相容。')
+    // Kept out of the world, which every view and snapshot copies. An older host simply ignores the table.
+    this.db.exec('CREATE TABLE IF NOT EXISTS portraits (code TEXT REFERENCES worlds, player TEXT, revision TEXT NOT NULL, image TEXT NOT NULL, PRIMARY KEY(code, player))')
   }
 
   transaction<T>(run: () => T): T {
@@ -148,6 +150,20 @@ export class Store {
       } while (value >= limit)
       return value % die + 1
     }
+  }
+  setPortrait(code: string, player: string, revision: string, image: string) {
+    this.db.prepare('INSERT OR REPLACE INTO portraits VALUES (?,?,?,?)').run(code, player, revision, image)
+  }
+  dropPortrait(code: string, player: string) {
+    this.db.prepare('DELETE FROM portraits WHERE code=? AND player=?').run(code, player)
+  }
+  /** Which picture each player has. */
+  portraits(code: string) {
+    return Object.fromEntries(this.db.prepare('SELECT player, revision FROM portraits WHERE code=?').all(code)
+      .map(row => [String(row.player), String(row.revision)])) as Record<string, string | undefined>
+  }
+  picture(code: string, revision: string) {
+    return this.db.prepare('SELECT image FROM portraits WHERE code=? AND revision=?').get(code, revision)?.image as string | undefined
   }
   export(filename: string) {
     return backup(this.db, filename)
