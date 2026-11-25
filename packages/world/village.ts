@@ -3,7 +3,7 @@ import { npcs } from '../shared/protocol.ts'
 import type { Ship, SailingPlan, IslandTask, RouteChoice } from './sea.ts'
 import type { Foe } from './foes.ts'
 import type { FruitId } from './fruits.ts'
-import { beli, beliScale, scale } from './scale.ts'
+import { beli, beliScale, scale, staScale } from './scale.ts'
 import { canonIslands, canonPeople, minuteOf } from './canon.ts'
 import { water7Aftermath, water7Stages } from './water7.ts'
 import { castPeople } from './cast.ts'
@@ -72,8 +72,8 @@ export const landmarks = {
   ...canonLandmarks,
 } as Record<LocationId, string>
 export const meals = {
-  bread: { name: '烤麵包', price: 800, hp: 2 * scale, sta: 4 },
-  rice: { name: '燉肉飯', price: 1_800, hp: 5 * scale, sta: 8 },
+  bread: { name: '烤麵包', price: 800, hp: 2 * scale, sta: 4 * staScale },
+  rice: { name: '燉肉飯', price: 1_800, hp: 5 * scale, sta: 8 * staScale },
 }
 
 export const shops: Partial<Record<LocationId, string>> = { square: '風車村鐵匠鋪', dock: '港口補給鋪', goa: '城下町武器鋪', logueShop: '一本松武器店', nanohana: '那諾哈娜雜貨攤', angelBeach: '天使海灘貝殼攤' }
@@ -203,6 +203,8 @@ export type World = {
   treasures?: string[]
   /** Number scale the saved HP values use (see world/scale.ts); missing means 1. */
   scale?: number
+  /** STA scale the saved values use (see world/scale.ts); missing means 1. */
+  staScale?: number
   stock: Record<Good, number>
   /** Fruits dropped by knocked-out NPCs, waiting for the last-blow player to eat or release them. */
   fruitOffers?: { fruit: FruitId, npc: NpcId, to: string, since: number }[]
@@ -298,7 +300,7 @@ export function newWorld(code: string, host: string): World {
   return {
     code, version: 0, started: false, minute: 8 * 60,
     members: [{ id: host, host: true, ready: false, agree: false, approved: false }],
-    scale, economy: beliScale, sagaVersion: 1,
+    scale, staScale, economy: beliScale, sagaVersion: 1,
     stock: initialStock(), memories: emptyMemories(), proposals: [], crew: false,
   }
 }
@@ -312,6 +314,12 @@ export function normalizeWorld(world: World): World {
     for (const companion of Object.values(world.companions ?? {})) if (companion) companion.hp = Math.round(companion.hp * ratio)
     for (const foe of world.combat?.foes ?? []) { foe.hp = Math.round(foe.hp * ratio); foe.maxHp = Math.round(foe.maxHp * ratio) }
     world.scale = scale
+  }
+  // STA pools grew: what a character had left grows with them, so nobody wakes up tired.
+  const staRatio = staScale / (world.staScale ?? 1)
+  if (staRatio !== 1) {
+    for (const member of world.members) if (member.character) member.character.sta = Math.round(member.character.sta * staRatio)
+    world.staScale = staScale
   }
   // Prices moved to canon beli (×50): money saved under the old numbers keeps its buying power.
   if ((world.economy ?? 1) !== beliScale) {

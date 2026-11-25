@@ -71,8 +71,8 @@ test('烹飪：休息時會做飯的人讓大家多回復 STA；醫術 2 以上�
   for (const { c } of [plain, cook]) { c.sta = 0; c.hp = 10 }
   const a = act(plain.world, plain.member, { kind: 'rest', sleep: false })
   const b = act(cook.world, cook.member, { kind: 'rest', sleep: false })
-  assert.match(b.text, /你做了一頓飯，多回復了 6 STA/)
-  assert.equal(cook.c.sta - plain.c.sta, 6)
+  assert.match(b.text, /你做了一頓飯，多回復了 12 STA/)
+  assert.equal(cook.c.sta - plain.c.sta, 12)
   assert.equal(cook.c.hp - plain.c.hp, 3 * scale)
   assert.doesNotMatch(a.text, /做了一頓飯/)
 

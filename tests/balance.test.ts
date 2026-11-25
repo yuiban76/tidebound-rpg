@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { attackCheck, defense, levelDamage, levelDefense, levelHit, makeCharacter, maxHP, maxSTA } from '../packages/rules/engine.ts'
+import { styles } from '../packages/rules/combat.ts'
 import { scale } from '../packages/world/scale.ts'
 import { npcFoe } from '../packages/world/foes.ts'
 import type { NpcId } from '../packages/shared/protocol.ts'
@@ -77,6 +78,13 @@ test('強度門檻：低等級打不過高階對手，足夠的等級與人數�
   assert.ok(winRate(2, 4, 5) < .05, '兩人四級不該打贏第 5 階')
   assert.ok(winRate(4, 8, 5) > .85, '四人八級該能打贏第 5 階')
   assert.ok(winRate(4, 12, 6) > .4, '四人十二級才有機會對抗第 6 階')
+})
+
+test('STA 夠用：一級能用十幾次基礎招式，每升一級至少多用兩次', () => {
+  const c = makeCharacter(character('旅人'))
+  const uses = (level: number) => { c.level = level; return Math.floor(maxSTA(c) / styles.special.sta) }
+  assert.ok(uses(1) >= 15, '一級只能用 ' + uses(1) + ' 次')
+  for (let level = 2; level <= 12; level++) assert.ok(uses(level) - uses(level - 1) >= 2, '升到 ' + level + ' 級')
 })
 
 test('回復量跟得上血量：繃帶隨等級成長', async () => {

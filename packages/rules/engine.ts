@@ -2,7 +2,7 @@ import { attributeLabels, locations, npcs } from '../shared/protocol.ts'
 import type { CharacterInput, Intent, NpcId, Skill } from '../shared/protocol.ts'
 import { asksAboutBoatCrew, asksAboutShipPurchase, dialogueQuestion, directions, routeBetween } from '../world/explore.ts'
 import { forges, maxTier, tierCost, tierDamage, tierHit, tierLevel, tierOf, weaponLabel } from '../world/forge.ts'
-import { beli, scale } from '../world/scale.ts'
+import { beli, scale, staScale } from '../world/scale.ts'
 import { boatCrewReplies, goods, meals, npcFacts, npcPlace, npcRole, npcsAt, party, shops, walkMinutes, weaponItems, weaponNames } from '../world/village.ts'
 import { islandAt, islands, shipPurchaseInfo } from '../world/sea.ts'
 import { partLevel, shipName } from '../world/ships.ts'
@@ -65,7 +65,9 @@ export const levelDamage = (level: number) => Math.floor(level / 2)
 export const levelDefense = (level: number) => Math.floor((level - 1) / 3)
 /** HP a bandage restores: it keeps up with bigger HP pools (+1 per 2 levels of the patient). */
 export const bandageHeal = (healer: Character, patientLevel: number) => (4 + (healer.skillRanks['醫術'] ?? 0) + Math.floor((patientLevel - 1) / 2)) * scale
-export const maxSTA = (c: Character) => 10 + 3 * stat(c, 'CON') + 2 * stat(c, 'WIL') + Math.floor((c.level - 1) / 2)
+/** Every level pays for two more basic moves (3 STA each). */
+export const levelSTA = 6
+export const maxSTA = (c: Character) => (10 + 3 * stat(c, 'CON') + 2 * stat(c, 'WIL')) * staScale + levelSTA * (c.level - 1)
 export const defense = (agi: number, dodge = 0, situational = 0) => 12 + agi + dodge + situational
 /** A recruited ship's doctor, or a party member on the spot with 醫術 2 or more. */
 const medicHere = (world: World, place: Character['place']) => hasMedic(world) || doctorAt(world, place)
@@ -298,7 +300,7 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
       if (c.hp >= maxHP(c) && c.sta >= maxSTA(c)) return reject('你現在沒有需要恢復的地方。')
       c.inventory['傷藥']--
       c.hp = Math.min(maxHP(c), c.hp + (8 + c.level) * scale)
-      c.sta = Math.min(maxSTA(c), c.sta + 5)
+      c.sta = Math.min(maxSTA(c), c.sta + 5 * staScale)
       return { text: '你喝下傷藥，目前 HP ' + c.hp + '、STA ' + c.sta + '。', minutes: 2 }
     }
     case 'equip': {
@@ -385,19 +387,19 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
         const cook = cookAt(world, c.place)
         const cooking = cook ? cook.skillRanks['烹飪'] ?? 0 : 0
         if (cooking) {
-          c.sta = Math.min(maxSTA(c), c.sta + cooking * 2)
+          c.sta = Math.min(maxSTA(c), c.sta + cooking * 2 * staScale)
           if (c.hp > 0) c.hp = Math.min(maxHP(c), c.hp + cooking * scale)
         }
         // A cabin aboard makes any rest beside the ship a better one.
         const cabin = world.ship && c.place === world.ship.port ? partLevel(world.ship, 'cabin') : 0
         if (cabin) {
-          c.sta = Math.min(maxSTA(c), c.sta + cabin * 2)
+          c.sta = Math.min(maxSTA(c), c.sta + cabin * 2 * staScale)
           if (c.hp > 0) c.hp = Math.min(maxHP(c), c.hp + Math.ceil(maxHP(c) * .05 * cabin))
         }
         return {
           text: (alert ? '睡到一半被周圍的動靜吵醒了（' + Math.max(1, Math.round(spent / 6) / 10) + ' 小時）。' : intent.sleep ? '睡了一覺（8 小時）。' : '稍作休息（30 分鐘）。') +
             (cabin ? '你在' + shipName(world.ship!) + '的船室裡休息，恢復得更好。' : '') +
-            (cook ? (cook === c ? '你' : cook.name) + '做了一頓飯，多回復了 ' + cooking * 2 + ' STA。' : '') +
+            (cook ? (cook === c ? '你' : cook.name) + '做了一頓飯，多回復了 ' + cooking * 2 * staScale + ' STA。' : '') +
             'HP ' + c.hp + '／' + maxHP(c) + '，STA ' + c.sta + '／' + maxSTA(c) + '。', minutes: spent,
         }
       }

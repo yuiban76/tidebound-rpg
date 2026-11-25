@@ -61,7 +61,7 @@ test('傷藥：廣場購買，喝下回復 HP 與 STA，用不著時不浪費', 
   c.sta = 0
   act(world, member, { kind: 'use', item: '傷藥' })
   assert.equal(c.hp, Math.min(maxHP(c), 5 + (8 + c.level) * scale))
-  assert.equal(c.sta, 5)
+  assert.equal(c.sta, 10)
   assert.equal(c.inventory['傷藥'], 0)
 })
 

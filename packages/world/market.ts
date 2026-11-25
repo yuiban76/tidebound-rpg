@@ -23,11 +23,11 @@ export type Special = {
 }
 
 export const specials = {
-  meat: { label: '帶骨肉', price: 3_000, kind: 'food', sta: 10, hp: 5, text: '大塊的帶骨烤肉，隨時能吃：STA +10、HP 少量回復' },
-  riceBall: { label: '飯糰', price: 800, kind: 'food', sta: 6, hp: 3, text: '鎮上小女孩教的做法，又鹹又甜：STA +6' },
-  orange: { label: '貝爾梅爾的橘子', price: 500, kind: 'food', sta: 4, hp: 2, text: '可可亞西村的橘子：STA +4' },
-  bento: { label: '海上便當', price: 5_000, kind: 'food', sta: 12, hp: 8, text: '巴拉蒂廚師做的便當，出海也吃得到熱食：STA +12、HP 回復' },
-  dinoMeat: { label: '恐龍肉', price: 6_000, kind: 'food', sta: 15, hp: 10, text: '小花園的恐龍肉，一塊能撐很久：STA +15、HP 回復' },
+  meat: { label: '帶骨肉', price: 3_000, kind: 'food', sta: 20, hp: 5, text: '大塊的帶骨烤肉，隨時能吃：STA +20、HP 少量回復' },
+  riceBall: { label: '飯糰', price: 800, kind: 'food', sta: 12, hp: 3, text: '鎮上小女孩教的做法，又鹹又甜：STA +12' },
+  orange: { label: '貝爾梅爾的橘子', price: 500, kind: 'food', sta: 8, hp: 2, text: '可可亞西村的橘子：STA +8' },
+  bento: { label: '海上便當', price: 5_000, kind: 'food', sta: 24, hp: 8, text: '巴拉蒂廚師做的便當，出海也吃得到熱食：STA +24、HP 回復' },
+  dinoMeat: { label: '恐龍肉', price: 6_000, kind: 'food', sta: 30, hp: 10, text: '小花園的恐龍肉，一塊能撐很久：STA +30、HP 回復' },
   sakura: { label: '櫻花藥', price: 30_000, kind: 'heal', hp: 25, text: '磁鼓島的醫生調的藥，比傷藥強得多' },
   starPowder: { label: '火藥星', price: 8_000, kind: 'combat', effect: 'blind', text: '戰鬥中丟向一個對手，讓他這回合睜不開眼、無法出手' },
   smokeBomb: { label: '煙霧彈', price: 20_000, kind: 'combat', effect: 'escape', text: '戰鬥中使用，全隊必定脫離戰鬥（海上也甩得掉）' },

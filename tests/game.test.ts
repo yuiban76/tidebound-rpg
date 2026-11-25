@@ -856,8 +856,11 @@ test('舊存檔載入時補上新欄位而不改動既有資料', () => {
     delete legacy.memories.mayor
     // Saves from before canon-beli prices are converted once: 777 becomes 777 × 50.
     delete legacy.economy
+    // Saves from before the bigger STA pools keep the same share of STA.
+    delete legacy.staScale
     legacy.members[0].character = makeCharacter(character('甲'))
     legacy.members[0].character.money = 777
+    legacy.members[0].character.sta = 13
     delete legacy.members[0].character.unspent
     delete legacy.members[0].character.xpLog
     store.db.prepare('UPDATE worlds SET body=? WHERE code=?').run(JSON.stringify(legacy), 'ABCDEF0123')
@@ -865,6 +868,9 @@ test('舊存檔載入時補上新欄位而不改動既有資料', () => {
     assert.equal(loaded.stock.sword, 2)
     assert.deepEqual(loaded.memories.mayor, [])
     assert.deepEqual([loaded.members[0].character?.unspent, loaded.members[0].character?.xpLog, loaded.members[0].character?.money], [0, {}, 777 * 50])
+    assert.equal(loaded.members[0].character?.sta, 26)
+    store.save(loaded)
+    assert.equal(store.get('ABCDEF0123')!.members[0].character?.sta, 26, '只換算一次')
   } finally { store.db.close() }
 })
 

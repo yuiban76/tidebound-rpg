@@ -146,7 +146,7 @@ test('回復系統：口語指令、吃飯、休息與狀態提示', () => {
   c.hp = 1; c.sta = 0
   assert.match(act(world, member, { kind: 'rest', sleep: true }).text, /睡了一覺/)
   c.place = 'tavern'; c.hp = 1; c.sta = 0; c.money = 2_000
-  assert.match(act(world, member, { kind: 'meal', dish: 'rice' }).text, /HP \+50、STA \+8/)
+  assert.match(act(world, member, { kind: 'meal', dish: 'rice' }).text, /HP \+50、STA \+16/)
   assert.equal(c.money, 2_000 - 1_800)
   c.hp = 1
   assert.match(guideFor(world as never, member).text, /你的狀態不太好.*休息.*烤麵包/s)
