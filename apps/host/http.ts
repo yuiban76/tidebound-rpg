@@ -5,7 +5,7 @@ import { randomBytes } from 'node:crypto'
 import { extname, join, resolve, sep } from 'node:path'
 import { z } from 'zod'
 import { AiFault } from '../../packages/ai/provider.ts'
-import { messageSchema } from '../../packages/shared/protocol.ts'
+import { messageSchema, transferCode } from '../../packages/shared/protocol.ts'
 import { Game, GameError } from './game.ts'
 import { Store } from './store.ts'
 
@@ -21,7 +21,9 @@ const call = z.discriminatedUnion('op', [
   z.strictObject({ op: z.literal('backup') }),
   z.strictObject({ op: z.literal('review'), code, id: z.uuid(), approved: z.boolean() }),
   z.strictObject({ op: z.literal('host'), code, message: messageSchema }),
-  z.strictObject({ op: z.literal('join'), code, token: token.optional() }),
+  z.strictObject({ op: z.literal('join'), code, token: token.optional(), claim: transferCode.optional() }),
+  z.strictObject({ op: z.literal('transfer'), code, id: z.uuid() }),
+  z.strictObject({ op: z.literal('remove'), code, id: z.uuid() }),
   z.strictObject({ op: z.literal('guest'), code, token, message: messageSchema }),
   z.strictObject({ op: z.literal('disconnect'), code, token }),
 ])
@@ -102,7 +104,12 @@ export function makeHost(filename: string, assets: string, exportDir: string) {
           case 'host':
             return send(res, 200, game.message(rpc.code, game.room(rpc.code).members[0].id, rpc.message))
           case 'join':
-            return send(res, 200, game.join(rpc.code, rpc.token))
+            return send(res, 200, game.join(rpc.code, rpc.token, rpc.claim))
+          case 'transfer':
+            return send(res, 200, game.issueTransfer(rpc.code, rpc.id, false))
+          case 'remove':
+            game.remove(rpc.code, rpc.id)
+            return send(res, 200, true)
           case 'disconnect':
             game.disconnect(rpc.code, game.guest(rpc.code, rpc.token))
             return send(res, 200, true)

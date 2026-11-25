@@ -270,6 +270,8 @@ for (const count of [2, 3, 4]) test(count + ' 個瀏覽器用 WebRTC 開局與�
     await context.route('**/local/**', route => { httpCalls++; return route.abort() })
     const guest = await context.newPage()
     await guest.goto(gameUrl)
+    // A browser without a seat is asked first, so nobody takes a second seat by accident.
+    await guest.getByRole('button', { name: '以新玩家加入' }).click()
     return guest
   }
   try {
@@ -299,6 +301,33 @@ for (const count of [2, 3, 4]) test(count + ' 個瀏覽器用 WebRTC 開局與�
       await expect(late.locator('.personal')).toHaveCount(3, { timeout: 15_000 })
       await expect(page.locator('.personal')).toHaveCount(3)
       await expect(page.locator('.entry-world').filter({ hasText: '新夥伴新人在風車村港口與大家會合。' })).toBeVisible()
+    }
+    if (count === 2) {
+      // Moving to another device: the code brings the same character back there and signs the old device out.
+      await guests[0].getByText('換設備', { exact: true }).click()
+      await guests[0].getByRole('button', { name: '產生換設備碼' }).click()
+      const ticket = await guests[0].locator('.transfer-ticket strong').textContent({ timeout: 15_000 })
+      const context = await browser.newContext()
+      contexts.push(context)
+      const phone = await context.newPage()
+      await phone.goto(gameUrl)
+      await phone.getByLabel(/換設備碼/).fill('ZZZZ-ZZZZ')
+      await phone.getByRole('button', { name: '接回我的角色' }).click()
+      await expect(phone.getByText('換設備碼不正確或已過期。')).toBeVisible({ timeout: 15_000 })
+      await phone.getByLabel(/換設備碼/).fill(ticket!)
+      await phone.getByRole('button', { name: '接回我的角色' }).click()
+      await expect(phone.locator('.personal')).toHaveCount(3, { timeout: 15_000 })
+      await expect(phone.locator('.voyage-bar')).toContainText('風車村港口')
+      await expect(guests[0].getByText('這台設備的重連憑證已失效', { exact: false })).toBeVisible({ timeout: 20_000 })
+      await expect(guests[0].getByRole('button', { name: '以新玩家加入' })).toBeVisible()
+      // The new device remembers its seat; the host can issue a code for a player who lost theirs.
+      await phone.reload()
+      await expect(phone.locator('.personal')).toHaveCount(3, { timeout: 15_000 })
+      const seats = page.getByRole('region', { name: '遠端玩家' })
+      await seats.getByRole('listitem').filter({ hasText: '水手0' }).getByRole('button', { name: '換設備碼' }).click()
+      await expect(seats.locator('.transfer-ticket')).toContainText('水手0的換設備碼')
+      await expect(seats.getByRole('button', { name: '移除' })).toHaveCount(0)
+      await expect(page.locator('.personal')).toHaveCount(3)
     }
     if (count === 4) {
       await guests[0].close()

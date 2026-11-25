@@ -566,7 +566,7 @@ test('P0-08／10 斷線保留席位，重連恢復同角色與歷史', async t =
   game.message(code, ids[0], { kind: 'propose', type: 'formCrew', title: '成立船團' })
   const proposal = game.room(code).proposals[0]
   assert.throws(() => game.message(code, ids[0], { kind: 'vote', id: proposal.id, yes: true }), /重大決議暫停/)
-  assert.throws(() => game.join(code, '0'.repeat(64)), /無效/)
+  assert.throws(() => game.join(code, '0'.repeat(64)), /憑證已失效/)
   assert.equal(game.join(code, tokens[0]).view.player, ids[1])
   const next = game.view(code, ids[1], view.cursor)
   assert.equal(next.unread, 2)

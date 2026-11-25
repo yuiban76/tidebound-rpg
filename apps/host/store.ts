@@ -80,6 +80,14 @@ export class Store {
     this.db.prepare('INSERT INTO sessions VALUES (?,?,?)').run(code, actor, hash(token))
     return token
   }
+  /** A fresh credential for a seat; the one it had before stops working. */
+  renew(code: string, actor: string) {
+    this.revoke(code, actor)
+    return this.token(code, actor)
+  }
+  revoke(code: string, actor: string) {
+    this.db.prepare('DELETE FROM sessions WHERE code=? AND player=?').run(code, actor)
+  }
   identity(code: string, token: string) {
     const row = this.db.prepare('SELECT player FROM sessions WHERE code=? AND digest=?').get(code, hash(token))
     return row?.player as string | undefined

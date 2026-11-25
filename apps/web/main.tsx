@@ -4,10 +4,11 @@ import { createRoot } from 'react-dom/client'
 import { aiCategoryLabels, aiLabels } from '../../packages/shared/protocol.ts'
 import type { AiStatus, Message } from '../../packages/shared/protocol.ts'
 import type { Entry } from '../host/store.ts'
-import { bridge, connect, initialRoom, inviteUrl, isLocal, localRpc, localStatus, setTurn } from './network.ts'
-import type { Command, LocalStatus, View } from './network.ts'
+import { bridge, connect, hasSeat, initialRoom, inviteUrl, isLocal, localRpc, localStatus, setTurn } from './network.ts'
+import type { Command, Entrance, LocalStatus, View } from './network.ts'
 import { Field, Lobby } from './lobby.tsx'
 import { clock, Story } from './story.tsx'
+import { SeatPanel, TransferPanel } from './transfer.tsx'
 import './styles.css'
 
 function Status({ ai }: { ai?: AiStatus }) {
@@ -251,6 +252,9 @@ function Host() {
           <div className="button-row"><button className="light" onClick={() => void copyInvite()}>複製邀請連結</button>
             <button className="light" onClick={() => { setInviting(!inviting); if (inviting) setNetwork('') }}>{inviting ? '停用遠端邀請' : '啟用遠端邀請'}</button>
             <button className="light" onClick={leave}>回房主首頁</button></div>
+          <SeatPanel view={view} busy={busy || !healthy}
+            issue={id => new Promise(resolve => void perform<{ code: string, until: number }>({ op: 'transfer', code, id }, resolve).then(() => resolve(undefined)))}
+            remove={id => void perform({ op: 'remove', code, id })}/>
           <RelaySettings/>
         </details>
         {view.world.started
@@ -265,9 +269,12 @@ function Host() {
 }
 
 function Guest() {
-  const [room, setRoom] = useState('')
-  const [requested, setRequested] = useState(initialRoom)
-  const [attempt, setAttempt] = useState(0)
+  const [room, setRoom] = useState(initialRoom)
+  const [claim, setClaim] = useState('')
+  // A browser that already has a seat walks straight in; anyone else says first whether they are new here.
+  const [session, setSession] = useState<{ room: string, entrance: Entrance } | undefined>(() => initialRoom && hasSeat(initialRoom) ? { room: initialRoom, entrance: {} } : undefined)
+  /** The seat this browser held is no longer valid. */
+  const [refused, setRefused] = useState(false)
   const [view, setView] = useState<View>()
   const [status, setStatus] = useState('')
   const [gap, setGap] = useState(0)
@@ -275,13 +282,18 @@ function Guest() {
   const [busy, setBusy] = useState(false)
   const command = useRef<Command | undefined>(undefined)
   const online = status === '已連線'
+  const connecting = !view && status === '正在連線至房主'
   const joining = !!view?.world.members.find(m => m.id === view.player)?.pendingJoin
   useEffect(() => {
-    if (!/^[A-F0-9]{10}$/.test(requested)) return
-    const session = connect(requested, setView, setStatus, setGap)
-    command.current = session.command
-    return () => { command.current = undefined; session.close() }
-  }, [requested, attempt])
+    if (!session || !/^[A-F0-9]{10}$/.test(session.room)) return
+    const link = connect(session.room, session.entrance, next => { setRefused(false); setClaim(''); setView(next) }, (label, final) => {
+      setStatus(label)
+      // The host turned this device away: back to the door, with the reason on it.
+      if (final && label !== '已離線。') { setView(undefined); setRefused(label.includes('憑證')) }
+    }, setGap)
+    command.current = link.command
+    return () => { command.current = undefined; link.close() }
+  }, [session])
   async function send(msg: Message) {
     setError('')
     setBusy(true)
@@ -298,21 +310,24 @@ function Guest() {
     setView(undefined)
     setError('')
     setGap(0)
-    setRequested(room.trim().toUpperCase())
-    setAttempt(attempt + 1)
+    const wanted = room.trim().toUpperCase()
+    setSession({ room: wanted, entrance: claim.trim() ? { claim: claim.trim() } : { fresh: refused || !hasSeat(wanted) } })
   }
   return <>
     <Masthead ai={online ? view?.ai : undefined} code={view?.world.code}/>
     <main className="shell page">
-      {!view && <div className="page-heading"><h1>加入房間</h1><p>請向房主取得房號。同一瀏覽器可重連至原本的角色。</p></div>}
+      {!view && <div className="page-heading"><h1>加入房間</h1><p>請向房主取得房號。同一個瀏覽器會直接回到原本的角色；換了設備請輸入換設備碼。</p></div>}
       {status && <p className={'notice ' + (online ? '' : 'warning')} role="status">{status}</p>}
       {error && <p className="notice warning" role="alert">{error}</p>}
       {!view && <form className="panel join" onSubmit={join}>
         <Field label="房號"><input value={room} onChange={e => setRoom(e.target.value)} pattern="[A-Fa-f0-9]{10}" autoComplete="off" maxLength={10} required/></Field>
-        <button>連線並加入</button>
+        <Field label="換設備碼（已經有角色時才填）"><input value={claim} onChange={e => setClaim(e.target.value)} pattern="[A-Za-z0-9 \-]{8,12}" autoComplete="off" maxLength={12} placeholder="例如 ABCD-2345"/></Field>
+        <p className="hint">第一次玩就留空。已經有角色，卻不填換設備碼就加入，會變成另一位新玩家。</p>
+        <button disabled={connecting}>{claim.trim() ? '接回我的角色' : !refused && hasSeat(room.trim().toUpperCase()) ? '回到我的角色' : '以新玩家加入'}</button>
         {isLocal && <p><a href="#">回房主首頁</a></p>}
       </form>}
       {!view && <RelaySettings/>}
+      {view && <TransferPanel view={view} send={send} online={online}/>}
       {view?.world.started && !joining && <Story view={view} send={async msg => { await send(msg) }} history={async before => await send({ kind: 'history', before }) as Entry[]} connected={online} gap={gap}/>}
       {view && (!view.world.started || joining) && <><div className="page-heading"><h1>{joining ? '加入進行中的冒險' : '遊戲大廳'}</h1>
         {joining && <p>故事已經開始。完成角色卡、確認共同背景並準備後，你會在隊伍所在的港口與大家會合。</p>}</div>

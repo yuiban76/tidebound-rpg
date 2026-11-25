@@ -107,7 +107,7 @@ export function bridge(code: string, admin: string, status: (text: string) => vo
       try {
         if (body.kind === 'hello') {
           if (token) throw new Error('此連線已經登入。')
-          const joined = await localRpc<Greeting>(admin, { op: 'join', code, token: body.token })
+          const joined = await localRpc<Greeting>(admin, { op: 'join', code, token: body.token, claim: body.claim })
           if (closed) {
             if (!sessions.has(joined.token)) void localRpc(admin, { op: 'disconnect', code, token: joined.token }).catch(() => {})
             return
@@ -144,7 +144,14 @@ export function bridge(code: string, admin: string, status: (text: string) => vo
   return () => peer.destroy()
 }
 
-export function connect(code: string, onView: (view: View) => void, onStatus: (state: string) => void, onGap: (count: number) => void) {
+const seatKey = (code: string) => 'tide-guest-' + code
+/** Whether this browser already holds a seat in the room. */
+export const hasSeat = (code: string) => localStorage.getItem(seatKey(code)) !== null
+
+/** How to enter: with the seat this browser holds, as somebody new, or by claiming a seat with a device code. */
+export type Entrance = { fresh?: boolean, claim?: string }
+
+export function connect(code: string, entrance: Entrance, onView: (view: View) => void, onStatus: (state: string, final: boolean) => void, onGap: (count: number) => void) {
   let peer: Peer | undefined
   let link: DataConnection | undefined
   let disposed = false
@@ -153,8 +160,9 @@ export function connect(code: string, onView: (view: View) => void, onStatus: (s
   let poll: ReturnType<typeof setInterval>
   let inflight: { id: string, resolve: (reply: Reply) => void, reject: (error: Error) => void, timer: ReturnType<typeof setTimeout> } | undefined
   let chain: Promise<unknown> = Promise.resolve()
-  const key = 'tide-guest-' + code
-  let credentials: string | undefined = localStorage.getItem(key) ?? undefined
+  const key = seatKey(code)
+  let credentials: string | undefined = entrance.fresh ? undefined : localStorage.getItem(key) ?? undefined
+  let claim = entrance.claim
   let cursor = Number(localStorage.getItem(key + '-cursor')) || 0
 
   function request(body: PeerRequest['body']): Promise<NonNullable<Reply['ok']>> {
@@ -196,12 +204,12 @@ export function connect(code: string, onView: (view: View) => void, onStatus: (s
     peer = undefined
     old?.destroy()
     if (!disposed) {
-      onStatus(label)
+      onStatus(label, !again)
       if (again) retry = setTimeout(open, 3200)
     }
   }
   function open() {
-    onStatus('正在連線至房主')
+    onStatus('正在連線至房主', false)
     try {
       const current = new Peer(peerOptions())
       peer = current
@@ -225,14 +233,16 @@ export function connect(code: string, onView: (view: View) => void, onStatus: (s
           if (link !== conn) return
           clearTimeout(deadline)
           try {
-            const hello = await request({ kind: 'hello', token: credentials }) as Greeting
+            const hello = await request({ kind: 'hello', token: credentials, claim }) as Greeting
+            if (claim) cursor = 0
+            claim = undefined
             credentials = hello.token
             localStorage.setItem(key, credentials)
             const last = cursor
             const initial = await request({ kind: 'sync', after: last }) as View
             if (last && initial.unread) onGap(initial.unread)
             publish(initial)
-            onStatus('已連線')
+            onStatus('已連線', false)
             poll = setInterval(() => {
               void request({ kind: 'sync', after: cursor }).then(result => publish(result as View))
                 .catch(() => { if (link === conn) down('房主暫停，正在重連。') })

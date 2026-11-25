@@ -150,6 +150,8 @@ export const messageSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('act'), id: identifier, version: z.number().int().nonnegative(), text: text(1000) }),
   z.strictObject({ kind: z.literal('cancel'), id: identifier }),
   z.strictObject({ kind: z.literal('chat'), id: identifier, text: text(500) }),
+  // Ask for a code that moves this seat to another device.
+  z.strictObject({ kind: z.literal('transfer') }),
   z.strictObject({ kind: z.literal('propose'), type: z.enum(proposals), title: text(60) }),
   z.strictObject({ kind: z.literal('vote'), id: identifier, yes: z.boolean() }),
   z.strictObject({ kind: z.literal('allocate'), attr: z.enum(attributes) }),
@@ -157,10 +159,12 @@ export const messageSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('technique'), name: text(12), style: z.enum(['special', 'advanced', 'flurry']) }),
 ])
 export type Message = z.infer<typeof messageSchema>
+/** A device code as typed: eight characters, with or without the dash, in either case. */
+export const transferCode = z.string().trim().min(8).max(12).regex(/^[A-Za-z0-9 -]+$/)
 export const peerRequest = z.strictObject({
   id: identifier,
   body: z.union([
-    z.strictObject({ kind: z.literal('hello'), token: z.string().regex(/^[a-f0-9]{64}$/).optional() }),
+    z.strictObject({ kind: z.literal('hello'), token: z.string().regex(/^[a-f0-9]{64}$/).optional(), claim: transferCode.optional() }),
     messageSchema,
   ]),
 })

@@ -284,6 +284,9 @@ legend { padding: 0 .3rem; font-weight: 700; }
 .entry-draft p { color: var(--muted); }
 .entry-draft p::after { content: '▍'; margin-left: .1rem; animation: blink 1s steps(2, start) infinite; }
 @keyframes blink { to { visibility: hidden; } }
+.transfer-ticket { margin-top: .7rem; padding: .7rem 1rem; border: 2px dashed #87662a; border-radius: 6px; background: #fdf6e0; text-align: center; }
+.transfer-ticket p { margin: 0; }
+.transfer-ticket strong { display: block; font-size: 1.9rem; letter-spacing: .12em; font-variant-numeric: tabular-nums; user-select: all; }
 @media (prefers-reduced-motion: reduce) { .entry-draft p::after { animation: none; } }
 
 /* World bulletin: always on top of the story, its own small scrolling window (spec §5.1). */

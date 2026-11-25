@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID } from 'node:crypto'
+import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
 import { AiFault, AiProvider, IntentFormatFault } from '../../packages/ai/provider.ts'
 import { aiInput, locations, npcs } from '../../packages/shared/protocol.ts'
 import type { Intent, Message, NpcId } from '../../packages/shared/protocol.ts'
@@ -38,6 +38,11 @@ const demand: (condition: unknown, message: string) => asserts condition = (cond
   if (!condition) throw new GameError(message)
 }
 
+/** Letters and digits nobody mixes up when reading a code aloud: no I, O, 0 or 1. 32 of them, so a byte picks evenly. */
+const transferLetters = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+const transferMinutes = 10
+const transferTries = 10
+
 export class Game {
   ai = new AiProvider()
   readonly store: Store
@@ -49,6 +54,10 @@ export class Game {
   #monitor?: ReturnType<typeof setInterval>
   /** Partial narration per pending action id while the model streams it. */
   #drafts = new Map<string, string>()
+  /** Open device codes by seat. They live in memory only: restarting the host voids them. */
+  #transfers = new Map<string, { room: string, code: string, until: number, /** The player asked for it, so their own screen may show it. */ own: boolean }>()
+  /** Wrong device codes tried per room. */
+  #misses = new Map<string, { count: number, until: number }>()
 
   constructor(store: Store) {
     this.store = store
@@ -148,9 +157,19 @@ export class Game {
     this.kick(code)
     return this.view(code, room.members[0].id)
   }
-  join(code: string, token?: string) {
+  join(code: string, token?: string, claim?: string) {
     const world = this.room(code)
     demand(this.#room === code && this.connected(world).has(world.members[0].id), '房主離線或已切換房間。')
+    if (claim) {
+      const id = this.redeem(code, claim)
+      const before = token && this.store.identity(code, token)
+      const credentials = this.store.transaction(() => this.store.renew(code, id))
+      // Someone who first joined by mistake on this device leaves that empty seat behind.
+      const mistake = before && before !== id ? world.members.find(m => m.id === before) : undefined
+      if (mistake && !mistake.host && !mistake.character) this.remove(code, mistake.id)
+      this.touch(code, id)
+      return { token: credentials, view: this.view(code, id) }
+    }
     if (token) {
       const id = this.guest(code, token)
       this.touch(code, id)
@@ -170,8 +189,55 @@ export class Game {
   }
   guest(code: string, token: string) {
     const id = this.store.identity(code, token)
-    demand(id, '重連憑證無效。請使用當初加入房間的瀏覽器。')
+    demand(id, '這台設備的重連憑證已失效：角色可能已換到另一台設備。要接回角色，請輸入換設備碼（在原設備產生，或向房主索取）。')
     return id
+  }
+  /** A one-time code that moves a seat to another device. Asking again voids the code before it. */
+  issueTransfer(code: string, id: string, own: boolean) {
+    const world = this.room(code)
+    demand(this.#room === code, '請先開啟這個房間。')
+    const member = world.members.find(m => m.id === id)
+    demand(member, '找不到這位玩家。')
+    demand(!member.host, '房主的角色跟著房主的電腦，不使用換設備碼。')
+    const text = [...randomBytes(8)].map(byte => transferLetters[byte % transferLetters.length]).join('')
+    const ticket = { room: code, code: text.slice(0, 4) + '-' + text.slice(4), until: Date.now() + transferMinutes * 60_000, own }
+    this.#transfers.set(id, ticket)
+    return { code: ticket.code, until: ticket.until }
+  }
+  private redeem(code: string, claim: string) {
+    const now = Date.now()
+    const misses = this.#misses.get(code)
+    demand(!misses || misses.until <= now || misses.count < transferTries, '換設備碼錯誤太多次，請十分鐘後再試，並向房主重新索取。')
+    const bare = (text: string) => text.toUpperCase().replace(/[^A-Z0-9]/g, '')
+    const typed = Buffer.from(bare(claim))
+    for (const [id, ticket] of this.#transfers) {
+      if (ticket.until <= now) { this.#transfers.delete(id); continue }
+      const wanted = Buffer.from(bare(ticket.code))
+      if (ticket.room !== code || typed.length !== wanted.length || !timingSafeEqual(typed, wanted)) continue
+      this.#transfers.delete(id)
+      this.#misses.delete(code)
+      return id
+    }
+    const count = (misses && misses.until > now ? misses.count : 0) + 1
+    this.#misses.set(code, { count, until: now + transferMinutes * 60_000 })
+    // A guesser gets nothing for their trouble: the codes of the room are void, too.
+    if (count >= transferTries) for (const [id, ticket] of this.#transfers) if (ticket.room === code) this.#transfers.delete(id)
+    throw new GameError('換設備碼不正確或已過期。')
+  }
+  /** Frees a seat taken by mistake. Whoever is already part of the party stays. */
+  remove(code: string, id: string) {
+    const world = this.room(code)
+    const member = world.members.find(m => m.id === id)
+    demand(member, '找不到這位玩家。')
+    demand(!member.host && (!world.started || member.pendingJoin), '已經入隊的玩家不能移除。')
+    this.store.transaction(() => {
+      world.members = world.members.filter(m => m.id !== id)
+      world.version++
+      this.store.save(world)
+      this.store.revoke(code, id)
+    })
+    this.#transfers.delete(id)
+    this.disconnect(code, id)
   }
   private ready(world: World) {
     const connected = this.connected(world)
@@ -208,7 +274,10 @@ export class Game {
     const connected = this.connected(w)
     const entries = this.store.entries(code)
     const { memories: _memories, members, combat, ...publicWorld } = w
+    const ticket = this.#transfers.get(player)
     return {
+      // Only the seat that asked for a device code ever sees it; a code from the host is for someone whose device is gone.
+      transfer: ticket?.own && ticket.until > Date.now() ? { code: ticket.code, until: ticket.until } : undefined,
       player, ai: { ...this.ai.status },
       phase: w.started ? (this.ai.status.state === 'passed' ? 'playing' : 'paused') : 'lobby',
       hostOnline: this.#room === code && connected.has(w.members[0].id),
@@ -246,6 +315,10 @@ export class Game {
       return this.view(code, id, msg.after)
     }
     if (msg.kind === 'history') return this.store.entries(code, msg.before)
+    if (msg.kind === 'transfer') {
+      this.issueTransfer(code, id, true)
+      return this.view(code, id)
+    }
     if (msg.kind === 'character' || msg.kind === 'ready') {
       demand(!world.started || actor.pendingJoin, '故事開始後不能更改創角。')
       let arrival: string | undefined
