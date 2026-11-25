@@ -1,0 +1,60 @@
+/* A round of fighting: our side in blue on the left, theirs in red on the right, and the blows flying between the names. */
+.fight-tray {
+  position: fixed; z-index: 40; left: 50%; top: 44%; transform: translate(-50%, -50%); width: min(96vw, 60rem); padding: .7rem .7rem .4rem;
+  border: 4px double #c9a45a; border-radius: 14px; color: #f6ecd0; cursor: pointer; user-select: none;
+  background: radial-gradient(ellipse at 50% 30%, #22433ff7, #0e2021fa 75%); box-shadow: 0 12px 40px #0a1a1fa0, 0 0 0 100vmax #05080c59; animation: fight-in .16s ease-out;
+}
+.fight-fx { position: fixed; z-index: 41; inset: 0; width: 100vw; height: 100vh; pointer-events: none; }
+.fight-sides { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(.5rem, 5vw, 5rem); align-items: stretch; }
+.fight-side { display: flex; flex-direction: column; min-width: 0; padding: .3rem .6rem .7rem; border: 2px solid; border-radius: 10px; }
+.fight-side[data-side='ours'] { border-color: #5aa6e6; background: #17405fd9; }
+.fight-side[data-side='foe'] { border-color: #e2706a; background: #561d20d9; }
+.fight-side h4 { margin: 0 -.6rem .55rem; padding: .05rem 0 .15rem; border-bottom: 1px solid; text-align: center; font-size: 1.02rem; letter-spacing: .3em; text-indent: .3em; }
+.fight-side[data-side='ours'] h4 { color: #bfe0ff; border-color: #5aa6e6; }
+.fight-side[data-side='foe'] h4 { color: #ffcfc9; border-color: #e2706a; }
+.fight-side ul { flex: 1; display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; align-content: center; gap: .7rem .8rem; margin: 0; padding: 0; list-style: none; }
+.fighter { position: relative; display: flex; flex-direction: column; align-items: center; min-width: 6.6rem; max-width: 12rem; transition: opacity .12s, filter .12s; }
+.fighter-name {
+  max-width: 100%; padding: .1rem .7rem; border: 2px solid; border-radius: 8px; overflow-wrap: anywhere; text-align: center; line-height: 1.35; font-weight: 800; font-size: 1.02rem;
+  font-family: "Noto Serif TC", "Songti TC", PMingLiU, serif; box-shadow: 0 2px 6px #00000066; transition: box-shadow .12s, background .12s;
+}
+.fight-side[data-side='ours'] .fighter-name { color: #fff; border-color: #8fcaff; background: linear-gradient(#3a86c9, #1f5d97); }
+.fight-side[data-side='foe'] .fighter-name { color: #fff; border-color: #ffa79f; background: linear-gradient(#c94a43, #8f2522); }
+.fighter-hp { width: 100%; max-width: 8rem; height: .5rem; margin-top: .25rem; border: 1px solid #0c1014; border-radius: 4px; overflow: hidden; background: #3a1614; }
+.fighter-hp i { display: block; height: 100%; background: linear-gradient(#8fe08a, #3fa85a); transition: width .28s ease-out; }
+.fight-side[data-side='foe'] .fighter-hp i { background: linear-gradient(#ffd06a, #e0862f); }
+.fighter-dice { display: flex; justify-content: center; gap: .35rem; margin-top: .2rem; }
+.fighter-dice > div { display: flex; flex-direction: column; align-items: center; }
+.fighter-dice canvas { display: block; }
+.fighter-dice strong { font-family: "Noto Serif TC", Georgia, serif; font-size: 1.15rem; line-height: 1.2; }
+.fighter-dice small { max-width: 7.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .74rem; opacity: .85; }
+.fighter-verdict { padding: 0 .55rem; border-radius: 1rem; font-weight: 800; font-size: .88rem; }
+.fighter-dice [data-tone='rolling'] strong, .fighter-dice [data-tone='rolling'] .fighter-verdict { opacity: .45; }
+.fighter-dice [data-tone='ours'] .fighter-verdict { color: #07263d; background: #8fd0ff; }
+.fighter-dice [data-tone='foe'] .fighter-verdict { color: #fff; background: #d8322f; }
+.fighter-dice [data-tone='gold'] .fighter-verdict { color: #3b2a05; background: #ffd968; }
+.fighter-dice [data-tone='gold'] canvas { filter: drop-shadow(0 0 12px #ffd968); }
+.fighter-dice [data-tone='oursMiss'] .fighter-verdict, .fighter-dice [data-tone='foeMiss'] .fighter-verdict { color: #cfd6d8; background: #00000040; }
+.fighter-dice [data-tone='oursMiss'] canvas, .fighter-dice [data-tone='foeMiss'] canvas { opacity: .62; }
+/* While blows fly: the attacker shines, the target flashes, the rest step back. */
+.fighter[data-state='dim'] { opacity: .42; }
+.fighter[data-state='act'] { z-index: 2; }
+.fighter[data-state='act'] .fighter-name { box-shadow: 0 0 0 3px #ffe9a0, 0 0 18px #ffd24a; }
+.fighter[data-state='hit'] .fighter-name { background: #fff; color: #b5261c; box-shadow: 0 0 0 3px #ff6a4a, 0 0 18px #ff5a3a; }
+.fighter[data-down] { filter: grayscale(.9) brightness(.65); }
+.fighter[data-down] .fighter-name { text-decoration: line-through; }
+.fight-tray > p { margin: .3rem 0 0; text-align: center; font-size: .74rem; opacity: .6; }
+@keyframes fight-in { from { opacity: 0; transform: translate(-50%, -46%) scale(.94); } }
+@media (max-width: 560px) {
+  .fight-tray { width: 98vw; padding: .4rem .35rem .25rem; border-radius: 10px; }
+  .fight-sides { gap: 1.9rem; }
+  .fight-side { padding: .15rem .25rem .45rem; }
+  .fight-side h4 { margin: 0 -.25rem .4rem; font-size: .9rem; }
+  .fight-side ul { flex-direction: column; flex-wrap: nowrap; justify-content: center; align-items: center; gap: .55rem; }
+  .fighter { min-width: 0; max-width: 100%; }
+  .fighter-name { padding: .05rem .4rem; font-size: .84rem; }
+  .fighter-dice strong { font-size: .95rem; }
+  .fighter-verdict { padding: 0 .4rem; font-size: .76rem; }
+  .fighter-dice small { max-width: 6rem; font-size: .66rem; }
+}
+@media (prefers-reduced-motion: reduce) { .fight-tray { animation: none; } }

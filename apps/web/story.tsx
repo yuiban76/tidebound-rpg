@@ -23,6 +23,12 @@ import { RecoveryPanel } from './recovery.tsx'
 import { CalendarPanel } from './calendar.tsx'
 import { LuffyPanel } from './luffy.tsx'
 import { ShipPanel } from './ship.tsx'
+import { DiceTray } from './dice.tsx'
+import { FightTray } from './fight-tray.tsx'
+import type { Vital } from './fight-tray.tsx'
+import { lineUp, pickStrikes, strikesIn } from '../../packages/world/strikes.ts'
+import { companionIds, companionMaxHp } from '../../packages/world/companions.ts'
+import { diceIn } from '../../packages/shared/dice.ts'
 import { partLevel, shipName } from '../../packages/world/ships.ts'
 import { WarPanel } from './war.tsx'
 import { SagaPanel } from './saga.tsx'
@@ -80,7 +86,43 @@ export function Story({ view, send, history, connected, gap, review }: {
   history: (before: number) => Promise<Entry[]>, connected: boolean, gap: number,
   review?: (id: string, approved: boolean) => void,
 }) {
-  const { world, player } = view
+  const { player } = view
+  // Dice: a result with rolls in it waits for its animation. Until the dice lie still the page keeps showing the
+  // world as it was, so neither the log nor an HP bar gives the outcome away.
+  const [diceOn, setDiceOn] = useState(() => { try { return localStorage.getItem('tide-dice') !== 'off' } catch { return true } })
+  const [attackOn, setAttackOn] = useState(() => { try { return localStorage.getItem('tide-attacks') !== 'off' } catch { return true } })
+  const [rolled, setRolled] = useState(() => view.entries.at(-1)?.seq ?? 0)
+  const attackers = party(view.world).map(m => m.character!)
+  const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const blows = (text: string) => attackOn && !still ? strikesIn(text, attackers, view.world.fruitLost) : []
+  const waiting = diceOn || attackOn ? view.entries.filter(entry => entry.seq > rolled && entry.type === 'result' &&
+    (entry.actor === null || entry.actor === player) && (diceOn && diceIn(entry.text).length > 0 || blows(entry.text).length > 0)) : []
+  // After a reconnect the missed rolls are old news.
+  const rolling = waiting.length <= 3 ? waiting[0] : undefined
+  const backlog = waiting.length > 3 ? waiting.at(-1)!.seq : 0
+  useEffect(() => { if (backlog) setRolled(backlog) }, [backlog])
+  const settledWorld = useRef(view.world)
+  useEffect(() => { if (!rolling) settledWorld.current = view.world }, [rolling, view.world])
+  const world = rolling ? settledWorld.current : view.world
+  const dice = rolling && diceOn ? diceIn(rolling.text) : []
+  const strikes = rolling ? pickStrikes(blows(rolling.text), attackers.map(c => c.name)) : []
+  // Nothing left to show for it (an option was just switched off): let the result through.
+  const idle = rolling && !dice.length && !strikes.length ? rolling.seq : 0
+  useEffect(() => { if (idle) setRolled(idle) }, [idle])
+  const fight = dice.some(roll => roll.blow) || strikes.length > 0 ? lineUp(dice, strikes, attackers.map(c => c.name)) : undefined
+  /** HP on the tray: what everyone had before this round, and what they have now. */
+  const vitals = () => {
+    const out: Record<string, Vital> = {}
+    for (const strike of [...strikes].reverse()) if (strike.hp !== undefined && strike.maxHp)
+      out[strike.to] = { hp: Math.min(strike.maxHp, strike.hp + strike.damage), max: strike.maxHp, end: out[strike.to]?.end ?? strike.hp }
+    for (const foe of world.combat?.foes ?? []) out[foe.name] = { hp: foe.hp, max: foe.maxHp, end: out[foe.name]?.end ?? foe.hp }
+    for (const member of party(world)) {
+      const after = attackers.find(c => c.name === member.character!.name)
+      out[member.character!.name] = { hp: member.character!.hp, max: maxHP(member.character!), end: after?.hp ?? member.character!.hp }
+    }
+    for (const npc of companionIds(world)) out[npcs[npc]] = { hp: world.companions![npc]!.hp, max: companionMaxHp(world, npc), end: view.world.companions?.[npc]?.hp ?? world.companions![npc]!.hp }
+    return out
+  }
   const crew = party(world)
   const joining = world.members.filter(m => m.pendingJoin)
   const [draft, setDraft] = useState('')
@@ -103,6 +145,7 @@ export function Story({ view, send, history, connected, gap, review }: {
   const current = view.pending.find(job => job.actor === player)
   const paused = !connected || !view.hostOnline || view.phase === 'paused'
   const entries = [...new Map([...past, ...view.entries].map(row => [row.seq, row])).values()].sort((a, b) => a.seq - b.seq)
+    .filter(entry => !rolling || entry.seq < rolling.seq || (entry.actor !== null && entry.actor !== player))
   const post = (msg: Message) => { void send(msg).catch(() => {}) }
   const location = locations[character.place]
   const visibleNpcs = npcsAt(world, character.place)
@@ -110,7 +153,7 @@ export function Story({ view, send, history, connected, gap, review }: {
   const askedForDirections = entries.findLast(entry => entry.actor === player)?.type === 'guide'
   const suggestions = askedForDirections ? guideFor(world, me).suggestions : []
   const disabled = !connected || sending ||
-    (!chat && !sceneQuestion(draft) && (!!current || paused || !!combat?.locked.includes(player)))
+    (!chat && !sceneQuestion(draft) && (!!rolling || !!current || paused || !!combat?.locked.includes(player)))
   const names = Object.fromEntries(crew.map(m => [m.id, m.character!.name]))
 
   // Spec §5.1: the world bulletin is its own always-visible window on top; each player's window below holds their own lines.
@@ -151,7 +194,7 @@ export function Story({ view, send, history, connected, gap, review }: {
     const id = previous?.text === text && previous?.chat === chat ? previous.id : crypto.randomUUID()
     retryId.current = { id, text, chat }
     try {
-      await send(chat ? { kind: 'chat', id, text } : { kind: 'act', id, version: world.version, text })
+      await send(chat ? { kind: 'chat', id, text } : { kind: 'act', id, version: view.world.version, text })
       setDraft(currentText => currentText === draft ? '' : currentText)
       retryId.current = undefined
       setWindowId(player)
@@ -278,6 +321,9 @@ export function Story({ view, send, history, connected, gap, review }: {
   }
 
   return <div className={'game screen-' + screen}>
+    {rolling && (fight
+      ? <FightTray key={rolling.seq} {...fight} vitals={vitals()} showDice={dice.length > 0} onDone={() => setRolled(rolling.seq)}/>
+      : dice.length > 0 && <DiceTray key={rolling.seq} rolls={dice.slice(0, 6)} onDone={() => setRolled(rolling.seq)}/>)}
     <header className="hud voyage-bar" aria-label="角色狀態">
       <div className="hud-place"><strong>{islands[islandAt(character.place)].name}</strong><span>{location}</span><span>{clock(world.minute)}</span></div>
       <div className="hud-stats">
@@ -310,7 +356,7 @@ export function Story({ view, send, history, connected, gap, review }: {
           {crew.map(member => <section key={member.id} className={'window personal' + (windowId === member.id ? '' : ' window-hidden')}
             aria-label={member.character!.name + '的視窗'}>
             <h2 className="sr-only">{member.character!.name}{member.id === player ? '（你）' : member.connected ? '' : '・離線'}</h2>
-            <Log entries={windowEntries(member.id)} names={names} draft={view.pending.find(job => job.actor === member.id)?.draft}/>
+            <Log entries={windowEntries(member.id)} names={names} draft={rolling ? undefined : view.pending.find(job => job.actor === member.id)?.draft}/>
           </section>)}
           {connected && hasMore && entries.length >= 60 && <button className="light older" onClick={async () => {
             try {
@@ -344,6 +390,16 @@ export function Story({ view, send, history, connected, gap, review }: {
           </div>
           <div className="composer-foot">
             <label className="check"><input type="checkbox" checked={chat} onChange={e => setChat(e.target.checked)}/> 聊天模式</label>
+            <label className="check"><input type="checkbox" checked={diceOn} onChange={e => {
+              setDiceOn(e.target.checked)
+              setRolled(view.entries.at(-1)?.seq ?? 0)
+              try { localStorage.setItem('tide-dice', e.target.checked ? 'on' : 'off') } catch { /* The choice just lasts for this visit. */ }
+            }}/> 骰子動畫</label>
+            <label className="check"><input type="checkbox" checked={attackOn} onChange={e => {
+              setAttackOn(e.target.checked)
+              setRolled(view.entries.at(-1)?.seq ?? 0)
+              try { localStorage.setItem('tide-attacks', e.target.checked ? 'on' : 'off') } catch { /* The choice just lasts for this visit. */ }
+            }}/> 攻擊動畫</label>
             <p className="hint" role="status">{current ? phaseText[current.phase as keyof typeof phaseText] : draft ? '草稿' : '每次可提交一項正式行動。'}</p>
           </div>
         </form>

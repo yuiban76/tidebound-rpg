@@ -145,6 +145,16 @@ test('單人須先實際生成回覆才能開房，開局後可執行 D20、問�
   await page.getByRole('button', { name: '送出行動' }).click()
   await expect(page.locator('.entry-result').filter({ hasText: '你抵達風車村港口' })).toBeVisible()
   await expect(page.locator('.action-suggestions')).toContainText('你在風車村港口。')
+  // The dice roll on screen before the result is written; Escape skips, and they can be switched off.
+  await page.getByLabel('輸入行動或聊天').fill('檢查地上的鞋印')
+  await page.getByRole('button', { name: '送出行動' }).click()
+  await expect(page.locator('.dice-tray canvas')).toHaveCount(1)
+  await expect(page.locator('.entry-result').filter({ hasText: '觀察 D20' })).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await expect(page.locator('.dice-tray')).toHaveCount(0)
+  await expect(page.locator('.entry-result').filter({ hasText: '觀察 D20' })).toHaveCount(1)
+  await page.getByLabel('骰子動畫').uncheck()
+  await page.getByLabel('攻擊動畫').uncheck()
   await action(page, '檢查地上的鞋印', '觀察 D20')
   await expect(page.locator('.entry-narrative').last()).toBeVisible()
   await action(page, '去派對酒吧，找瑪琪諾聊天', '瑪琪諾與你交談')
@@ -293,5 +303,19 @@ test('對村長出手會開打並結算，狀態欄顯示懸賞金與招式欄',
   await openTab(page, '角色')
   await expect(page.getByText('懸賞金', { exact: true })).toBeVisible()
   await expect(page.getByText('招式（0／6）')).toBeVisible()
+  // A blow that lands flies from name to name over the dice, and the tray closes by itself.
+  await page.evaluate(() => {
+    const seen = window as unknown as { stages: number }
+    seen.stages = 0
+    new MutationObserver(list => { for (const { addedNodes } of list) for (const node of addedNodes) if ((node as Element).classList?.contains('fight-fx')) seen.stages++ }).observe(document.body, { childList: true, subtree: true })
+  })
   await action(page, '攻擊村長', '莽夫向村長（平民）出手了')
+  const stages = () => page.evaluate(() => (window as unknown as { stages: number }).stages)
+  for (let i = 0; i < 12 && !await stages() && await page.locator('.combat-panel').isVisible(); i++) {
+    await page.getByLabel('輸入行動或聊天').fill('攻擊村長')
+    await page.getByRole('button', { name: '送出行動' }).click()
+    await page.waitForTimeout(3500)
+  }
+  expect(await stages()).toBeGreaterThan(0)
+  await expect(page.locator('.fight-tray')).toHaveCount(0)
 })
