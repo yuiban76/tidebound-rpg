@@ -54,7 +54,7 @@ const words: [RegExp, Effect][] = [
   [/巨人鐵拳|巨掌|鐵拳|大拳/, 'bigPunch'], [/拳|打|揍|掌|擊/, 'punch'], [/衝撞|突擊|撞/, 'tackle'],
 ]
 export const effectOfMove = (move: string): Effect | undefined => words.find(([pattern]) => pattern.test(move))?.[1]
-const weaponEffect: Record<Weapon, Effect> = { fist: 'punch', sword: 'slash', spear: 'thrust', musket: 'gun' }
+const weaponEffect: Record<Weapon, Effect> = { fist: 'punch', kick: 'kick', sword: 'slash', spear: 'thrust', staff: 'hammer', heavy: 'axe', musket: 'gun', sling: 'sling', bow: 'arrow' }
 
 const npcByName = Object.fromEntries(Object.entries(npcs).map(([id, name]) => [name, id as NpcId]))
 export const npcNamed = (name: string): NpcId | undefined => npcByName[name]

@@ -21,10 +21,13 @@ export const locations = {
 }
 export const npcs = { keeper: '瑪琪諾', mayor: '村長',
   rika: '莉卡', zoro: '索隆', boodle: '布德鎮長', chouchou: '修修', ...canonNpcs, ...castNpcs, ...traderNpcs }
-export const weapons = ['fist', 'sword', 'spear', 'musket'] as const
+export const weapons = ['fist', 'kick', 'sword', 'spear', 'staff', 'heavy', 'musket', 'sling', 'bow'] as const
 export const attackStyles = ['normal', 'power', 'special', 'advanced', 'flurry'] as const
 export type AttackStyle = (typeof attackStyles)[number]
 export type Weapon = (typeof weapons)[number]
+/** The job aboard (world/professions.ts). */
+export const professionIds = ['fighter', 'navigator', 'doctor', 'cook', 'shipwright', 'sniper', 'archaeologist', 'musician'] as const
+export type Profession = (typeof professionIds)[number]
 const locationIds = Object.keys(locations) as (keyof typeof locations)[]
 const npcIds = Object.keys(npcs) as (keyof typeof npcs)[]
 export const islandIds = ['wind', 'shells', 'orange', ...canonIslandIds] as const
@@ -44,13 +47,12 @@ export const characterInput = z.strictObject({
   race: z.enum(races),
   /** 攻擊方式: the starting weapon, and a bonus whenever the character fights that way. */
   fighting: z.enum(weapons),
-  stats, major: z.enum(skills), basics: z.tuple([z.enum(skills), z.enum(skills)]),
-  life: z.enum(['航海', '醫術', '工藝', '採集', '烹飪']),
+  stats,
+  /** 職業: the job aboard, which brings the starting skills. */
+  profession: z.enum(professionIds),
 }).superRefine((value, ctx) => {
   if (Object.values(value.stats).reduce((a, b) => a + b, 0) !== 18)
     ctx.addIssue({ code: 'custom', path: ['stats'], message: '六項屬性合計必須是 18。' })
-  if (new Set([value.major, ...value.basics, value.life]).size !== 4)
-    ctx.addIssue({ code: 'custom', path: ['major'], message: '四項初始技能不可重複。' })
 })
 export type CharacterInput = z.infer<typeof characterInput>
 export type LocationId = keyof typeof locations
@@ -131,7 +133,6 @@ export const intentSchema = z.discriminatedUnion('kind', [
     money: z.number().int().min(1).max(10_000_000_000).optional(),
   }),
   z.strictObject({ kind: z.literal('equip'), weapon: z.enum(weapons) }),
-  z.strictObject({ kind: z.literal('reload') }),
   // Eat (take: true) or let go of a devil fruit dropped by a defeated NPC; buyFruit buys a drifted one at the Sabaody auction.
   z.strictObject({ kind: z.literal('fruit'), take: z.boolean(), fruit: z.string().trim().min(1).max(24).optional() }),
   z.strictObject({ kind: z.literal('buyFruit'), fruit: z.string().trim().min(1).max(24).optional() }),

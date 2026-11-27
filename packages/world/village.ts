@@ -1,4 +1,5 @@
 import type { CharacterInput, Intent, IslandId, LocationId, NpcId, Weapon } from '../shared/protocol.ts'
+import { professionFrom } from './professions.ts'
 import { npcs } from '../shared/protocol.ts'
 import type { Ship, SailingPlan, IslandTask, RouteChoice } from './sea.ts'
 import type { Foe } from './foes.ts'
@@ -83,6 +84,10 @@ export const goods = {
   bullets: { label: '火槍彈藥', price: 1_500, initial: 12, shop: 'dock' },
   sword: { label: '普通武士刀', price: 50_000, initial: 2, shop: 'goa' },
   musket: { label: '普通火槍', price: 70_000, initial: 2, shop: 'goa' },
+  sling: { label: '彈弓', price: 3_000, initial: 4, shop: 'dock' },
+  staff: { label: '鐵棍', price: 30_000, initial: 2, shop: 'dock' },
+  heavy: { label: '大斧', price: 60_000, initial: 1, shop: 'goa' },
+  bow: { label: '長弓', price: 45_000, initial: 2, shop: 'goa' },
   tonic: { label: '傷藥', price: 6_000, initial: 10, shop: 'square' },
   logPose: { label: '記錄指針', price: 50_000, initial: 4, shop: 'logueShop' },
   // Answers to logia bodies before haki exists (see foes.ts Weakness).
@@ -95,16 +100,23 @@ export type Good = keyof typeof goods
 export const traderOffer = traderWares.map(id => goods[id].label + ' ' + beli(goods[id].price)).join('、')
 for (const id of Object.keys(traders) as (keyof typeof traders)[])
   people[id].known += '他賣' + traderOffer + '，說要買就直接開口，但他不會跟任何人出海。'
-/** Inventory item that lets a character wield each weapon. Bare hands need nothing. */
-export const weaponItems: Record<Exclude<Weapon, 'fist'>, string> = { sword: '普通武士刀', spear: '普通長槍', musket: '普通火槍' }
-export const weaponNames: Record<Weapon, string> = { fist: '徒手', ...weaponItems }
+/** Inventory item that lets a character wield each weapon. Bare hands and legs need nothing. */
+export const weaponItems: Record<Exclude<Weapon, 'fist' | 'kick'>, string> = { sword: '普通武士刀', spear: '普通長槍', musket: '普通火槍', sling: '彈弓', staff: '鐵棍', heavy: '大斧', bow: '長弓' }
+export const weaponNames: Record<Weapon, string> = { fist: '徒手', kick: '腿技', ...weaponItems }
+/** The item a weapon needs, if any. */
+export const itemFor = (weapon: Weapon): string | undefined => weapon === 'fist' || weapon === 'kick' ? undefined : weaponItems[weapon]
 /** The attack method picked at creation: the starting weapon, and a bonus whenever the character fights that way.
  * Bare hands roll a smaller die (d4), so their mastery adds more damage. */
 export const fightingStyles: Record<Weapon, { label: string, hit: number, damage: number, kit: string }> = {
-  fist: { label: '拳腳', hit: 1, damage: 2, kit: '空手或用腳打，不必帶武器' },
-  sword: { label: '刀劍', hit: 1, damage: 1, kit: '開局帶一把普通武士刀' },
-  spear: { label: '長兵器', hit: 1, damage: 1, kit: '開局帶一把普通長槍' },
-  musket: { label: '火槍', hit: 1, damage: 1, kit: '開局帶一把普通火槍和 5 發彈藥' },
+  fist: { label: '拳腳', hit: 1, damage: 2, kit: '空手打，不必帶武器（武器骰 d4）' },
+  kick: { label: '腿技', hit: 1, damage: 1, kit: '像香吉士一樣只用腿，不必帶武器（敏捷、d6）' },
+  sword: { label: '刀劍', hit: 1, damage: 1, kit: '開局帶一把普通武士刀（d6）' },
+  spear: { label: '長兵器', hit: 1, damage: 1, kit: '開局帶一把普通長槍（d8）' },
+  staff: { label: '棍棒', hit: 1, damage: 1, kit: '像娜美的天候棒，開局帶一根鐵棍（敏捷、d6）；拿著棍棒時防禦 +1' },
+  heavy: { label: '重武器', hit: 1, damage: 1, kit: '開局帶一把大斧（d10），揮得最重，但命中 −1' },
+  musket: { label: '火槍', hit: 1, damage: 1, kit: '開局帶一把普通火槍和 5 發彈藥（d10、傷害 +1）；每開一槍用掉一發彈藥' },
+  sling: { label: '彈弓', hit: 1, damage: 2, kit: '像騙人布，開局帶一把彈弓（d4）；石子隨地都撿得到，不花彈藥' },
+  bow: { label: '弓箭', hit: 1, damage: 1, kit: '像九蛇的戰士，開局帶一把長弓（敏捷、d6）；連續攻擊只要 4 STA' },
 }
 /** The mastery bonus applies only while the character fights with their own attack method. */
 export const masteryOf = (c: Pick<Character, 'weapon' | 'fighting'>) => c.weapon === c.fighting ? fightingStyles[c.fighting] : undefined
@@ -117,7 +129,6 @@ export type Character = CharacterInput & {
   money: number
   inventory: Record<string, number>
   weapon: Weapon
-  loaded: boolean
   hp: number
   sta: number
   level: number
@@ -146,7 +157,7 @@ export type Technique = { name: string, style: 'special' | 'advanced' | 'flurry'
   /** Born with it (a race's move); does not count either. */ innate?: true }
 /** Moves the player made up themselves (at most six). */
 export const selfMade = (move: Technique) => !move.fruit && !move.innate
-export type CombatChoice = Extract<Intent, { kind: 'attack' | 'cannon' | 'guard' | 'flee' | 'negotiate' | 'reload' | 'useItem' | 'conqueror' }>
+export type CombatChoice = Extract<Intent, { kind: 'attack' | 'cannon' | 'guard' | 'flee' | 'negotiate' | 'useItem' | 'conqueror' }>
 /** A voyage interrupted by a sea encounter; it resumes once the fight is over. */
 export type PendingVoyage = RouteChoice & { from: IslandId, miles: number, minutes: number, damage: number, text: string, landfallXp: number }
 export type Combat = {
@@ -354,7 +365,15 @@ export function normalizeWorld(world: World): World {
     const card = c as Character & { age?: number, background?: string }
     delete card.age
     delete card.background
-    c.fighting ??= ({ 劍術: 'sword', 長兵器: 'spear', 射擊: 'musket' } as Record<string, Weapon>)[c.major] ?? 'fist'
+    const oldCard = c as Character & { major?: string, basics?: string[], life?: string }
+    c.fighting ??= ({ 劍術: 'sword', 長兵器: 'spear', 射擊: 'musket' } as Record<string, Weapon>)[oldCard.major ?? ''] ?? 'fist'
+    // Starting skills became a job: keep the ranks the character has, and give them the job that fits best.
+    c.profession ??= professionFrom(oldCard.major)
+    delete oldCard.major
+    delete oldCard.basics
+    delete oldCard.life
+    // Muskets no longer need reloading.
+    delete (c as Character & { loaded?: boolean }).loaded
     // 「其他」 is no longer a race: custom races become humans.
     const old = c as Character & { otherRace?: string }
     if (!(c.race in raceTraits)) c.race = '人類'

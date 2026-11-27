@@ -4,9 +4,10 @@ import { xpToNext } from '../../packages/rules/engine.ts'
 import { beli } from '../../packages/world/scale.ts'
 import { islandAt } from '../../packages/world/sea.ts'
 import { raceSummary, stat } from '../../packages/world/races.ts'
-import { skillCap, skillUses } from '../../packages/world/skills.ts'
+import { attributeUses, skillCap, skillUses } from '../../packages/world/skills.ts'
 import { fightingStyles, fightingSummary, selfMade } from '../../packages/world/village.ts'
 import { Techniques } from './combat.tsx'
+import { professions } from '../../packages/world/professions.ts'
 import { conquerorSta } from '../../packages/rules/combat.ts'
 import { FruitPanel } from './fruit.tsx'
 import { PortraitPicker } from './portrait.tsx'
@@ -36,16 +37,17 @@ export function CharacterPanel({ view, world, player, suggest, send, post, pause
     <section className="card profile" aria-label="角色資料">
       <div className="profile-head">
         <PortraitPicker view={view} name={c.name} send={send}/>
-        <div><h3>{c.name}</h3><p className="hint">{c.race} · {fightingStyles[c.fighting].label}</p></div>
+        <div><h3>{c.name}</h3><p className="hint">{c.race} · {fightingStyles[c.fighting].label} · {professions[c.profession].label}</p></div>
         <span className="level"><small>等級</small>{c.level}</span>
       </div>
       <Bar label="XP" value={c.xp} max={xpToNext(c.level)} tone="gold"/>
       <Tiles items={[['懸賞金', <span title={beli(c.bounty)}>{c.bounty.toLocaleString('en-US')}</span>],
         ['海軍注意度', (world.renown?.marineHeat ?? 0) + '／100'], ['本島聲望', world.renown?.islandRep[islandAt(c.place)] ?? 0]]}/>
-      <More label="種族與攻擊方式">
+      <More label="種族、攻擊方式與職業">
         <dl className="notes">
           <div><dt>{c.race}</dt><dd>{raceSummary(c.race)}</dd></div>
           <div><dt>{fightingStyles[c.fighting].label}</dt><dd>{fightingSummary(c.fighting)}</dd></div>
+          <div><dt>{professions[c.profession].label}</dt><dd>{professions[c.profession].perk}</dd></div>
         </dl>
       </More>
     </section>
@@ -56,13 +58,16 @@ export function CharacterPanel({ view, world, player, suggest, send, post, pause
         <ul className="stats">{attributes.map(k => {
           const total = stat(c, k)
           const bonus = total - c.stats[k]
-          return <li key={k}>
+          return <li key={k} title={attributeUses[k].long}>
             <span>{attributeLabels[k]}</span>
             <strong>{total}{bonus !== 0 && <small title="種族與防具的影響">{bonus > 0 ? '+' + bonus : '−' + -bonus}</small>}</strong>
             {c.unspent > 0 && <button type="button" className="plus" aria-label={attributeLabels[k] + ' ' + c.stats[k] + ' ＋1'} disabled={locked}
               onClick={() => post({ kind: 'allocate', attr: k })}>＋</button>}
           </li>
         })}</ul>
+        <More label="每項屬性的用途">
+          <dl className="notes">{attributes.map(k => <div key={k}><dt>{attributeLabels[k]}</dt><dd>{attributeUses[k].long}</dd></div>)}</dl>
+        </More>
       </Card>
       {c.haki?.trained && <Card title="霸氣" meta={c.haki.conqueror && <Pill tone="gold">霸王色</Pill>}>
         <ul className="skills">{hakiSkills.map(skill => <li key={skill}>

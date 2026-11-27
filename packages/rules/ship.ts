@@ -4,7 +4,7 @@ import type { Intent } from '../shared/protocol.ts'
 import { beli } from '../world/scale.ts'
 import { islandAt, islands, shipPurchaseInfo } from '../world/sea.ts'
 import { holdCount, maxPart, modelOf, models, partLevel, partPrice, parts, sameIsland, shipName, shipwright, shipyards, tradeIn, yardAt } from '../world/ships.ts'
-import { weaponItems } from '../world/village.ts'
+import { itemFor } from '../world/village.ts'
 import type { Character, Member, World } from '../world/village.ts'
 import type { Result } from './engine.ts'
 
@@ -65,7 +65,7 @@ export function resolveShip(world: World, actor: Member, intent: ShipIntent): Re
     const wright = shipwright(world)
     return {
       text: yard.name + '把' + shipName(ship) + '的' + parts[part].label + '升到 ' + level + ' 級，支出 ' + beli(price) + '。' +
-        (wright ? npcs[wright] + '在旁邊出主意，省了兩成工錢。' : '') + parts[part].text(level) + '。',
+        (wright ? wright + '在旁邊出主意，省了兩成工錢。' : '') + parts[part].text(level) + '。',
       minutes: 120 * level, announce: true,
     }
   }
@@ -99,8 +99,7 @@ export function resolveShip(world: World, actor: Member, intent: ShipIntent): Re
 
 /** Putting away the weapon in hand leaves a character bare-handed. */
 function disarm(c: Character, item: string) {
-  if (c.weapon === 'fist' || weaponItems[c.weapon] !== item || c.inventory[item]) return ''
-  if (c.weapon === 'musket') c.loaded = false
+  if (itemFor(c.weapon) !== item || c.inventory[item]) return ''
   c.weapon = 'fist'
   return '你改為徒手。'
 }

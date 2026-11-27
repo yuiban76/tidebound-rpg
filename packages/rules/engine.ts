@@ -3,7 +3,7 @@ import type { CharacterInput, Intent, NpcId, Skill, HakiSkill } from '../shared/
 import { asksAboutBoatCrew, asksAboutShipPurchase, dialogueQuestion, directions, routeBetween } from '../world/explore.ts'
 import { forges, maxTier, tierCost, tierDamage, tierHit, tierLevel, tierOf, weaponLabel } from '../world/forge.ts'
 import { beli, scale, staScale } from '../world/scale.ts'
-import { boatCrewReplies, goods, meals, npcFacts, npcPlace, npcRole, npcsAt, party, shops, walkMinutes, weaponItems, weaponNames } from '../world/village.ts'
+import { boatCrewReplies, goods, itemFor, meals, npcFacts, npcPlace, npcRole, npcsAt, party, shops, walkMinutes, weaponNames } from '../world/village.ts'
 import { islandAt, islands, shipPurchaseInfo } from '../world/sea.ts'
 import { partLevel, shipName } from '../world/ships.ts'
 import { resolveShip } from './ship.ts'
@@ -19,6 +19,7 @@ import { isDown, resolveCombatAction } from './combat.ts'
 import type { Character, CombatChoice, Member, World } from '../world/village.ts'
 import { applyRace, stat, traitOf } from '../world/races.ts'
 import { buyWare, cashSlips, sellWare, useSupply } from './market.ts'
+import { professions, startingSkills, withJob } from '../world/professions.ts'
 import { cookAt, crafted, doctorAt, dressingOf, skillCap, wildPlaces } from '../world/skills.ts'
 
 export type Attribute = keyof Character['stats']
@@ -76,15 +77,16 @@ export const needsReview = (c: CharacterInput) => c.race === '巨人'
 
 export function makeCharacter(input: CharacterInput): Character {
   const weapon = input.fighting
-  const kit = input.major === '醫術' ? { 繃帶: 2, 醫療工具: 1 } : {}
-  const equipment = { fist: '基礎工具組', sword: '普通武士刀', spear: '普通長槍', musket: '普通火槍' }[weapon]
+  const kit = professions[input.profession].kit ?? {}
+  const equipment = itemFor(weapon) ?? '基礎工具組'
   const c: Character = {
     ...input, place: 'square', conversingWith: null, money: 100_000, level: 1, xp: 0, unspent: 0, skillPoints: 0, xpLog: {}, bounty: 0, techniques: [], hp: 0, sta: 0, weapon,
     raceReady: false,
-    loaded: weapon === 'musket', inventory: { 普通衣物: 1, [equipment]: 1 },
-    skillRanks: { [input.major]: 2, [input.basics[0]]: 1, [input.basics[1]]: 1, [input.life]: 1 },
+    inventory: { 普通衣物: 1, [equipment]: 1 },
+    skillRanks: startingSkills(weapon, input.profession),
   }
-  Object.assign(c.inventory, kit, weapon === 'musket' ? { 火槍彈藥: 5 } : {})
+  Object.assign(c.inventory, kit)
+  if (weapon === 'musket') c.inventory['火槍彈藥'] = (c.inventory['火槍彈藥'] ?? 0) + 5
   applyRace(c)
   c.hp = maxHP(c)
   c.sta = maxSTA(c)
@@ -175,7 +177,7 @@ export function attackCheck(roll: Roll, stats: { attr: number, skill: number, de
 }
 
 const isCombat = (intent: Intent): intent is CombatChoice =>
-  ['attack', 'cannon', 'guard', 'flee', 'negotiate', 'reload', 'useItem', 'conqueror'].includes(intent.kind)
+  ['attack', 'cannon', 'guard', 'flee', 'negotiate', 'useItem', 'conqueror'].includes(intent.kind)
 
 function converse(world: World, c: Character, npc: NpcId, raw: string, minute = world.minute): Result {
   const place = npcPlace(world, npc)
@@ -201,8 +203,8 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
   if (c.hp <= 0 && !(intent.kind === 'rest' && intent.sleep))
     return reject('你已倒下，需就地等待救援，或在安全地點完成睡眠。')
   if (world.combat?.participants.includes(actor.id) && !isCombat(intent))
-    return reject('戰鬥進行中。請描述攻擊、招式、防守、撤退、交涉、使用繃帶或裝填。')
-  if (isCombat(intent) && !(intent.kind === 'reload' && !world.combat))
+    return reject('戰鬥進行中。請描述攻擊、招式、防守、撤退、交涉或使用繃帶。')
+  if (isCombat(intent))
     return resolveCombatAction(world, actor, intent, roll, connected)
 
   switch (intent.kind) {
@@ -306,8 +308,9 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
     }
     case 'equip': {
       if (intent.weapon === c.weapon) return reject('你已經在使用' + weaponNames[c.weapon] + '。')
-      if (intent.weapon !== 'fist' && !c.inventory[weaponItems[intent.weapon]])
-        return reject('你的背包裡沒有' + weaponItems[intent.weapon] + '。')
+      const needs = itemFor(intent.weapon)
+      if (needs && !c.inventory[needs])
+        return reject('你的背包裡沒有' + needs + '。')
       c.weapon = intent.weapon
       return { text: '你改用' + weaponLabel(c, weaponNames[c.weapon]) + '。', minutes: 1 }
     }
@@ -331,18 +334,12 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
       if (!c.inventory[item]) delete c.inventory[item]
       t.inventory[item] = (t.inventory[item] ?? 0) + count
       let note = ''
-      if (c.weapon !== 'fist' && weaponItems[c.weapon] === item && !c.inventory[item]) {
-        if (c.weapon === 'musket') c.loaded = false
+      if (itemFor(c.weapon) === item && !c.inventory[item]) {
         c.weapon = 'fist'
         note = '你改為徒手。'
       }
       return { text: c.name + '把' + item + (count > 1 ? ' × ' + count : '') + '交給' + t.name + '。' + note, minutes: 1 }
     }
-    case 'reload':
-      if (c.weapon !== 'musket' || c.loaded || !c.inventory['火槍彈藥']) return reject('目前無法裝填火槍。')
-      c.inventory['火槍彈藥']--
-      c.loaded = true
-      return { text: '已裝填火槍。', minutes: 1 }
     case 'wait': {
       if (c.place === 'hill') return reject('山道不適合停留等待。')
       // Spec §6.1: one player must not fast-forward teammates who are busy elsewhere.
@@ -391,6 +388,9 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
           c.sta = Math.min(maxSTA(c), c.sta + cooking * 2 * staScale)
           if (c.hp > 0) c.hp = Math.min(maxHP(c), c.hp + cooking * scale)
         }
+        // A musician plays for everyone resting on the spot.
+        const musician = withJob(party(world), 'musician', c.place)
+        if (musician) c.sta = Math.min(maxSTA(c), c.sta + 3 * staScale)
         // A cabin aboard makes any rest beside the ship a better one.
         const cabin = world.ship && c.place === world.ship.port ? partLevel(world.ship, 'cabin') : 0
         if (cabin) {
@@ -401,6 +401,7 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
           text: (alert ? '睡到一半被周圍的動靜吵醒了（' + Math.max(1, Math.round(spent / 6) / 10) + ' 小時）。' : intent.sleep ? '睡了一覺（8 小時）。' : '稍作休息（30 分鐘）。') +
             (cabin ? '你在' + shipName(world.ship!) + '的船室裡休息，恢復得更好。' : '') +
             (cook ? (cook === c ? '你' : cook.name) + '做了一頓飯，多回復了 ' + cooking * 2 * staScale + ' STA。' : '') +
+            (musician ? (musician === c ? '你' : musician.name) + '演奏了一曲，多回復了 ' + 3 * staScale + ' STA。' : '') +
             'HP ' + c.hp + '／' + maxHP(c) + '，STA ' + c.sta + '／' + maxSTA(c) + '。', minutes: spent,
         }
       }

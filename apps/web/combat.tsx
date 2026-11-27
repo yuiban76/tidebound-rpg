@@ -45,7 +45,6 @@ export function CombatPanel({ combat, guns, character, player, suggest }: {
       {character.haki?.conqueror && <button type="button" className="light" disabled={character.sta < 10} onClick={() => suggest('霸王色')}>霸王色（10 STA）</button>}
       <button type="button" className="light" onClick={() => suggest('防守')}>防守</button>
       {!!character.inventory['繃帶'] && <button type="button" className="light" onClick={() => suggest('使用繃帶')}>使用繃帶</button>}
-      {character.weapon === 'musket' && !character.loaded && <button type="button" className="light" onClick={() => suggest('裝填')}>裝填</button>}
       {standing.length > 0 && <button type="button" className="light" onClick={() => suggest('和' + target + '交涉')}>交涉</button>}
       <button type="button" className="light" onClick={() => suggest('撤退')}>{combat.atSea ? '甩開對手' : '撤退'}</button>
     </div>}

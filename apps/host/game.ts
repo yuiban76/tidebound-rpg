@@ -11,6 +11,7 @@ import { islandAt, islands, routesFrom, shipPurchaseInfo } from '../../packages/
 import { sellMainShip, shipSaleBlock } from '../../packages/rules/sailing.ts'
 import type { Character, Member, World } from '../../packages/world/village.ts'
 import { traitOf } from '../../packages/world/races.ts'
+import { professions } from '../../packages/world/professions.ts'
 import { warOn, warSides, warState } from '../../packages/world/war.ts'
 import { canonTimeline, minuteOf } from '../../packages/world/canon.ts'
 import { hasFlag } from '../../packages/world/flags.ts'
@@ -543,7 +544,7 @@ export class Game {
       techniques: c.techniques.map(move => move.name),
     }
     return {
-      actor: c.name, race: c.race + '（' + traitOf(c).perk + '）', place: locations[c.place], ...navigation,
+      actor: c.name, race: c.race + '（' + traitOf(c).perk + '）', job: professions[c.profession].label, place: locations[c.place], ...navigation,
       local,
       ...(world.ship?.name && { ourShip: world.ship.name }),
       ...warContext(world, c.place),
@@ -639,9 +640,9 @@ export class Game {
       const result = resolve(world, actorAt(world), intent, job.text, this.store.roller(code, id), this.connected(world))
       // Each AI call is a full wait on a local model, so the rules' own text stands alone for routine upkeep,
       // and a fight gets one narration when it ends instead of one per round.
-      const fightGoesOn = ['attack', 'cannon', 'guard', 'flee', 'negotiate', 'reload', 'useItem', 'conqueror'].includes(intent.kind) && !!world.combat
+      const fightGoesOn = ['attack', 'cannon', 'guard', 'flee', 'negotiate', 'useItem', 'conqueror'].includes(intent.kind) && !!world.combat
       const narrate = !result.rejected && !result.directReply && !fightGoesOn &&
-        !['sail', 'ship', 'cannon', 'islandTask', 'give', 'equip', 'wait', 'recruit', 'dismiss', 'handover', 'fruit', 'buyFruit', 'upgrade', 'use', 'rest', 'meal', 'reload', 'useItem'].includes(intent.kind) &&
+        !['sail', 'ship', 'cannon', 'islandTask', 'give', 'equip', 'wait', 'recruit', 'dismiss', 'handover', 'fruit', 'buyFruit', 'upgrade', 'use', 'rest', 'meal', 'useItem'].includes(intent.kind) &&
         (!!result.spokeWith || !['move', 'meal', 'crew'].includes(shortcut?.kind ?? ''))
       const narrationContext = intent.kind === 'move' && result.spokeWith
         ? this.context(world, actorAt(world), { kind: 'talk', npc: result.spokeWith }, true) : before

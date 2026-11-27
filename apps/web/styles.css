@@ -206,6 +206,19 @@ legend { padding: 0 .3rem; font-weight: 700; }
 .skill-list strong { min-width: 4.5rem; }
 .skill-list span { color: var(--muted); }
 .skill-guide { margin-top: .6rem; }
+.stat-pick .hint { margin: .2rem 0 0; font-size: .78rem; line-height: 1.4; }
+.attribute-guide div { display: grid; grid-template-columns: 3.5rem minmax(0, 1fr); gap: .5rem; padding: .3rem 0; border-top: 1px solid var(--line); }
+.attribute-guide div:first-child { border-top: 0; }
+.attribute-guide dt { font-weight: 700; }
+.attribute-guide dd { margin: 0; color: var(--muted); font-size: .88rem; }
+.job-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr)); gap: .5rem; margin-top: .6rem; }
+.job { position: relative; display: grid; align-content: start; gap: .15rem; padding: .55rem .7rem .6rem 2.1rem; border: 1px solid var(--line); border-radius: 8px; background: var(--white); cursor: pointer; }
+.job:hover { background: #f1f6f4; }
+.job[data-picked] { border-color: #b98b2d; background: #fdf6e3; box-shadow: 0 0 0 1px #b98b2d; }
+.job input { position: absolute; left: .7rem; top: .78rem; width: 1rem; height: 1rem; min-height: 0; margin: 0; accent-color: #8a5a12; }
+.job strong small { margin-left: .5rem; color: var(--muted); font-size: .78rem; font-weight: 500; }
+.job-skills { font-size: .86rem; font-weight: 600; color: #2c5a64; }
+.job .hint { font-size: .82rem; line-height: 1.45; }
 
 @media (max-width: 900px) {
   .game-grid { grid-template-columns: 1fr; }

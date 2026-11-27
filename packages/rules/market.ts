@@ -9,7 +9,7 @@ import { islandAt, islands } from '../world/sea.ts'
 import { shipName } from '../world/ships.ts'
 import { isTrader, traders, traderWares } from '../world/traders.ts'
 import type { TraderId } from '../world/traders.ts'
-import { goods, npcsAt, shops, weaponItems, weaponNames } from '../world/village.ts'
+import { goods, itemFor, npcsAt, shops, weaponItems, weaponNames } from '../world/village.ts'
 import type { Character, Good, Member, World } from '../world/village.ts'
 import { isDown } from './combat.ts'
 import { maxHP, maxSTA } from './engine.ts'
@@ -96,8 +96,7 @@ export function sellWare(world: World, actor: Member, name: string, count = 1) {
   c.inventory[item] -= count
   if (!c.inventory[item]) delete c.inventory[item]
   let note = ''
-  if (c.weapon !== 'fist' && weaponItems[c.weapon] === item && !c.inventory[item]) {
-    if (c.weapon === 'musket') c.loaded = false
+  if (itemFor(c.weapon) === item && !c.inventory[item]) {
     c.weapon = 'fist'
     note = '你改為徒手。'
   }

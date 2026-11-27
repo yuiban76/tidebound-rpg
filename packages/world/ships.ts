@@ -4,6 +4,8 @@ import type { LocationId, NpcId } from '../shared/protocol.ts'
 import { shipModels, shipParts } from '../shared/protocol.ts'
 import type { ShipModel, ShipPart } from '../shared/protocol.ts'
 import { companionIds } from './companions.ts'
+import { withJob } from './professions.ts'
+import { npcs } from '../shared/protocol.ts'
 import { islandAt } from './sea.ts'
 import type { Ship } from './sea.ts'
 import type { World } from './village.ts'
@@ -55,9 +57,12 @@ export const shipWear = (ship: Ship, damage: number) => Math.ceil(damage * model
 export const crippled = (ship: Ship) => ship.hull < 30
 
 const shipwrightNpcs: NpcId[] = ['franky', 'iceburg', 'paulie', 'kaku', 'lulu', 'tilestone']
-/** A shipwright who sails with the party: parts cost less, and repairs go further. */
-export const shipwright = (world: Pick<World, 'companions'>) => companionIds(world as World).find(npc => shipwrightNpcs.includes(npc))
-export const partPrice = (world: Pick<World, 'companions'>, part: ShipPart, level: number) =>
+/** A shipwright who sails with the party, a companion or a player by trade: parts cost less, and repairs go further. */
+export function shipwright(world: Pick<World, 'companions'> & Partial<Pick<World, 'members'>>): string | undefined {
+  const npc = companionIds(world as World).find(id => shipwrightNpcs.includes(id))
+  return npc ? npcs[npc] : withJob((world.members ?? []).filter(m => !m.pendingJoin), 'shipwright')?.name
+}
+export const partPrice = (world: Pick<World, 'companions'> & Partial<Pick<World, 'members'>>, part: ShipPart, level: number) =>
   Math.round(parts[part].price * partScale[level] * (shipwright(world) ? .8 : 1))
 
 /** What a yard pays for the ship: three quarters of the hull, half of the parts. */

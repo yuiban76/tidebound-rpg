@@ -41,7 +41,7 @@ export const raceTraits: Record<Race, RaceTrait> = {
     seaHit: 3, seaDefense: 3, seaEscape: 3, landDefense: -1 },
   毛皮族: { bonus: { AGI: 1 }, perk: '天生招式「電擊」（3 STA，不佔自創招式名額）', technique: { name: '電擊', style: 'special' } },
   空島居民: { bonus: { PER: 1 }, perk: '熟悉貝殼：衝擊貝讓自然系現形的效果多 1 回合', dialRounds: 1 },
-  長手族: { perk: '多一個關節：徒手格鬥與長兵器命中 +1', reach: { weapons: ['fist', 'spear'], hit: 1 } },
+  長手族: { perk: '多一個關節：徒手格鬥與長兵器命中 +1', reach: { weapons: ['fist', 'spear', 'staff'], hit: 1 } },
   長腿族: { bonus: { AGI: 1 }, perk: '腿長跑得快：海上甩開對手 +2', seaEscape: 2 },
   小人族: { bonus: { AGI: 1 }, perk: '體型小：防禦 +1，潛行 +2', cost: '最大 HP −20%', defense: 1, sneak: 2, hp: 0.8 },
   巨人: { bonus: { STR: 1 }, perk: '巨大身軀：最大 HP +50%，傷害 +2', cost: '目標很大：防禦 −2；上船佔 2 個座位',

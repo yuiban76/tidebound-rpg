@@ -26,6 +26,7 @@ test('鐵匠：只有鐵匠鋪能強化，要等級和貝里，最多三階，�
   assert.equal(act(world, member, { kind: 'upgrade' }).rejected, true)
   c.place = 'square'
   c.money = 10_000_000
+  c.skillRanks['工藝'] = 1
   assert.match(act(world, member, { kind: 'upgrade' }).text, /等級 2/)
   c.level = 2
   assert.match(act(world, member, { kind: 'upgrade' }).text, /精鋼武士刀/)

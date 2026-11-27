@@ -10,6 +10,7 @@ import { raceSeats, stat } from '../world/races.ts'
 import { navigatorRank } from '../world/skills.ts'
 import { rollSeaEncounter, tierNames } from '../world/foes.ts'
 import { coatingPrice } from './ship.ts'
+import { withJob } from '../world/professions.ts'
 import { startSeaFight } from './combat.ts'
 import { minuteOf } from '../world/canon.ts'
 import { beli } from '../world/scale.ts'
@@ -101,7 +102,7 @@ export function resolveSailing(world: World, actor: Member, intent: SeaIntent, r
     const wright = shipwright(world)
     ship.hull = Math.min(100, ship.hull + boatYard.repairGain + craft * 5 + (wright ? 15 : 0))
     return { text: '用一份木料把' + (ship.name ? shipName(ship) + '的' : '') + '船體從 ' + before + ' 修到 ' + ship.hull + '／100' + (craft ? '（工藝 ' + craft + '，多修了 ' + craft * 5 + '）' : '') +
-      (wright ? '（' + npcs[wright] + '動手，多修了 15）' : '') + '。', minutes: 25, announce: true }
+      (wright ? '（' + wright + '動手，多修了 15）' : '') + '。', minutes: 25, announce: true }
   }
 
   const plan = world.sailing
@@ -163,7 +164,8 @@ export function resolveSailing(world: World, actor: Member, intent: SeaIntent, r
   }
   delete world.sailing
   // Spec §9: sea events include pirates, Marines and Sea Kings. The fight interrupts the voyage until it ends.
-  const encounter = world.calmSeas ? undefined : rollSeaEncounter(roll, route, partLevel(ship, 'lookout'))
+  // A navigator reads the weather and the currents like an extra lookout.
+  const encounter = world.calmSeas ? undefined : rollSeaEncounter(roll, route, partLevel(ship, 'lookout') + (withJob(party(world), 'navigator') ? 1 : 0))
   if (encounter) {
     startSeaFight(world, encounter.foes, voyage)
     return {
@@ -241,7 +243,9 @@ export function resolveIslandTask(world: World, actor: Member, intent: TaskInten
     const minutes = story.searchMinutes ?? 10
     const die = roll(20)
     const check = die + stat(c, attr) + (c.skillRanks[skill] ?? 0) + (task.attempts ?? 0) * (story.retry ?? 3) +
-      (story.helpedBy ?? []).filter(flag => hasFlag(world, flag)).length * 2
+      (story.helpedBy ?? []).filter(flag => hasFlag(world, flag)).length * 2 +
+      // An archaeologist on the spot finds what others miss.
+      (withJob(party(world), 'archaeologist', c.place) ? 2 : 0)
     const line = '判定 D20 ' + die + '，合計 ' + check + '／' + dc + '。'
     if (check >= dc) {
       task.stage = 'found'

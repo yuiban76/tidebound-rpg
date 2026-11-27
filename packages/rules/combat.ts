@@ -36,13 +36,21 @@ export const styles: Record<AttackStyle, { label: string, sta: number, hit: numb
   flurry: { label: '高強度連續攻擊', sta: 7, hit: -2, damage: 0 },
 }
 
-function weaponOf(c: Character) {
-  const table = {
-    fist: [4, '格鬥', stat(c, 'STR')], sword: [6, '劍術', stat(c, 'STR')],
-    spear: [8, '長兵器', stat(c, 'STR')], musket: [8, '射擊', stat(c, 'PER')],
-  } as const
-  return table[c.weapon]
+/** Die, skill and attribute of every weapon, with what it adds or takes for everyone who swings it. */
+export const weaponStats: Record<Character['weapon'], { die: number, skill: string, attr: 'STR' | 'AGI' | 'PER', hit?: number, damage?: number }> = {
+  fist: { die: 4, skill: '格鬥', attr: 'STR' }, kick: { die: 6, skill: '格鬥', attr: 'AGI' },
+  sword: { die: 6, skill: '劍術', attr: 'STR' }, spear: { die: 8, skill: '長兵器', attr: 'STR' }, staff: { die: 6, skill: '長兵器', attr: 'AGI' },
+  heavy: { die: 10, skill: '格鬥', attr: 'STR', hit: -1 },
+  // Every shot costs a bullet, so a musket hits hardest of all.
+  musket: { die: 10, skill: '射擊', attr: 'PER', damage: 1 },
+  sling: { die: 4, skill: '射擊', attr: 'PER' }, bow: { die: 6, skill: '射擊', attr: 'AGI' },
 }
+function weaponOf(c: Character) {
+  const w = weaponStats[c.weapon]
+  return [w.die, w.skill, stat(c, w.attr), w.hit ?? 0, w.damage ?? 0] as const
+}
+/** A bow looses two arrows for less effort than any other flurry. */
+export const staFor = (c: Pick<Character, 'weapon'>, style: AttackStyle) => style === 'flurry' && c.weapon === 'bow' ? 4 : styles[style].sta
 
 /** Resolves a self-made technique to its cost tier; an unknown name is not usable. */
 function styleOf(c: Character, choice: Extract<CombatChoice, { kind: 'attack' }>): AttackStyle | undefined {
@@ -169,11 +177,10 @@ function validate(combat: Combat, c: Character, choice: CombatChoice) {
   if (choice.kind === 'attack') {
     const style = styleOf(c, choice)
     if (!style) return '你還沒有名為「' + choice.technique + '」的招式。可以在狀態欄的「招式」建立。'
-    if (c.sta < styles[style].sta) return styles[style].label + '需要 ' + styles[style].sta + ' STA，你目前只有 ' + c.sta + '。'
-    if (c.weapon === 'musket' && !c.loaded) return '火槍需要先裝填。'
+    if (c.sta < staFor(c, style)) return styles[style].label + '需要 ' + staFor(c, style) + ' STA，你目前只有 ' + c.sta + '。'
+    if (c.weapon === 'musket' && !c.inventory['火槍彈藥']) return '火槍沒有子彈了。港口補給鋪和各島的行商都有賣火槍彈藥，或先改用別的武器。'
     if (!findFoe(combat, choice.target)) return '找不到名叫「' + choice.target + '」的對手。'
   }
-  if (choice.kind === 'reload' && (c.weapon !== 'musket' || c.loaded || !c.inventory['火槍彈藥'])) return '目前沒有可裝填的火槍或彈藥。'
   if (choice.kind === 'useItem') {
     const tool = soakTool(choice.item)
     if (tool) {
@@ -228,11 +235,6 @@ function resolveRound(world: World, combat: Combat, roll: Roll, opening: string)
       }
       lines.push(fighter.name + '放出了霸王色霸氣！' + (felled.length ? felled.join('、') + '當場昏了過去。' : '') +
         (faltered.length ? faltered.join('、') + '被震懾得動彈不得，這回合無法出手。' : '') + (held.length ? held.join('、') + '頂住了霸氣。' : ''))
-    }
-    if (choice.kind === 'reload') {
-      fighter.inventory['火槍彈藥']--
-      fighter.loaded = true
-      lines.push(fighter.name + '裝填火槍。')
     }
     if (choice.kind === 'useItem' && soakTool(choice.item)) lines.push(useSoak(combat, fighter, soakTool(choice.item)!, choice.target))
     else if (choice.kind === 'useItem' && battleItem(choice.item)) {
@@ -306,9 +308,10 @@ function resolveRound(world: World, combat: Combat, roll: Roll, opening: string)
     if (choice.kind !== 'attack') continue
     const style = styleOf(fighter, choice)!
     const spec = styles[style]
-    fighter.sta -= spec.sta
-    if (fighter.weapon === 'musket') fighter.loaded = false
-    const [die, skill, attr] = weaponOf(fighter)
+    fighter.sta -= staFor(fighter, style)
+    // Every shot uses a bullet; there is no reloading.
+    if (fighter.weapon === 'musket' && !--fighter.inventory['火槍彈藥']) delete fighter.inventory['火槍彈藥']
+    const [die, skill, attr, weaponHit, weaponDamage] = weaponOf(fighter)
     const move = choice.technique ? '「' + choice.technique + '」' : spec.label === '普通攻擊' ? '攻擊' : spec.label
     for (let blow = 0; blow < (style === 'flurry' ? 2 : 1); blow++) {
       const foe = findFoe(combat, choice.target) ?? standing(combat)[0]
@@ -320,7 +323,7 @@ function resolveRound(world: World, combat: Combat, roll: Roll, opening: string)
       }
       if (solid === 'seastone') lines.push(fighter.name + '握著海樓石十手，' + foe.name + '的身體在這一擊中變得實在。')
       if (solid === 'haki') lines.push(fighter.name + '裹上武裝色霸氣，' + foe.name + '的自然系身體擋不住這一擊。')
-      const hit = attackCheck(roll, { attr, skill: (fighter.skillRanks[skill] ?? 0) + spec.hit + levelHit(fighter.level) + tierHit(tierOf(fighter)) + raceHit(fighter, !!combat.sea) + (masteryOf(fighter)?.hit ?? 0), def: foe.def, die, bonus: spec.damage + levelDamage(fighter.level) + tierDamage(tierOf(fighter)) + fruitDamage(fighter.fruit, fighter.level) + (traitOf(fighter).damage ?? 0) + (masteryOf(fighter)?.damage ?? 0) + hakiRank(fighter, '武裝色'), armor: foe.armor })
+      const hit = attackCheck(roll, { attr, skill: (fighter.skillRanks[skill] ?? 0) + weaponHit + spec.hit + levelHit(fighter.level) + tierHit(tierOf(fighter)) + raceHit(fighter, !!combat.sea) + (masteryOf(fighter)?.hit ?? 0), def: foe.def, die, bonus: spec.damage + levelDamage(fighter.level) + tierDamage(tierOf(fighter)) + fruitDamage(fighter.fruit, fighter.level) + (traitOf(fighter).damage ?? 0) + (masteryOf(fighter)?.damage ?? 0) + hakiRank(fighter, '武裝色') + weaponDamage, armor: foe.armor })
       foe.hp = Math.max(0, foe.hp - hit.damage)
       lines.push(fighter.name + '對' + foe.name + '使出' + move + '，D20 ' + hit.natural + '，合計 ' + hit.total + '／' + foe.def +
         (hit.hit ? '，傷害 ' + hit.damage + '（武器骰 ' + hit.dice.join('+') + '，數值×' + scale + '）。' + foe.name + ' HP ' + foe.hp + '／' + foe.maxHp + '。' : '，未命中。'))
@@ -346,7 +349,7 @@ function resolveRound(world: World, combat: Combat, roll: Roll, opening: string)
           // A fruit user cannot swim: at sea a fall overboard costs defense. A logia body halves blows from ordinary foes.
           // Observation haki reads the blow coming; armament hardens the body against it.
           name: x.name, def: defense(stat(x, 'AGI'), x.skillRanks['閃避'] ?? 0, (guarding.has(m.id) ? 2 : 0) + levelDefense(x.level) - (x.fruit && combat.sea ? 2 : 0) + raceDefense(x, !!combat.sea) + (armorOf(x)?.def ?? 0) +
-            Math.ceil(hakiRank(x, '見聞色') / 2) + Math.floor(hakiRank(x, '武裝色') / 2)),
+            Math.ceil(hakiRank(x, '見聞色') / 2) + Math.floor(hakiRank(x, '武裝色') / 2) + (x.profession === 'fighter' ? 1 : 0) + (x.weapon === 'staff' ? 1 : 0)),
           // A logia body halves blows from ordinary foes; a foe with haki hits it in full.
           hurt: (damage: number) => { x.hp = Math.max(0, x.hp - (isLogia(x.fruit) && !foe.logia && !foe.haki ? Math.ceil(damage / 2) : damage)); return x.hp ? undefined : x.name + '倒下，仍可接受救援。' },
         }

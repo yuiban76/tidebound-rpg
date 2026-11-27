@@ -14,7 +14,7 @@ export type Special = {
   /** Armor: defense bonus, and an agility cost for heavy pieces. Only the best piece a character carries counts. */
   def?: number, agi?: number
   /** A forged weapon: the kind, and the forge tier it comes with (see forge.ts). */
-  weapon?: Exclude<Weapon, 'fist'>, tier?: number
+  weapon?: Exclude<Weapon, 'fist' | 'kick'>, tier?: number
   /** Combat item effect. */
   effect?: 'blind' | 'escape' | 'burn' | 'salt'
   /** Only sold to people without a bounty (Marine supplies). */

@@ -5,7 +5,7 @@ import type { CharacterInput } from '../packages/shared/protocol.ts'
 export const character = (name: string): CharacterInput => ({
   name, race: '人類', fighting: 'sword',
   stats: { STR: 4, AGI: 3, CON: 3, PER: 3, INT: 2, WIL: 3 },
-  major: '劍術', basics: ['觀察', '閃避'], life: '工藝',
+  profession: 'fighter',
 })
 
 export async function compatibilityFixture() {

@@ -49,6 +49,7 @@ const localAliases: Record<string, Partial<Record<IslandId, LocationId>>> = {
 }
 const weaponWords: Record<string, Weapon> = {
   普通武士刀: 'sword', 武士刀: 'sword', 刀: 'sword', 普通長槍: 'spear', 長槍: 'spear', 普通火槍: 'musket', 火槍: 'musket',
+  腿技: 'kick', 踢技: 'kick', 腳: 'kick', 彈弓: 'sling', 鐵棍: 'staff', 棍棒: 'staff', 棍子: 'staff', 大斧: 'heavy', 斧頭: 'heavy', 重武器: 'heavy', 長弓: 'bow', 弓: 'bow', 弓箭: 'bow',
   徒手: 'fist', 空手: 'fist', 拳頭: 'fist',
 }
 const npcByName = Object.fromEntries(Object.entries(npcs).map(([id, name]) => [name, id])) as Record<string, NpcId>
@@ -279,7 +280,6 @@ export function familiarIntent(input: string, here?: LocationId): Intent | undef
   if (strike) return { kind: 'attack', target: strike[1].trim() }
   if (/^(?:攻擊|出手)$/.test(text)) return { kind: 'attack' }
   if (/^(?:逃跑|逃走|撤離)$/.test(text)) return { kind: 'flee' }
-  if (/^(?:裝填|裝彈|裝填火槍)$/.test(text)) return { kind: 'reload' }
   const bandage = /^(?:使用|用)(繃帶|草藥)(?:給|替|幫)?\s*(.*)$/.exec(text)
   if (bandage) return { kind: 'useItem', item: bandage[1], ...(bandage[2].trim() && { target: bandage[2].trim() }) }
   if (/^(?:採集|採草藥|採藥|撿木料|找草藥|蒐集木料|收集木料)$/.test(text)) return { kind: 'gather' }

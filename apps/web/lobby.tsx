@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { attributeLabels, attributes, characterInput, races, skills, weapons } from '../../packages/shared/protocol.ts'
-import type { CharacterInput, Message, Race, Weapon } from '../../packages/shared/protocol.ts'
+import { attributeLabels, attributes, characterInput, professionIds, races, skills, weapons } from '../../packages/shared/protocol.ts'
+import type { CharacterInput, Message, Profession, Race, Weapon } from '../../packages/shared/protocol.ts'
 import { fightingStyles, fightingSummary } from '../../packages/world/village.ts'
-import { skillUses } from '../../packages/world/skills.ts'
+import { attributeUses, skillUses } from '../../packages/world/skills.ts'
 import { raceSummary } from '../../packages/world/races.ts'
+import { professions, startingSkills, weaponSkill } from '../../packages/world/professions.ts'
 import { MemberAvatar, PortraitPicker } from './portrait.tsx'
 import type { View } from './network.ts'
 
@@ -12,13 +13,13 @@ export function Field({ label, children }: { label: string, children: React.Reac
   return <label className="field"><span>{label}</span>{children}</label>
 }
 
-const life = ['航海', '醫術', '工藝', '採集', '烹飪'] as const
 const defaults = { STR: 3, AGI: 3, CON: 3, PER: 3, INT: 3, WIL: 3 }
 
 function CharacterForm({ initial, submit }: { initial?: CharacterInput, submit: (data: CharacterInput) => Promise<void> }) {
   const [stats, setStats] = useState(initial?.stats ?? defaults)
   const [race, setRace] = useState<Race>(initial?.race ?? '人類')
   const [fighting, setFighting] = useState<Weapon>(initial?.fighting ?? 'sword')
+  const [profession, setProfession] = useState<Profession>(initial?.profession ?? 'fighter')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const total = Object.values(stats).reduce((a, b) => a + b, 0)
@@ -27,8 +28,7 @@ function CharacterForm({ initial, submit }: { initial?: CharacterInput, submit: 
     const form = new FormData(event.currentTarget)
     const payload = {
       name: form.get('name'), race, fighting,
-      stats, major: form.get('major'),
-      basics: [form.get('basic1'), form.get('basic2')], life: form.get('life'),
+      stats, profession,
     }
     const validated = characterInput.safeParse(payload)
     if (!validated.success) return setError(validated.error.issues[0].message)
@@ -59,21 +59,28 @@ function CharacterForm({ initial, submit }: { initial?: CharacterInput, submit: 
     </div>
     <fieldset><legend>六項屬性 · 已分配 {total}／18</legend>
       <p className="hint">每項 2～4 點，合計 18 點。</p>
-      <div className="stat-grid">{attributes.map(key =>
-        <Field label={attributeLabels[key]} key={key}><select value={stats[key]} onChange={e => setStats({ ...stats, [key]: Number(e.target.value) })}>
+      <div className="stat-grid">{attributes.map(key => <div key={key} className="stat-pick">
+        <Field label={attributeLabels[key]}><select value={stats[key]} onChange={e => setStats({ ...stats, [key]: Number(e.target.value) })}>
           {[2, 3, 4].map(value => <option key={value}>{value}</option>)}
-        </select></Field>)}</div>
+        </select></Field>
+        <p className="hint">{attributeUses[key].short}</p>
+      </div>)}</div>
+      <details className="skill-guide"><summary>每項屬性的用途</summary>
+        <dl className="attribute-guide">{attributes.map(key => <div key={key}><dt>{attributeLabels[key]}</dt><dd>{attributeUses[key].long}</dd></div>)}</dl>
+      </details>
     </fieldset>
-    <fieldset><legend>初始技能</legend>
-      <div className="form-grid">
-        {([
-          ['major', '主要專長 ＋2', initial?.major ?? '劍術', skills],
-          ['basic1', '基礎技能一 ＋1', initial?.basics[0] ?? '觀察', skills],
-          ['basic2', '基礎技能二 ＋1', initial?.basics[1] ?? '閃避', skills],
-          ['life', '生活技能 ＋1', initial?.life ?? '工藝', life],
-        ] as const).map(([name, label, value, options]) =>
-          <Field key={name} label={label}><select name={name} defaultValue={value}>{options.map(skill => <option key={skill}>{skill}</option>)}</select></Field>)}
-      </div>
+    <fieldset className="jobs"><legend>職業</legend>
+      <p className="hint">船上的工作。攻擊方式本身帶 2 級的武器技能（{weaponSkill[fighting]}），職業再加 3 級技能，以及全隊都感受得到的本事。</p>
+      <div className="job-list" role="radiogroup" aria-label="職業">{professionIds.map(id => {
+        const job = professions[id]
+        const ranks = startingSkills(fighting, id)
+        return <label key={id} className="job" data-picked={profession === id || undefined}>
+          <input type="radio" name="profession" value={id} checked={profession === id} onChange={() => setProfession(id)}/>
+          <strong>{job.label}<small>像{job.like}</small></strong>
+          <span className="job-skills">{Object.entries(ranks).map(([skill, rank]) => skill + ' ' + rank).join('、')}</span>
+          <span className="hint">{job.perk}</span>
+        </label>
+      })}</div>
       <details className="skill-guide"><summary>每個技能的用途</summary>
         <ul className="skill-list">{skills.map(skill => <li key={skill}><strong>{skill}</strong><span>{skillUses[skill]}</span></li>)}</ul>
         <p className="hint">升級時每級得到 1 個技能點，可以再提升任何技能。</p>
@@ -119,7 +126,7 @@ export function Lobby({ view, send, start, review, busy }: {
         await send({ kind: 'character', character })
         setConfirm(false)
       }}/>
-      : <section className="panel"><h2>{me.character?.name}</h2><p>{me.character?.race} · {me.character && fightingStyles[me.character.fighting].label} · {me.character?.major}</p>
+      : <section className="panel"><h2>{me.character?.name}</h2><p>{me.character?.race} · {me.character && fightingStyles[me.character.fighting].label} · {me.character && professions[me.character.profession].label}</p>
         <button className="light" onClick={() => setEditing(true)}>編輯角色卡</button></section>}
   </div>
 }

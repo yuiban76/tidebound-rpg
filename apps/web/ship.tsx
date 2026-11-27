@@ -119,7 +119,7 @@ export function ShipPanel({ world, player, suggest }: PanelProps) {
         </Row>
       })}</Rows>
       <p className="hint">{atYard ? yard!.name + '可以改裝到 ' + yard!.level + ' 級。' : '改裝和換船的地方：' + Object.keys(shipyards).map(place => locations[place as LocationId]).join('、') + '。'}
-        {wright ? npcs[wright] + '在船上：改裝便宜兩成、修船多修 15。' : '有船匠夥伴（例如' + npcs.franky + '）時，改裝便宜兩成、修船多修 15。'}</p>
+        {wright ? wright + '在船上：改裝便宜兩成、修船多修 15。' : '隊伍裡有船匠（玩家或夥伴，例如' + npcs.franky + '）時，改裝便宜兩成、修船多修 15。'}</p>
     </Fold>
     {bigger.length > 0 && <Fold id="ship-swap" title="換船" meta={bigger.length + ' 種'}>
       <Rows>{bigger.map(id => <Row key={id} title={models[id].label}

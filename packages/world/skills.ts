@@ -1,6 +1,16 @@
 // What every skill does in the rules, how high it may grow, and the helpers the life skills need.
-import type { LocationId, Skill } from '../shared/protocol.ts'
+import type { Attribute, LocationId, Skill } from '../shared/protocol.ts'
 import type { Character, World } from './village.ts'
+
+/** What each attribute does in the rules: a short line for the card, and the whole story for the guide. */
+export const attributeUses: Record<Attribute, { short: string, long: string }> = {
+  STR: { short: '近身武器的命中與傷害', long: '用拳腳、刀劍、長兵器、重武器攻擊時的命中與傷害；靠力氣硬闖的判定（例如擋住衝上來的守軍）。' },
+  AGI: { short: '防禦、出手快慢', long: '防禦（12＋敏捷）；戰鬥中誰先出手；腿技、棍棒、弓箭的命中與傷害；攀爬、潛行、閃躲的判定。' },
+  CON: { short: 'HP 與 STA 上限', long: '每點讓 HP 上限 +50、STA 上限 +6，越高越耐打；頂著風雪、硬撐傷勢的判定。' },
+  PER: { short: '火槍彈弓、觀察搜索', long: '火槍、彈弓與船砲的命中與傷害；觀察、搜索的判定，多數島上委託的搜索都看它。' },
+  INT: { short: '航海、修船、動腦', long: '航程長短與在海上甩開對手（看隊伍裡最強的一位，加上航海技能）；修船、醫治、研究這類動腦的判定。' },
+  WIL: { short: 'STA、說服、霸王色', long: '每點讓 STA 上限 +4；交涉、說服、邀請夥伴加入；兩年修行後能不能覺醒霸王色；咬牙撐住的判定。' },
+}
 
 /** Shown on the character card and the character sheet, so nobody picks a skill that does nothing. */
 export const skillUses: Record<Skill, string> = {

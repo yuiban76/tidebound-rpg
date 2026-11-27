@@ -40,6 +40,7 @@ export function BagPanel({ world, player, suggest }: PanelProps) {
       <div className="button-row">
         {(Object.keys(weaponItems) as (keyof typeof weaponItems)[]).filter(id => id !== c.weapon && c.inventory[weaponItems[id]])
           .map(id => <button key={id} type="button" className="light" onClick={() => suggest('改用' + weaponItems[id])}>改用{weaponItems[id]}</button>)}
+        {c.fighting === 'kick' && c.weapon !== 'kick' && <button type="button" className="light" onClick={() => suggest('改用腿技')}>改用腿技</button>}
         {c.weapon !== 'fist' && <button type="button" className="light" onClick={() => suggest('收起武器')}>改為徒手</button>}
         {forges[c.place] && <button type="button" className="light" onClick={() => suggest('強化武器')}>強化武器</button>}
       </div>

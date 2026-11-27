@@ -7,7 +7,7 @@ import { newWorldTraders } from './newworld.ts'
 
 export type TraderId = keyof typeof traderNpcs
 /** What every merchant sells, by goods id (see village.ts goods). Merchants restock from their guild ship, so stock never runs out. */
-export const traderWares = ['sword', 'spear', 'musket', 'bullets', 'bandage', 'tonic'] as const
+export const traderWares = ['sword', 'spear', 'musket', 'sling', 'staff', 'heavy', 'bow', 'bullets', 'bandage', 'tonic'] as const
 
 export const traders: Record<TraderId, { island: IslandId, place: LocationId, role: string, known: string }> = {
   traderWind: { island: 'wind', place: 'road', role: '潮行商會的行商', known: '推著貨車在村外小路歇腳的圓臉中年商人，正要進風車村，笑說這裡的人買東西從不殺價。' },
