@@ -32,6 +32,7 @@ function sagaContext(world: World, place: Character['place']) {
   return { saga: { title: saga.title, stage: last?.title, ruined: hasFlag(world, 'ruined:' + islandAt(place)) || undefined, goals: goals.map(goal => goal.title) } }
 }
 import { portraitRevision } from './portrait.ts'
+import { catchUpTraining, timeskip, timeskipBlock } from '../../packages/rules/timeskip.ts'
 import type { Entry, Store } from './store.ts'
 
 export class GameError extends Error {}
@@ -429,6 +430,7 @@ export class Game {
   private decide(world: World, actor: Member, msg: Extract<Message, { kind: 'vote' | 'propose' }>) {
     demand(this.ai.status.state === 'passed', 'AI 暫停中，世界決議暫停。')
     let sale: string | undefined
+    let skipped: string | undefined
     if (msg.kind === 'propose') {
       demand(world.proposals.length < 50, '提案數量已達本章上限。')
       demand(msg.type !== 'depart', '請在航海面板選航線。')
@@ -438,6 +440,11 @@ export class Game {
         demand(!world.proposals.some(proposal => proposal.type === 'sellShip' && !proposal.passed), '已有出售主船的提案。')
       }
       demand(msg.type !== 'formCrew' || !world.crew, '隊伍已正式成立。')
+      if (msg.type === 'timeskip') {
+        const blocked = timeskipBlock(world)
+        demand(!blocked, blocked ?? '')
+        demand(!world.proposals.some(proposal => proposal.type === 'timeskip' && !proposal.passed), '已經有出發修行的提案了。')
+      }
       world.proposals.push({ id: randomUUID(), type: msg.type, title: msg.title, votes: {}, passed: false })
     } else {
       const proposal = world.proposals.find(p => p.id === msg.id && !p.passed)
@@ -453,6 +460,11 @@ export class Game {
         demand(!world.crew, '隊伍已正式成立。')
         if (proposal.passed) world.crew = true
       }
+      if (proposal.type === 'timeskip' && proposal.passed) {
+        const blocked = timeskipBlock(world)
+        demand(!blocked, blocked ?? '')
+        skipped = timeskip(world, this.store.roller(world.code, proposal.id))
+      }
       if (proposal.type === 'sellShip' && proposal.passed) {
         const blocked = shipSaleBlock(world)
         demand(!blocked, blocked ?? '')
@@ -465,6 +477,13 @@ export class Game {
       const proposal = msg.kind === 'vote' ? world.proposals.find(p => p.id === msg.id) : undefined
       if (proposal?.passed) this.store.entry(world, null, 'world', '團隊決議通過：' + proposal.title)
       if (sale) this.store.entry(world, null, 'world', sale)
+      if (skipped) {
+        this.store.entry(world, null, 'world', skipped)
+        // Two years of news arrive at once: only the headlines of what happened are kept.
+        const news = advanceTimeline(world)
+        this.store.save(world)
+        for (const item of news.slice(-12)) this.store.entry({ ...world, minute: item.minute }, null, 'world', item.text)
+      }
     })
   }
   /** Places an approved late joiner at the party's port, which is never a combat or open-sea scene. */
@@ -473,7 +492,9 @@ export class Game {
     member.character!.place = place
     member.character!.conversingWith = null
     delete member.pendingJoin
-    return '新夥伴' + member.character!.name + '在' + locations[place] + '與大家會合。'
+    // Someone joining after the two years trained too.
+    const trained = catchUpTraining(world).join('')
+    return '新夥伴' + member.character!.name + '在' + locations[place] + '與大家會合。' + trained
   }
   private sceneAnswer(world: World, actor: Member, question: 'guide' | 'location') {
     if (question === 'guide') return guideFor(world, actor).text
@@ -618,7 +639,7 @@ export class Game {
       const result = resolve(world, actorAt(world), intent, job.text, this.store.roller(code, id), this.connected(world))
       // Each AI call is a full wait on a local model, so the rules' own text stands alone for routine upkeep,
       // and a fight gets one narration when it ends instead of one per round.
-      const fightGoesOn = ['attack', 'cannon', 'guard', 'flee', 'negotiate', 'reload', 'useItem'].includes(intent.kind) && !!world.combat
+      const fightGoesOn = ['attack', 'cannon', 'guard', 'flee', 'negotiate', 'reload', 'useItem', 'conqueror'].includes(intent.kind) && !!world.combat
       const narrate = !result.rejected && !result.directReply && !fightGoesOn &&
         !['sail', 'ship', 'cannon', 'islandTask', 'give', 'equip', 'wait', 'recruit', 'dismiss', 'handover', 'fruit', 'buyFruit', 'upgrade', 'use', 'rest', 'meal', 'reload', 'useItem'].includes(intent.kind) &&
         (!!result.spokeWith || !['move', 'meal', 'crew'].includes(shortcut?.kind ?? ''))
@@ -634,8 +655,11 @@ export class Game {
           world.minute += result.minutes ?? 0
           // Canon events due by the new time fire inside the same transaction as the action.
           const news = advanceTimeline(world)
+          // Waiting out the two years (or joining afterwards) is training too.
+          const trained = catchUpTraining(world)
           this.store.save(world)
           for (const item of news) this.store.entry({ ...world, minute: item.minute }, null, 'world', item.text)
+          for (const line of trained) this.store.entry(world, null, 'world', line)
         }
         this.store.entry(world, result.announce ? null : job.actor, 'result', text, id)
         const story = result.free

@@ -42,6 +42,7 @@ export function CombatPanel({ combat, guns, character, player, suggest }: {
       {character.techniques.map(move => <button key={move.name} type="button" className="light"
         onClick={() => suggest('用「' + move.name + '」攻擊 ' + target)}>「{move.name}」</button>)}
       {guns > 0 && <button type="button" className="light" onClick={() => suggest('對' + target + '開砲')}>開砲（{guns} 門）</button>}
+      {character.haki?.conqueror && <button type="button" className="light" disabled={character.sta < 10} onClick={() => suggest('霸王色')}>霸王色（10 STA）</button>}
       <button type="button" className="light" onClick={() => suggest('防守')}>防守</button>
       {!!character.inventory['繃帶'] && <button type="button" className="light" onClick={() => suggest('使用繃帶')}>使用繃帶</button>}
       {character.weapon === 'musket' && !character.loaded && <button type="button" className="light" onClick={() => suggest('裝填')}>裝填</button>}

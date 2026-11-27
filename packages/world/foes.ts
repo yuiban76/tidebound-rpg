@@ -16,14 +16,18 @@ export type Foe = {
   hp: number, maxHp: number, def: number, armor: number
   /** Added to the D20 attack roll. */
   attack: number, die: number, bonus: number
-  /** Logia bodies let ordinary blows pass through (no haki in the game yet). */
+  /** Logia bodies let ordinary blows pass through, unless the attacker has armament haki. */
   logia?: boolean
+  /** Fights with haki: its blows land in full on a logia body, and it shrugs off Conqueror's haki. */
+  haki?: boolean
   /** What can hurt this logia body (default: sea stone only). Empty: nothing the party owns can touch them yet. */
   weak?: Weakness[]
   /** Rounds left in which the body is solid (after water or a dial); counted down at the end of each round. */
   exposed?: number
   /** Rounds the foe cannot see to strike (a 火藥星 in the face). */
   blind?: number
+  /** Rounds the foe stands frozen by Conqueror's haki. */
+  awed?: number
   bounty?: number, loot: number, items?: Record<string, number>
   down?: boolean, surrendered?: boolean
 }
@@ -43,7 +47,7 @@ const tierStats: [number, number, number, number, number, number][] = [
 /** XP for each participant when a foe of this tier is defeated. */
 export const tierXp = [5, 15, 30, 60, 120, 250, 500]
 
-type Profile = { tier: number, faction: Faction, bounty?: number, logia?: boolean, weak?: Weakness[], hp?: number, def?: number, attack?: number, die?: number }
+type Profile = { tier: number, faction: Faction, bounty?: number, logia?: boolean, haki?: boolean, weak?: Weakness[], hp?: number, def?: number, attack?: number, die?: number }
 
 // Every NPC can be fought. Civilians fight back weakly and attacking them costs reputation.
 export const npcProfiles: Record<NpcId, Profile> = {
@@ -80,7 +84,7 @@ function foeFrom(id: string, name: string, profile: Profile, npc?: NpcId): Foe {
   return {
     id, name, npc, tier: profile.tier, faction: profile.faction,
     hp: maxHp, maxHp, def: profile.def ?? def, armor, attack: profile.attack ?? attack, die: profile.die ?? die, bonus,
-    ...(profile.logia && { logia: true, weak: profile.weak ?? ['seastone'] }), ...(profile.bounty && { bounty: profile.bounty }),
+    ...(profile.logia && { logia: true, weak: profile.weak ?? ['seastone'] }), ...(profile.haki && { haki: true }), ...(profile.bounty && { bounty: profile.bounty }),
     loot: profile.faction === 'civilian' || profile.faction === 'beast' ? profile.tier * 1_000 : (profile.tier + 1) ** 2 * 5_000,
   }
 }
@@ -88,11 +92,14 @@ function foeFrom(id: string, name: string, profile: Profile, npc?: NpcId): Foe {
 /** An unnamed crewman (bandit, fishman, zombie…) who fights alongside a named captain. */
 export const gruntFoe = (id: string, name: string, tier: number, faction: Faction) => foeFrom(id, name, { tier, faction })
 
-/** Luffy grows along his own voyage: after Alabasta he fights like a Warlord. */
+const day = (n: number) => (n - 1) * 1440
+/** Luffy grows along his own voyage: after Alabasta he fights like a Warlord, after Wano like an Emperor.
+ * After the two years everyone strong enough to matter fights with haki. */
 export function npcFoe(npc: NpcId, minute: number): Foe {
-  const profile = npcProfiles[npc]
-  const grown = npc === 'luffy' && minute >= (25 - 1) * 1440 ? { ...profile, tier: 5 } : profile
-  const bounty = npc === 'luffy' ? (minute >= (48 - 1) * 1440 ? 300_000_000 : minute >= (25 - 1) * 1440 ? 100_000_000 : minute >= (8 - 1) * 1440 ? 30_000_000 : undefined) : grown.bounty
+  const base = npcProfiles[npc]
+  const profile = base.tier >= 5 && minute >= day(803) ? { ...base, haki: true } : base
+  const grown = npc === 'luffy' ? { ...profile, tier: minute >= day(849) ? 6 : minute >= day(25) ? 5 : profile.tier, ...(minute >= day(803) && { haki: true }) } : profile
+  const bounty = npc === 'luffy' ? ([[849, 3_000_000_000], [831, 1_500_000_000], [816, 500_000_000], [803, 400_000_000], [48, 300_000_000], [25, 100_000_000], [8, 30_000_000]] as const).find(([d]) => minute >= day(d))?.[1] : grown.bounty
   return foeFrom('npc:' + npc, npcs[npc], { ...grown, bounty }, npc)
 }
 
@@ -107,18 +114,23 @@ const grandLine: SeaEncounter[] = [
   { text: '海軍軍艦發現了你們，砲口轉了過來。', foes: [['海軍上尉', { tier: 3, faction: 'marine' }], ['海軍士兵', { tier: 2, faction: 'marine' }]] },
   { text: '巨大的海王類掀起浪頭，張開了嘴。', foes: [['海王類', { tier: 3, faction: 'beast' }]] },
 ]
+const newWorld: SeaEncounter[] = [
+  { text: '一支新世界的海賊艦隊包圍上來，旗艦上的船長笑著拔出了刀。', foes: [['新世界的海賊船長', { tier: 4, faction: 'pirate', bounty: 120_000_000, haki: true }], ['新世界的海賊', { tier: 3, faction: 'pirate' }]] },
+  { text: '海軍的大型軍艦橫在航線上，甲板上站著一位中將。', foes: [['海軍中將', { tier: 4, faction: 'marine', haki: true }], ['海軍精銳', { tier: 3, faction: 'marine' }]] },
+  { text: '新世界的海面突然隆起，一頭比島還大的海王類張開了嘴。', foes: [['新世界的巨大海王類', { tier: 5, faction: 'beast' }]] },
+]
 const calmBelt: SeaEncounter = { text: '無風帶的海底震動，一頭比船還大的海王類浮了上來。', foes: [['巨型海王類', { tier: 4, faction: 'beast' }]] }
 
 /**
  * Rolls for a random encounter on a voyage. Calm Belt crossings are the most dangerous,
  * the Grand Line is rougher than East Blue. Returns undefined for a quiet voyage.
  */
-export function rollSeaEncounter(roll: (sides: number) => number, lane: { logPose?: boolean, hazard?: { name: string } }, lookout = 0) {
+export function rollSeaEncounter(roll: (sides: number) => number, lane: { logPose?: boolean, newWorld?: boolean, hazard?: { name: string } }, lookout = 0) {
   const chance = roll(20)
   const calm = lane.hazard?.name.includes('無風帶')
   // A good lookout spots trouble early enough to steer around it.
-  if (chance < Math.min(20, (calm ? 11 : lane.logPose ? 16 : 18) + lookout)) return undefined
-  const pool = calm ? [calmBelt] : lane.logPose ? grandLine : eastBlue
+  if (chance < Math.min(20, (calm ? 11 : lane.newWorld ? 15 : lane.logPose ? 16 : 18) + lookout)) return undefined
+  const pool = calm ? [calmBelt] : lane.newWorld ? newWorld : lane.logPose ? grandLine : eastBlue
   const pick = pool[roll(pool.length) - 1]
   return { text: pick.text, foes: pick.foes.map(([name, profile], index) => foeFrom('sea:' + index, name, profile)) }
 }

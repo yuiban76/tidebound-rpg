@@ -23,6 +23,7 @@ export const fruitEffect: Record<FruitId, Effect> = {
   ushi: 'finger', neko: 'claw', yomi: 'soul', ope: 'room', jiki: 'magnet', toshi: 'age', nikyu: 'paw', ito: 'string', horo: 'ghost', doru: 'wax', baku: 'munch',
   dia: 'diamond', bara: 'split', hana: 'hands', kage: 'shadow', doku: 'poison', mane: 'ballet', wara: 'straw', doa: 'door', awa: 'bubble', gura: 'quake',
   bane: 'spring', horm: 'hormone', mero: 'love',
+  gasu: 'poison', yuki: 'ice', hobi: 'age', beta: 'wax', ishi: 'quake', hira: 'whip', zushi: 'quake', giro: 'hypno', soru: 'soul', mochi: 'bigPunch', pero: 'wax', bisu: 'hammer', mira: 'door', memo: 'hypno', uo: 'lightning', ryuPtera: 'fire', ryuBrachio: 'beast', zouMammoth: 'tackle', inuMakami: 'ice', hebiOrochi: 'bite', fude: 'shadow', nomi: 'light', shiro: 'cannon',
 }
 
 /** People whose style is their own rather than a fruit's or a word in the move's name. `move` is shown when they have no other. */
@@ -36,6 +37,10 @@ const people: Partial<Record<NpcId, { effect: Effect, move?: string }>> = {
   daz: { effect: 'dual' }, killer: { effect: 'dual' }, krieg: { effect: 'rapid' }, wyper: { effect: 'cannon' }, absalom: { effect: 'cannon' }, ganfall: { effect: 'thrust' },
   marguerite: { effect: 'arrow' }, marigold: { effect: 'fire' }, sandersonia: { effect: 'whip' }, kumadori: { effect: 'whip' }, squard: { effect: 'dual' },
   izo: { effect: 'rapid' }, curiel: { effect: 'rapid' }, oarsJr: { effect: 'bigPunch' }, blenheim: { effect: 'bigPunch' }, laboon: { effect: 'tackle' }, pell: { effect: 'claw' },
+  sabo: { effect: 'fire' }, kinemon: { effect: 'fire' }, kiku: { effect: 'slash' }, kawamatsu: { effect: 'slash' }, denjiro: { effect: 'slash' }, inuarashi: { effect: 'slash' },
+  nekomamushi: { effect: 'claw' }, carrot: { effect: 'electro' }, wanda: { effect: 'electro' }, pedro: { effect: 'claw' }, kyros: { effect: 'slash' }, rebecca: { effect: 'slash' },
+  hody: { effect: 'water' }, neptune: { effect: 'thrust' }, fukaboshi: { effect: 'thrust' }, cavendish: { effect: 'slash' }, bartolomeo: { effect: 'tackle' }, sentomaru: { effect: 'bigPunch' },
+  vergo: { effect: 'hammer' }, raizo: { effect: 'daggers' }, saturn: { effect: 'light' },
 }
 
 /** A word in a move's name picks the effect; the first that matches wins. Player-made techniques use this too. */

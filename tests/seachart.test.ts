@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import type { IslandId } from '../packages/shared/protocol.ts'
 import { islands, routesFrom, seaLanes } from '../packages/world/sea.ts'
-import { bands, chart, chartIslands, chartLanes, coastline, redLine, seaPath } from '../packages/world/seachart.ts'
+import { bands, chart, chartIslands, chartLanes, coastline, newWorldEnd, redLine, seaPath } from '../packages/world/seachart.ts'
 
 const ids = Object.keys(chartIslands) as IslandId[]
 
@@ -11,7 +11,12 @@ test('每座島都在世界地圖上，彼此不重疊，也不壓到紅土大�
   assert.deepEqual([...ids].sort(), Object.keys(islands).sort())
   for (const id of ids) {
     const [x, y] = chartIslands[id].at
-    assert.ok(x > redLine.reverse + 90 && x < redLine.far - 90 && y > 60 && y < chart.height - 60, id)
+    // The first half lies between the two stretches of the Red Line, the New World past it; Fishman Island sits right under it.
+    const newWorld = islands[id].about.startsWith('新世界')
+    if (id === 'fishmanIsland') assert.equal(x, redLine.far)
+    else if (newWorld) assert.ok(x > redLine.far + 90 && x < newWorldEnd, id)
+    else assert.ok(x > redLine.reverse + 90 && x < redLine.far - 90, id)
+    assert.ok(y > 60 && y < chart.height - 60, id)
     for (const other of ids) if (other !== id) {
       const [a, b] = chartIslands[other].at
       assert.ok(Math.abs(x - a) >= 120 || Math.abs(y - b) >= 100, id + '–' + other)
@@ -42,4 +47,7 @@ test('航路：一站一站走得到，單向航線不能往回', () => {
   assert.ok(seaPath('loguetown', 'marineford').length > 5)
   assert.deepEqual(seaPath('drum', 'wind'), [])
   assert.deepEqual(seaPath('wind', 'wind'), ['wind'])
+  // The New World: down to Fishman Island from Sabaody, up into the New World, and on to Egghead.
+  assert.deepEqual(seaPath('sabaody', 'egghead').slice(0, 3), ['sabaody', 'fishmanIsland', 'punkHazard'])
+  assert.equal(seaPath('egghead', 'sabaody').length, 0)
 })

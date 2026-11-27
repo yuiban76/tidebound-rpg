@@ -6,7 +6,7 @@ import { canonTimeline } from '../../packages/world/canon.ts'
 import { hasFlag } from '../../packages/world/flags.ts'
 import { luffyNow } from '../../packages/world/luffy.ts'
 import { islandAt, islands, paceNames, routeNeeds, routesFrom } from '../../packages/world/sea.ts'
-import { bands, chart, chartIslands, chartLanes, redLine, redLineShape, reversePeak, seaPath, seeded } from '../../packages/world/seachart.ts'
+import { bands, chart, chartIslands, chartLanes, newWorldEnd, redLine, redLineShape, reversePeak, seaPath, seeded } from '../../packages/world/seachart.ts'
 import { shipName } from '../../packages/world/ships.ts'
 import { party } from '../../packages/world/village.ts'
 import { IslandArt, ShipMark, StrawHat } from './island-art.tsx'
@@ -25,7 +25,7 @@ const mountains = (cx: number) => {
 }
 const waves = (() => {
   const random = seeded('waves')
-  return Array.from({ length: 150 }, () => {
+  return Array.from({ length: 240 }, () => {
     const [x, y] = [random() * W, random() * H]
     return `M${x} ${y}q5 -6 10 0q5 6 10 0`
   }).join('')
@@ -52,7 +52,9 @@ const Ocean = memo(function Ocean({ uid }: { uid: string }) {
     <rect width={W} height={H} fill={`url(#${uid}grid)`}/>
     {/* The seas beyond the story so far lie in haze. */}
     <rect x="0" y="0" width={redLine.reverse} height={H} fill="#eef0e4" opacity=".5"/>
-    <rect x={redLine.far} y="0" width={W - redLine.far} height={H} fill="#eef0e4" opacity=".5"/>
+    <rect x={newWorldEnd} y="0" width={W - newWorldEnd} height={H} fill="#eef0e4" opacity=".5"/>
+    <rect x={redLine.far + redLine.half} y="0" width={W - redLine.far - redLine.half} height={bands.calmNorth[0]} fill="#eef0e4" opacity=".42"/>
+    <rect x={redLine.far + redLine.half} y={bands.blueSouth[0]} width={W - redLine.far - redLine.half} height={bands.blueSouth[1] - bands.blueSouth[0]} fill="#eef0e4" opacity=".42"/>
     <rect x={redLine.reverse} y={bands.blueSouth[0]} width={redLine.far - redLine.reverse} height={bands.blueSouth[1] - bands.blueSouth[0]} fill="#eef0e4" opacity=".42"/>
     {[redLine.reverse, redLine.far].map(cx => <g key={cx}>
       <path d={redLineShape(cx)} fill="#6d3a28" opacity=".28" transform="translate(7 5)"/>
@@ -67,15 +69,16 @@ const Ocean = memo(function Ocean({ uid }: { uid: string }) {
       <path d={`M${px} ${py - 30}Q${px + 6} ${py + 6} ${px + 66} ${py + 12}`} fill="none" stroke="#b7e6ee" strokeWidth="9" strokeLinecap="round"/>
     </g>
     {/* Sea Kings sleep in the Calm Belts. */}
-    {[[600, 455, 1], [1270, 450, -1], [860, 915, -1], [520, 925, 1], [1600, 915, 1], [120, 450, 1]].map(([x, y, side]) => <SeaKing key={x} x={x} y={y} side={side}/>)}
+    {[[600, 455, 1], [1270, 450, -1], [860, 915, -1], [520, 925, 1], [1600, 915, 1], [120, 450, 1], [1900, 450, -1], [2300, 920, 1]].map(([x, y, side]) => <SeaKing key={x} x={x} y={y} side={side}/>)}
     <g className="chart-seas" textAnchor="middle">
       <text x="930" y="62">東海</text><text x="1060" y="1140">南海</text><text x="165" y="215">北海</text><text x="165" y="1120">西海</text>
-      <text x="168" y="690" className="chart-band">新世界</text><text x="1630" y="690" className="chart-band">新世界</text>
-      <text x="1630" y="215" className="chart-small">北海</text><text x="1630" y="1120" className="chart-small">西海</text>
+      <text x="168" y="690" className="chart-band">新世界</text><text x="2100" y="535" className="chart-band">新　　世　　界</text>
+      <text x="2100" y="215" className="chart-small">北海</text><text x="2100" y="1120" className="chart-small">西海</text>
+      <text x="2100" y="457" className="chart-small">無　風　帶</text><text x="2100" y="918" className="chart-small">無　風　帶</text>
       <text x="800" y="535" className="chart-band">偉　大　航　路</text>
       <text x="960" y="457" className="chart-small">無　風　帶</text><text x="690" y="918" className="chart-small">無　風　帶</text>
       <text x={px} y={py + 112} className="chart-place">顛倒山</text>
-      <text x={redLine.far} y="770" className="chart-place">魚人島</text><text x={redLine.far} y="788" className="chart-place chart-tiny">海底</text>
+      <text x={redLine.far} y="855" className="chart-place chart-tiny">海底一萬公尺</text>
       <text transform={`translate(${redLine.reverse + 7} 210) rotate(90)`} className="chart-red">紅土大陸</text>
       <text transform={`translate(${redLine.far + 7} 230) rotate(90)`} className="chart-red">紅土大陸</text>
     </g>

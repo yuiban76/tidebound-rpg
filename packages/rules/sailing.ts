@@ -9,6 +9,7 @@ import type { Member, PendingVoyage, World } from '../world/village.ts'
 import { raceSeats, stat } from '../world/races.ts'
 import { navigatorRank } from '../world/skills.ts'
 import { rollSeaEncounter, tierNames } from '../world/foes.ts'
+import { coatingPrice } from './ship.ts'
 import { startSeaFight } from './combat.ts'
 import { minuteOf } from '../world/canon.ts'
 import { beli } from '../world/scale.ts'
@@ -142,6 +143,8 @@ export function resolveSailing(world: World, actor: Member, intent: SeaIntent, r
     return stop('偉大航路的磁場會讓普通羅盤失靈，隊伍裡必須有人帶著記錄指針才能出航。羅格鎮的一本松武器店有賣。')
   if (route.needsTask && world.islandTasks?.[route.needsTask]?.stage !== 'done')
     return stop('這條航線要先完成「' + islandStories[route.needsTask]?.title + '」才能出發。')
+  if (route.needsCoating && !ship.coated)
+    return stop('要潛進海底，船得先鍍膜。到夏波帝的' + locations.coatingYard + '輸入「鍍膜」（' + coatingPrice.toLocaleString('en-US') + ' 貝里）。')
 
   const navigator = Math.max(...party(world).map(m => stat(m.character!, 'INT') + (m.character!.skillRanks['航海'] ?? 0)))
   const natural = roll(20)

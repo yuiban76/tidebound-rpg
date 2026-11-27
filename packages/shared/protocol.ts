@@ -8,6 +8,9 @@ export type Race = (typeof races)[number]
 export type Attribute = (typeof attributes)[number]
 export const skills = ['格鬥', '劍術', '長兵器', '射擊', '閃避', '觀察', '說服', '醫術', '航海', '工藝', '採集', '烹飪'] as const
 export type Skill = (typeof skills)[number]
+/** Learned in the two years of training; raised with skill points like the others. */
+export const hakiSkills = ['武裝色', '見聞色'] as const
+export type HakiSkill = (typeof hakiSkills)[number]
 export const locations = {
   square: '風車村廣場', tavern: '派對酒吧', dock: '風車村港口', road: '村外小路', hill: '科爾波山山道',
   goa: '哥亞王國城下町',
@@ -88,7 +91,7 @@ export const intentSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('sail'), order: z.enum(['buy', 'materials', 'repair', 'vote', 'ready', 'unready', 'depart']), destination: z.enum(islandIds).optional(), pace: z.enum(sailingPaces).optional() }),
   // Orders about the ship herself: her name, a new hull, better parts, the shared hold and safe.
   z.strictObject({
-    kind: z.literal('ship'), order: z.enum(['name', 'refit', 'upgrade', 'store', 'take']),
+    kind: z.literal('ship'), order: z.enum(['name', 'refit', 'upgrade', 'store', 'take', 'coat']),
     name: z.string().trim().min(1).max(24).optional(), model: z.enum(shipModels).optional(), part: z.enum(shipParts).optional(),
     item: z.string().trim().min(1).max(60).optional(), count: z.number().int().min(1).max(99).optional(),
     money: z.number().int().min(1).max(10_000_000_000).optional(),
@@ -105,6 +108,8 @@ export const intentSchema = z.discriminatedUnion('kind', [
   // Fire one of the ship's cannons in a sea fight.
   z.strictObject({ kind: z.literal('cannon'), target: z.string().trim().min(1).max(24).optional() }),
   z.strictObject({ kind: z.literal('guard') }),
+  // Conqueror's haki: once a fight, knocks the weak out cold and makes the rest falter.
+  z.strictObject({ kind: z.literal('conqueror') }),
   z.strictObject({ kind: z.literal('flee') }),
   z.strictObject({ kind: z.literal('rest'), sleep: z.boolean() }),
   z.strictObject({ kind: z.literal('aid'), patient: z.string().min(1).max(24) }),
@@ -141,7 +146,7 @@ export const intentSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('unsupported') }),
 ])
 export type Intent = z.infer<typeof intentSchema>
-export const proposals = ['formCrew', 'ordinary', 'depart', 'sellShip'] as const
+export const proposals = ['formCrew', 'ordinary', 'depart', 'sellShip', 'timeskip'] as const
 /** Longest portrait as a data URL. It has to fit into one request of a remote player (see bridge in network.ts). */
 export const portraitLimit = 14_000
 export const messageSchema = z.discriminatedUnion('kind', [
@@ -160,7 +165,7 @@ export const messageSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('propose'), type: z.enum(proposals), title: text(60) }),
   z.strictObject({ kind: z.literal('vote'), id: identifier, yes: z.boolean() }),
   z.strictObject({ kind: z.literal('allocate'), attr: z.enum(attributes) }),
-  z.strictObject({ kind: z.literal('train'), skill: z.enum(skills) }),
+  z.strictObject({ kind: z.literal('train'), skill: z.enum([...skills, ...hakiSkills]) }),
   z.strictObject({ kind: z.literal('technique'), name: text(12), style: z.enum(['special', 'advanced', 'flurry']) }),
 ])
 export type Message = z.infer<typeof messageSchema>

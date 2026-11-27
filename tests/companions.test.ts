@@ -157,7 +157,8 @@ test('除了少數劇情核心，所有 NPC 都能招募；反派要更高等級
   const { cannotJoin, recruitable } = await import('../packages/world/companions.ts')
   const ids = Object.keys(npcs) as NpcId[]
   for (const id of ids) assert.ok(recruitable[id] || cannotJoin[id], id + ' 既不能招募也沒有理由')
-  assert.deepEqual(Object.keys(cannotJoin).filter(id => !id.startsWith('trader')).sort(), ['ace', 'aokiji', 'akainu', 'charloss', 'chimney', 'dragon', 'gonbe', 'tsuru', 'garp', 'kizaru', 'kuma', 'laboon', 'luffy', 'rayleigh', 'sengoku', 'shanks', 'whitebeard'].sort())
+  assert.deepEqual(Object.keys(cannotJoin).filter(id => !id.startsWith('trader')).sort(), ['ace', 'aokiji', 'akainu', 'charloss', 'chimney', 'dragon', 'gonbe', 'tsuru', 'garp', 'kizaru', 'kuma', 'laboon', 'luffy', 'rayleigh', 'sengoku', 'shanks', 'whitebeard',
+    'fujitora', 'saturn', 'kaido', 'bigMom', 'momonosuke', 'vegapunk'].sort())
   assert.ok(recruitable.arlong?.villain && recruitable.arlong.minLevel! >= 6)
   assert.equal(recruitable.kaya?.villain, undefined)
   assert.ok(recruitable.kureha?.medic)

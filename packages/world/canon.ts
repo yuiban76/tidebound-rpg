@@ -1,10 +1,12 @@
 // Canon One Piece content from East Blue to the Summit War (fan work; all wording is original summary).
+// The two years and the New World up to Egghead live in newworld.ts and are joined in here.
 // The facts below are the world on the morning of Day 1. The timeline then plays out canon events on
 // fixed in-game days unless the players have already changed them, so the manga is a default, not a script.
 import type { IslandId, LocationId, NpcId } from '../shared/protocol.ts'
 import type { canonIslandIds, canonNpcs } from '../shared/atlas.ts'
 import { warEndings, warStages } from './war.ts'
 import { water7Aftermath, water7Stages } from './water7.ts'
+import { luffyAfterWar, newWorldBossDefeats, newWorldIslands, newWorldLanes, newWorldStories, newWorldTimeline } from './newworld.ts'
 
 type CanonIslandId = (typeof canonIslandIds)[number]
 type Attribute = 'STR' | 'AGI' | 'CON' | 'PER' | 'INT' | 'WIL'
@@ -57,6 +59,10 @@ export type SeaLane = {
   needsTask?: IslandId
   /** Extra hull damage: Reverse Mountain or the Calm Belt. */
   hazard?: { name: string, damage: number }
+  /** Under the sea: the ship must be coated at Sabaody first. */
+  needsCoating?: boolean
+  /** New World waters: rougher encounters. */
+  newWorld?: boolean
 }
 
 export type CanonEvent = {
@@ -86,6 +92,7 @@ export const bossDefeats: Partial<Record<NpcId, { text: string, effect: WorldEff
   enel: { text: '自稱為神的艾涅爾倒下了，空島的人們終於從恐懼中解放。', effect: { move: { enel: null } } },
   lucci: { text: 'CP9 最強的羅布・路基被打倒了，世界政府的諜報機關一片混亂。', effect: { move: { lucci: null } } },
   moria: { text: '七武海月光・摩利亞倒下了，被奪走的影子紛紛回到主人身上。', effect: { move: { moria: null }, facts: { brook: '我的影子……回來了！喲吼吼吼！' } } },
+  ...newWorldBossDefeats,
 }
 
 export const minuteOf = ([day, hour]: [number, number]) => (day - 1) * 1440 + hour * 60
@@ -128,6 +135,7 @@ export const canonIslands: Record<CanonIslandId, { name: string, about: string, 
     ['impelGate', '正門', '停泊或搭船離開推進城'], ['impelLevel5', '第五層', '極寒地獄，伊娃可夫藏身附近'], ['impelLevel6', '第六層', '無限地獄，關押最兇惡的犯人']] },
   marineford: { name: '馬林福特', about: '偉大航路：海軍本部所在地', places: [
     ['marinefordBay', '海灣', '停泊或搭船離開馬林福特'], ['scaffold', '處刑台', '海軍本部前的處刑台'], ['hqFortress', '要塞', '元帥戰國坐鎮']] },
+  ...newWorldIslands,
 }
 
 export const canonPeople: Record<keyof typeof canonNpcs, { place: LocationId | null, role: string, known: string }> = {
@@ -199,6 +207,7 @@ export const canonLanes: SeaLane[] = [
   { ends: ['sabaody', 'amazonLily'], miles: 300, logPose: true, hazard: { name: '穿越無風帶', damage: 15 } },
   { ends: ['amazonLily', 'impelDown'], miles: 250, logPose: true, needsTask: 'amazonLily', hazard: { name: '穿越無風帶', damage: 15 } },
   { ends: ['impelDown', 'marineford'], miles: 200, oneWay: true, logPose: true, hazard: { name: '穿越無風帶', damage: 15 } },
+  ...newWorldLanes,
 ]
 
 export const canonStories: Record<CanonIslandId, IslandStory> = {
@@ -358,6 +367,7 @@ export const canonStories: Record<CanonIslandId, IslandStory> = {
     onDone: { move: { ace: null, whitebeard: null } },
     samples: ['加入白鬍子的救援', '衝上處刑台', '護送艾斯撤離'],
   },
+  ...newWorldStories,
 }
 
 // Canon events on the in-game calendar (Day 1 08:00 is the morning Luffy leaves Foosha Village).
@@ -433,6 +443,7 @@ export const luffyRoute: RouteStop[] = [
   { at: [72, 15], place: 'oris', unless: 'impelDown', facts: '他和推進城的逃犯們從天而降，一路喊著哥哥的名字衝向處刑台。' },
   { at: [72, 17], place: 'scaffold', unless: 'impelDown' },
   { at: [72, 20], place: null, facts: '頂上戰爭結束後，他的消息暫時斷了。' },
+  ...luffyAfterWar,
 ]
 
 export const canonTimeline: CanonEvent[] = [
@@ -564,4 +575,5 @@ export const canonTimeline: CanonEvent[] = [
         effect: { move: { ace: null, whitebeard: null }, facts: { teach: '他奪走了白鬍子的震震果實，在新世界掀起了風浪。' }, close: ['marineford'] } },
       ...warEndings,
     ] },
+  ...newWorldTimeline,
 ]

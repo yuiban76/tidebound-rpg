@@ -3,12 +3,13 @@
 // canonTimeline (Day 1 = the morning Luffy leaves Dawn Island). Every stop is a present state, not a script:
 // the players can meet, fight or recruit anyone, and a recruited companion is never moved by this calendar.
 import type { LocationId, NpcId } from '../shared/protocol.ts'
-import type { castNpcs } from '../shared/atlas.ts'
+import { castNpcs } from '../shared/atlas.ts'
 import type { Faction } from './foes.ts'
+import { newWorldPeople, newWorldRoutes, othersAfterWar, strawHatAfterWar } from './newworld.ts'
 
 export type CastId = keyof typeof castNpcs
 export type CastPerson = { place: LocationId | null, role: string, known: string }
-export type CastProfile = { tier: number, faction: Faction, bounty?: number, logia?: boolean }
+export type CastProfile = { tier: number, faction: Faction, bounty?: number, logia?: boolean, /** Fights with haki (the New World). */ haki?: boolean }
 /** From [day, hour] on, the character is at `place` (null: away at sea) and knows `facts`. Stops are sorted by time. */
 export type CastStop = { at: [number, number], place: LocationId | null, facts?: string,
   /** The stop is skipped when every flag holds (see flags.ts), e.g. no war after the Impel Down breakout. */
@@ -106,7 +107,8 @@ export const castPeople: Record<CastId, CastPerson> = {
   marco: { place: null, role: '白鬍子海賊團第一隊隊長', known: '被稱為「不死鳥」的男人，一副沒睡醒的樣子，卻是白鬍子最信賴的副手。' },
   jozu: { place: null, role: '白鬍子海賊團第三隊隊長', known: '身體能變成鑽石的壯漢，說話沉穩，是白鬍子海賊團中最可靠的盾牌。' },
   vista: { place: null, role: '白鬍子海賊團第五隊隊長', known: '雙手各持一把長劍的劍士，留著整齊的八字鬍，愛打理自己的花。' },
-}
+  ...Object.fromEntries(Object.entries(newWorldPeople).map(([id, { place, role, known }]) => [id, { place, role, known }])),
+} as Record<CastId, CastPerson>
 
 // [tier, faction] follow the canon tiers in foes.ts: 0 civilian … 6 legend.
 export const castProfiles: Record<CastId, CastProfile> = {
@@ -146,7 +148,9 @@ export const castProfiles: Record<CastId, CastProfile> = {
   daz: { tier: 4, faction: 'pirate' }, tsuru: { tier: 5, faction: 'marine' },
   squard: { tier: 4, faction: 'pirate' }, oarsJr: { tier: 5, faction: 'pirate' }, izo: { tier: 4, faction: 'pirate' },
   namur: { tier: 4, faction: 'pirate' }, rakuyo: { tier: 4, faction: 'pirate' }, curiel: { tier: 4, faction: 'pirate' }, blenheim: { tier: 4, faction: 'pirate' },
-}
+  ...Object.fromEntries(Object.entries(newWorldPeople).map(([id, { tier, faction, bounty, logia }]) =>
+    [id, { tier, faction, ...(bounty && { bounty }), ...(logia && { logia }), ...(tier >= 4 && faction !== 'civilian' || tier >= 5 ? { haki: true } : {}) }])),
+} as Record<CastId, CastProfile>
 
 /** The Impel Down breakout (an island quest the players can finish) calls the war off. */
 const noWar = ['task:impelDown']
@@ -425,3 +429,9 @@ export const canonRoutes: Partial<Record<NpcId, CastStop[]>> = {
 
 /** Who is on the Summit War battlefield from the Day 72 morning: used by the final-day guard in the tests. */
 export const warCast: CastId[] = ['koby', 'tashigi', 'mihawk', 'bonclay', 'law', 'kuma', 'jinbe', 'teach', 'doflamingo', 'garp', 'akainu', 'aokiji', 'kizaru', 'marco', 'jozu', 'vista', 'squard', 'oarsJr', 'izo', 'namur', 'rakuyo', 'curiel', 'blenheim', 'tsuru']
+
+// After the war: the New World's people, and everyone who moves on after the two years, join the calendars above.
+for (const [npc, stops] of Object.entries({ ...newWorldRoutes, ...othersAfterWar, ...strawHatAfterWar }) as [NpcId, CastStop[]][]) {
+  const table = (Object.hasOwn(castNpcs, npc) ? castRoutes : canonRoutes) as Partial<Record<NpcId, CastStop[]>>
+  table[npc] = [...table[npc] ?? [], ...stops]
+}

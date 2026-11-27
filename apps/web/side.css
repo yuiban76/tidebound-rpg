@@ -192,6 +192,7 @@
 .side-body form .field { margin-top: 0; font-size: .86rem; }
 .side-body :is(input, select) { min-height: 38px; border-radius: 7px; }
 .passed { padding: 0; list-style: none; }
+.timeskip { display: grid; gap: .4rem; padding: .6rem .7rem; border: 1px solid #e3c781; border-radius: 8px; background: #fdf6e6; }
 .passed li::before { content: '✓ '; color: #1f7a5a; font-weight: 700; }
 
 /* 消息 */

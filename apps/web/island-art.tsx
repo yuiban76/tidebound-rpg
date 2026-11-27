@@ -30,6 +30,24 @@ const Flag = ({ x, y, color }: { x: number, y: number, color: string }) => <g tr
 
 // One small drawing per island, about 50 units wide around (0, 0), feet at y = 12.
 const landmarks: Record<IslandId, ReactNode> = {
+  // The New World.
+  fishmanIsland: <><path d="M-26 12Q-24 -24 0 -26Q24 -24 26 12Z" fill="#e3f4f8" fillOpacity=".55" stroke="#7fb3c2"/><path d="M-14 12V-2H14V12Z" fill="#f6e7c8"/>
+    <path d="M-6 -2V-14H6V-2Z" fill="#fff3dc"/><path d="M-8 -14Q0 -22 8 -14Z" fill="#e58c7a"/><path d="M-18 12Q-20 2 -14 -2M18 12Q21 3 16 -1" fill="none" stroke="#e0708a" strokeWidth="2.2"/>
+    <circle cx="-17" cy="-12" r="2.4" fill="#fff" fillOpacity=".8"/><circle cx="15" cy="-16" r="1.8" fill="#fff" fillOpacity=".8"/></>,
+  punkHazard: <><path d="M-26 12L-20 -6L-12 2L-6 -14L0 12Z" fill="#c9653b"/><path d="M-18 -6Q-16 -16 -12 -10Q-10 -18 -6 -12" fill="none" stroke="#f0a43a" strokeWidth="2"/>
+    <path d="M0 12L4 -12L10 0L16 -18L26 12Z" fill="#e8f2f5"/><path d="M4 -12L7 -4M16 -18L19 -6" fill="none" stroke="#9fc3cf" strokeWidth="1.4"/></>,
+  dressrosa: <><path d="M-26 12Q-12 2 0 6Q12 0 26 12Z" fill="#e6c98a"/><ellipse cx="-11" cy="4" rx="11" ry="6" fill="#d8b27c"/><ellipse cx="-11" cy="2" rx="7" ry="3" fill="#a9713f"/>
+    <path d="M6 6V-12H20V6Z" fill="#fbf3e4"/><path d="M4 -12L13 -22L22 -12Z" fill="#e07a8a"/><Flag x={13} y={-22} color="#e8d64a"/></>,
+  zou: <><path d="M-24 12V-2Q-24 -14 -8 -14H10Q22 -14 22 -2V12H16V2H-18V12Z" fill="#a8a59a"/><path d="M22 -4Q30 -2 28 10" fill="none" stroke="#a8a59a" strokeWidth="5" strokeLinecap="round"/>
+    <path d={coastline('zouforest', -2, -17, 18, 6, .3, 10)} fill="#6f9b5e"/><circle cx="14" cy="-6" r="1.4" fill="#33403d"/></>,
+  wholeCake: <><path d="M-20 12V2H20V12Z" fill="#f6d7e2"/><path d="M-14 2V-8H14V2Z" fill="#fbe9c8"/><path d="M-8 -8V-17H8V-8Z" fill="#f6d7e2"/>
+    <path d="M-20 2Q-15 6 -10 2Q-5 6 0 2Q5 6 10 2Q15 6 20 2M-14 -8Q-9 -4 -4 -8Q1 -4 6 -8Q10 -4 14 -8" fill="none" stroke="#fff" strokeWidth="1.6"/>
+    <circle cx="0" cy="-20" r="3" fill="#d6433a"/></>,
+  wano: <><path d="M-26 12Q-16 0 -2 6Q12 -2 26 12Z" fill="#7fa65c"/><path d="M-4 6V-4H12V6Z" fill="#fbf6e8"/><path d="M-8 -4L4 -10L16 -4Z" fill="#3b3748"/>
+    <path d="M-1 -10V-16H9V-10Z" fill="#fbf6e8"/><path d="M-4 -16L4 -21L12 -16Z" fill="#3b3748"/><path d="M-22 12V-6M-14 12V-6M-25 -6H-11M-24 -3H-12" fill="none" stroke="#c8412f" strokeWidth="2.2"/></>,
+  egghead: <><path d="M-24 12Q-10 4 0 8Q12 2 24 12Z" fill="#d6d2c3"/><ellipse cx="0" cy="-8" rx="11" ry="15" fill="#fffaf0"/><path d="M-11 -6Q0 -1 11 -6" fill="none" stroke="#e0a43a" strokeWidth="1.8"/>
+    <path d="M14 10V-12H19V10Z" fill="#b9c8cf"/><circle cx="16.5" cy="-15" r="3.2" fill="#ffd968"/><path d="M-20 10V-2H-15V10Z" fill="#b9c8cf"/></>,
+
   wind: <><path d="M-24 11Q-14 -6 -3 8Z" fill="#9ab670"/><path d="M5 12L8 -9H15L18 12Z" fill="#f6efdc"/><path d="M7 -9L11.5 -15L16 -9Z" fill="#b5573f"/>
     <path d="M11.5 -10L11.5 -26L16 -24L16 -14ZM11.5 -10L27 -10L25 -5.5L15 -5.5ZM11.5 -10L11.5 6L7 4L7 -5ZM11.5 -10L-4 -10L-2 -14.5L8 -14.5Z" fill="#fffaf0"/><circle cx="11.5" cy="-10" r="1.8" fill="#6b5237"/><House x={-12} y={12}/></>,
   shells: <><path d="M-20 12V-4H20V12Z" fill="#eef1ee"/><path d="M-20 -4V-8H-15V-4M-10 -4V-8H-5V-4M5 -4V-8H10V-4M15 -4V-8H20V-4" fill="#eef1ee"/><path d="M-7 12V-18H7V12Z" fill="#dfe6e8"/><path d="M-9 -18L0 -25L9 -18Z" fill="#3f6d92"/><path d="M-3 12V4Q0 0 3 4V12Z" fill="#5b4a37"/><Flag x={0} y={-25} color="#4a86b8"/></>,

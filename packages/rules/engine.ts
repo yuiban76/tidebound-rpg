@@ -1,5 +1,5 @@
-import { attributeLabels, locations, npcs } from '../shared/protocol.ts'
-import type { CharacterInput, Intent, NpcId, Skill } from '../shared/protocol.ts'
+import { attributeLabels, locations, npcs, hakiSkills } from '../shared/protocol.ts'
+import type { CharacterInput, Intent, NpcId, Skill, HakiSkill } from '../shared/protocol.ts'
 import { asksAboutBoatCrew, asksAboutShipPurchase, dialogueQuestion, directions, routeBetween } from '../world/explore.ts'
 import { forges, maxTier, tierCost, tierDamage, tierHit, tierLevel, tierOf, weaponLabel } from '../world/forge.ts'
 import { beli, scale, staScale } from '../world/scale.ts'
@@ -131,8 +131,9 @@ export function grantXp(c: Character, amount: number, key?: string) {
 }
 
 /** Spends one skill point on a skill, up to the cap for the character's level. */
-export function trainSkill(c: Character, skill: Skill): Result {
+export function trainSkill(c: Character, skill: Skill | HakiSkill): Result {
   if (!c.skillPoints) return reject('目前沒有技能點，升級時會得到。')
+  if ((hakiSkills as readonly string[]).includes(skill) && !c.skillRanks[skill]) return reject('還沒學會' + skill + '霸氣。頂上戰爭後全隊出發修行兩年，才會學會。')
   const rank = c.skillRanks[skill] ?? 0
   const cap = skillCap(c.level)
   if (rank >= cap) return reject(skill + '已達目前上限 ' + cap + '，等級越高上限越高。')
@@ -174,7 +175,7 @@ export function attackCheck(roll: Roll, stats: { attr: number, skill: number, de
 }
 
 const isCombat = (intent: Intent): intent is CombatChoice =>
-  ['attack', 'cannon', 'guard', 'flee', 'negotiate', 'reload', 'useItem'].includes(intent.kind)
+  ['attack', 'cannon', 'guard', 'flee', 'negotiate', 'reload', 'useItem', 'conqueror'].includes(intent.kind)
 
 function converse(world: World, c: Character, npc: NpcId, raw: string, minute = world.minute): Result {
   const place = npcPlace(world, npc)

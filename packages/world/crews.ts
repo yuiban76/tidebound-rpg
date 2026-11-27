@@ -6,6 +6,7 @@ import { minuteOf } from './canon.ts'
 import { gruntFoe } from './foes.ts'
 import type { Faction, Foe } from './foes.ts'
 import { npcPlace } from './village.ts'
+import { newWorldCrews, reunion } from './newworld.ts'
 import type { World } from './village.ts'
 
 type CrewMember = {
@@ -33,6 +34,9 @@ export const crews: Record<string, Crew> = {
     straw('zoro', [2, 16]), straw('usopp', [4, 12]), straw('sanji', [6, 18]), straw('nami', [8, 17]),
     straw('vivi', [12, 4], [27, 8]), straw('chopper', [18, 14]), straw('robin', [27, 8]),
     straw('franky', [53, 8]), straw('brook', [56, 12]),
+    // Together again after the two years; Jinbe takes the helm in Wano.
+    ...(['zoro', 'usopp', 'sanji', 'nami', 'chopper', 'robin', 'franky', 'brook'] as NpcId[]).map(npc => straw(npc, reunion, [99_999, 0])),
+    straw('jinbe', [849, 12], [99_999, 0]),
   ] },
   buggy: { name: '小丑巴其海賊團', captain: 'buggy', faction: 'pirate', members: [{ npc: 'cabaji', sails: true, until: [60, 6] }, { npc: 'mohji', sails: true, until: [60, 6] }],
     grunts: { name: '巴其海賊團團員', tier: 1, count: 2, home: ['buggyBar', 'orangeStreet', 'orangePort'] } },
@@ -68,6 +72,7 @@ export const crews: Record<string, Crew> = {
   whitebeard: { name: '白鬍子海賊團', captain: 'whitebeard', faction: 'pirate',
     members: [{ npc: 'marco' }, { npc: 'jozu' }, { npc: 'vista' }, { npc: 'ace' }, { npc: 'izo' }, { npc: 'namur' }, { npc: 'rakuyo' },
       { npc: 'curiel' }, { npc: 'blenheim' }, { npc: 'squard' }, { npc: 'oarsJr' }] },
+  ...newWorldCrews,
 }
 
 /** The crew an NPC captains or belongs to, if any. */

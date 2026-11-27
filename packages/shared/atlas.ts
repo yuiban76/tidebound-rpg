@@ -1,4 +1,4 @@
-// Names of the canon islands, places and people from East Blue to Marineford.
+// Names of the canon islands, places and people from East Blue to Egghead.
 // Pure data with no imports so protocol.ts can derive its literal id types from it.
 // Rich data (roles, facts, quests, lanes, timeline) lives in packages/world/canon.ts.
 
@@ -6,6 +6,8 @@ export const canonIslandIds = [
   'syrup', 'baratie', 'cocoyasi', 'loguetown',
   'twinCape', 'whiskyPeak', 'littleGarden', 'drum', 'alabasta', 'jaya', 'skypiea',
   'water7', 'eniesLobby', 'thrillerBark', 'sabaody', 'amazonLily', 'impelDown', 'marineford',
+  // The New World, after the two years.
+  'fishmanIsland', 'punkHazard', 'dressrosa', 'zou', 'wholeCake', 'wano', 'egghead',
 ] as const
 
 export const canonLocations = {
@@ -27,6 +29,13 @@ export const canonLocations = {
   kujaPort: '九蛇港', kujaCastle: '九蛇城', amazonForest: '女兒島森林',
   impelGate: '推進城正門', impelLevel5: '推進城第五層', impelLevel6: '推進城第六層',
   marinefordBay: '馬林福特海灣', scaffold: '馬林福特處刑台', hqFortress: '海軍本部要塞',
+  fishmanPort: '魚人島港灣', ryugu: '龍宮城', fishmanDistrict: '魚人街',
+  phShore: '龐克哈薩特海岸', phFire: '燃燒之地', phIce: '冰封之地',
+  drPort: '德雷斯羅薩港', acacia: '阿卡西亞', corrida: '科羅西姆競技場',
+  zouFoot: '佐烏的象腳', mokomo: '莫可莫公國', whaleForest: '鯨之森',
+  wcPort: '蛋糕島港口', sweetCity: '甜點之城', wcChateau: '全蛋糕城堡',
+  kuriBeach: '九里海岸', kuri: '九里', flowerCapital: '花之都',
+  eggShore: '蛋頭島海岸', labophase: '研究層', fabriophase: '工廠層',
 } as const
 
 /** Canon landmarks added beyond each island's first three places (layouts in packages/world/sites.ts). */
@@ -52,6 +61,12 @@ export const addedLocations = {
   impelLevel1: '推進城第一層', impelLevel2: '推進城第二層', impelLevel3: '推進城第三層', impelLevel4: '推進城第四層',
   newkama: '人妖王國',
   oris: '奧利斯廣場', mfWall: '馬林福特包圍牆',
+  mermaidCafe: '人魚咖啡廳', fishmanPlaza: '魚人島中央廣場', seaForest: '海之森',
+  phLab: '凱薩的研究所',
+  toyHouse: '玩具之家', drPalace: '德雷斯羅薩王宮', greenBit: '綠地格林比特',
+  seducingWoods: '誘惑之森',
+  udon: '兔丼', onigashima: '鬼島',
+  frontierDome: '邊境圓頂',
 } as const
 
 export const canonNpcs = {
@@ -96,6 +111,16 @@ export const castNpcs = {
   marguerite: '瑪格麗特', sandersonia: '桑達索尼亞', marigold: '馬里哥爾特', hannyabal: '漢尼巴爾',
   // The rest of Whitebeard's sons who matter at the Summit War.
   daz: '達茲・波涅斯', tsuru: '鶴中將',
+  // The New World after the two years (packages/world/newworld.ts).
+  shirahoshi: '白星', neptune: '尼普頓國王', fukaboshi: '鯊星', hody: '霍迪・瓊斯', shyarly: '夏莉夫人',
+  caesar: '凱薩・克朗', monet: '莫內', vergo: '威爾可',
+  trebol: '托雷波爾', sugar: '砂糖', pica: '皮卡', diamante: '迪亞曼帝', rebecca: '蕾貝卡', kyros: '基羅斯', viola: '薇歐拉',
+  riku: '力庫王', sabo: '薩波', bartolomeo: '巴托洛米奧', cavendish: '卡文迪許', fujitora: '藤虎', leo: '雷歐',
+  kinemon: '錦衛門', momonosuke: '桃之助', kanjuro: '勘十郎', raizo: '雷藏', kiku: '菊之丞', kawamatsu: '河松', denjiro: '傳次郎', hiyori: '光月日和',
+  inuarashi: '犬嵐公爵', nekomamushi: '貓蝮蛇老大', carrot: '卡洛特', pedro: '佩德羅', wanda: '汪達',
+  bigMom: '夏洛特・玲玲', katakuri: '夏洛特・卡塔克利', perospero: '夏洛特・佩洛斯佩洛', cracker: '夏洛特・克力架', brulee: '夏洛特・布琉蕾', pudding: '夏洛特・布丁', bege: '卡彭・培基',
+  kaido: '凱多', king: '燼', queen: '奎因', jack: '傑克', yamato: '大和', orochi: '黑炭大蛇',
+  vegapunk: '貝加龐克', york: '約克', sentomaru: '戰桃丸', saturn: '沙坦聖',
   // Water 7 and Enies Lobby (names follow the Chinese Wikipedia entries).
   jabra: '賈布拉', kumadori: '偎取', fukurou: '梟', nero: '奈洛', oimo: '歐伊摩', kashii: '卡西',
   lulu: '露露', tilestone: '戴魯斯通', kiwi: '基威', mozu: '摩茲', chimney: '蒂姆妮', gonbe: '公貝',
@@ -110,4 +135,6 @@ export const traderNpcs = {
   traderJaya: '行商巴托', traderSkypiea: '行商菲亞', traderWater7: '行商德魯', traderEnies: '行商文森',
   traderThriller: '行商葛林', traderSabaody: '行商艾琳', traderAmazon: '行商薩娜', traderImpel: '行商莫茲',
   traderMarineford: '行商霍爾',
+  traderFishman: '行商柯洛', traderPunk: '行商傑德', traderDressrosa: '行商羅莎', traderZou: '行商帕奇',
+  traderCake: '行商蜜拉', traderWano: '行商治平', traderEgghead: '行商艾達',
 } as const

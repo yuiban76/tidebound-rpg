@@ -135,6 +135,8 @@ export type Character = CharacterInput & {
   techniques: Technique[]
   /** The devil fruit this character ate, if any (only one may be eaten). */
   fruit?: FruitId
+  /** After the two years: trained (armament and observation ranks live in skillRanks), and Conqueror's haki for a few. */
+  haki?: { trained?: true, conqueror?: true }
   /** The race's one-time gifts (a human's extra point, a mink's Electro) were handed out. */
   raceReady?: boolean
   /** Forge tier (0–3) of each weapon kind, from reforging at a forge (see world/forge.ts). */
@@ -144,7 +146,7 @@ export type Technique = { name: string, style: 'special' | 'advanced' | 'flurry'
   /** Born with it (a race's move); does not count either. */ innate?: true }
 /** Moves the player made up themselves (at most six). */
 export const selfMade = (move: Technique) => !move.fruit && !move.innate
-export type CombatChoice = Extract<Intent, { kind: 'attack' | 'cannon' | 'guard' | 'flee' | 'negotiate' | 'reload' | 'useItem' }>
+export type CombatChoice = Extract<Intent, { kind: 'attack' | 'cannon' | 'guard' | 'flee' | 'negotiate' | 'reload' | 'useItem' | 'conqueror' }>
 /** A voyage interrupted by a sea encounter; it resumes once the fight is over. */
 export type PendingVoyage = RouteChoice & { from: IslandId, miles: number, minutes: number, damage: number, text: string, landfallXp: number }
 export type Combat = {
@@ -155,6 +157,8 @@ export type Combat = {
   foes: Foe[]
   choices: Record<string, CombatChoice>
   sea?: PendingVoyage
+  /** Who has already let out Conqueror's haki in this fight. */
+  conquered?: string[]
 }
 export type Member = {
   id: string, host: boolean, ready: boolean, agree: boolean, approved: boolean, character?: Character
@@ -163,7 +167,7 @@ export type Member = {
 }
 export type Proposal = {
   id: string
-  type: 'formCrew' | 'ordinary' | 'depart' | 'sellShip'
+  type: 'formCrew' | 'ordinary' | 'depart' | 'sellShip' | 'timeskip'
   title: string
   votes: Record<string, boolean>
   passed: boolean

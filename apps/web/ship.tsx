@@ -6,6 +6,7 @@ import { islandAt } from '../../packages/world/sea.ts'
 import type { Ship } from '../../packages/world/sea.ts'
 import { crippled, holdCount, maxPart, modelOf, models, partLevel, partPrice, parts, sameIsland, shipName, shipSpeed, shipwright, shipyards, tradeIn, yardAt } from '../../packages/world/ships.ts'
 import { Bar, Card, Fold, meIn, More, Pips, Row, Rows, Tiles } from './side.tsx'
+import { coatingPrice } from '../../packages/rules/ship.ts'
 import type { PanelProps } from './side.tsx'
 import './ship.css'
 
@@ -88,7 +89,8 @@ export function ShipPanel({ world, player, suggest }: PanelProps) {
       </form>}
       <Bar label="船體" value={ship.hull} max={100} tone={ship.hull < 30 ? 'hp' : 'sea'}/>
       {crippled(ship) && <p className="hint">船體破損，航程多 25%。先修船吧。</p>}
-      <Tiles items={[['航速', Math.round(shipSpeed(ship) * 10) / 10], ['座位', model.seats], ['木料', ship.wood]]}/>
+      <Tiles items={[['航速', Math.round(shipSpeed(ship) * 10) / 10], ['座位', model.seats], ['木料', ship.wood], ['鍍膜', ship.coated ? '已鍍膜' : '沒有']]}/>
+      {!ship.coated && c.place === 'coatingYard' && islandAt(ship.port) === 'sabaody' && <button type="button" className="light wide" onClick={() => suggest('鍍膜')}>替船鍍膜（{beli(coatingPrice)}）</button>}
     </section>
 
     <Fold id="ship-hold" title="船艙與金庫" open meta={holdCount(ship) + '／' + model.hold}>

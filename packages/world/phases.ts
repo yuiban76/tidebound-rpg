@@ -1,6 +1,7 @@
 // How each canon event shows up before and after it happens (spec §6.2): a rumor, a warning, and a short aftermath.
 // Events with a `scene` become a playable stand-off when the party is on the island and the villain is there.
 import type { NpcId } from '../shared/protocol.ts'
+import { newWorldPhases } from './newworld.ts'
 
 export type EventPhases = {
   /** Heard on the island about 36 hours ahead, e.g. as a tavern rumor. */
@@ -249,4 +250,5 @@ export const eventPhases: Record<string, EventPhases> = {
     warn: '戰場上空的硝煙散去了一半，最後的決戰就要見分曉。',
     after: '戰場上一片沉默，只有海浪聲。',
   },
+  ...newWorldPhases,
 }

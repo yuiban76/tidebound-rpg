@@ -133,11 +133,13 @@ export function spokenIn(result: string, names: Names): Line[] {
 // --- Who sounds like what ----------------------------------------------------------------------------------------
 export type Sound = { gender?: 'female' | 'male', pitch: number, rate: number }
 const women = new Set<NpcId>(['keeper', 'rika', 'kaya', 'nojiko', 'vivi', 'kureha', 'robin', 'hancock', 'nyon', 'shakky', 'dadan', 'nami', 'tashigi', 'kokoro', 'kalifa', 'perona', 'bonney',
-  'amazon', 'marguerite', 'sandersonia', 'marigold', 'camie', 'tsuru', 'kiwi', 'mozu', 'chimney'])
-const small = new Set<NpcId>(['rika', 'chopper', 'usoppKids', 'chimney', 'camie'])
-const deep = new Set<NpcId>(['dorry', 'brogy', 'oimo', 'kashii', 'oarsJr', 'whitebeard', 'jinbe', 'kuma', 'moria', 'magellan', 'akainu', 'garp', 'crocodile', 'zoro', 'mihawk', 'smoker', 'arlong', 'blenheim', 'teach', 'jozu', 'krieg', 'morgan'])
-const old = new Set<NpcId>(['mayor', 'boodle', 'kureha', 'kokoro', 'tsuru', 'nyon', 'crocus', 'zeff', 'rayleigh', 'ganfall', 'toto', 'cobra', 'sengoku', 'amazon', 'genzo'])
-const brisk = new Set<NpcId>(['luffy', 'usopp', 'buggy', 'franky', 'bonclay', 'ivankov', 'enel', 'bellamy', 'spandam', 'wapol'])
+  'amazon', 'marguerite', 'sandersonia', 'marigold', 'camie', 'tsuru', 'kiwi', 'mozu', 'chimney',
+  'shirahoshi', 'shyarly', 'monet', 'sugar', 'rebecca', 'viola', 'carrot', 'wanda', 'bigMom', 'pudding', 'brulee', 'kiku', 'hiyori', 'yamato'])
+const small = new Set<NpcId>(['rika', 'chopper', 'usoppKids', 'chimney', 'camie', 'momonosuke', 'sugar', 'leo'])
+const deep = new Set<NpcId>(['dorry', 'brogy', 'oimo', 'kashii', 'oarsJr', 'whitebeard', 'jinbe', 'kuma', 'moria', 'magellan', 'akainu', 'garp', 'crocodile', 'zoro', 'mihawk', 'smoker', 'arlong', 'blenheim', 'teach', 'jozu', 'krieg', 'morgan',
+  'neptune', 'kaido', 'king', 'jack', 'katakuri', 'fujitora', 'vergo', 'sentomaru', 'saturn', 'inuarashi'])
+const old = new Set<NpcId>(['mayor', 'boodle', 'kureha', 'kokoro', 'tsuru', 'nyon', 'crocus', 'zeff', 'rayleigh', 'ganfall', 'toto', 'cobra', 'sengoku', 'amazon', 'genzo', 'riku', 'vegapunk', 'saturn'])
+const brisk = new Set<NpcId>(['luffy', 'usopp', 'buggy', 'franky', 'bonclay', 'ivankov', 'enel', 'bellamy', 'spandam', 'wapol', 'caesar', 'bartolomeo', 'cavendish', 'carrot', 'queen'])
 const npcByName = Object.fromEntries(Object.entries(npcs).map(([id, name]) => [name, id as NpcId]))
 // Everyone in the original who is a person with a known voice; merchants, animals and players keep whatever voice is free.
 const unknown = new Set<NpcId>(['chouchou', 'laboon', 'gonbe', 'usoppKids'])

@@ -19,11 +19,24 @@ export function shipNameFault(name: string) {
   if (!/^[\p{L}\p{N}][\p{L}\p{N}・·\- ]*$/u.test(name) || [...name].length > 12) return '船名要 1～12 個字，只能用文字、數字、空格、「・」和「-」。'
 }
 
+/** What Sabaody's coaters charge to wrap a ship in the bubble that takes her to Fishman Island. */
+export const coatingPrice = 1_000_000
+
 export function resolveShip(world: World, actor: Member, intent: ShipIntent): Result {
   const c = actor.character!
   const ship = world.ship
   if (intent.order === 'refit') return refit(world, actor, intent)
   if (!ship) return stop('你們還沒有船。' + shipPurchaseInfo)
+
+  if (intent.order === 'coat') {
+    if (c.place !== 'coatingYard') return stop('鍍膜要到夏波帝的' + locations.coatingYard + '。')
+    if (islandAt(ship.port) !== 'sabaody') return stop(shipName(ship) + '要停在夏波帝才能鍍膜。')
+    if (ship.coated) return stop(shipName(ship) + '已經鍍好膜了，隨時可以潛向魚人島。')
+    if (c.money < coatingPrice) return stop('鍍膜要 ' + beli(coatingPrice) + '，你目前只有 ' + beli(c.money) + '。')
+    c.money -= coatingPrice
+    ship.coated = true
+    return { text: c.name + '付了 ' + beli(coatingPrice) + '，鍍膜師把' + shipName(ship) + '整艘包進了一層泡泡膜。現在她可以潛向海底一萬公尺的魚人島了。', minutes: 180, announce: true }
+  }
 
   if (intent.order === 'name') {
     const name = (intent.name ?? '').trim()

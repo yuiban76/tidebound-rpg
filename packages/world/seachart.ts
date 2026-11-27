@@ -1,14 +1,17 @@
 // The sea chart: where every island lies on the map of the world, and the shapes the map is drawn from.
 // Layout follows canon: the Red Line and the Grand Line cross at Reverse Mountain, the first half of the Grand Line
-// runs between East Blue and South Blue, the New World between North Blue and West Blue, Calm Belts on both sides.
+// runs between East Blue and South Blue, the New World past the second Red Line, Calm Belts on both sides.
 import type { IslandId } from '../shared/protocol.ts'
 import { routesFrom, seaLanes } from './sea.ts'
+import { newWorldChart } from './newworld.ts'
 
-export const chart = { width: 1700, height: 1250 }
+export const chart = { width: 2700, height: 1250 }
 /** Horizontal bands (y from, y to) of the half of the world the story plays in. */
 export const bands = { blueNorth: [0, 400], calmNorth: [400, 495], grandLine: [495, 855], calmSouth: [855, 960], blueSouth: [960, 1250] } as const
 /** The Red Line circles the world, so it shows up twice: at Reverse Mountain and at the far end of the first half. */
 export const redLine = { reverse: 365, far: 1530, half: 30 }
+/** Where the charted New World ends (Egghead); the seas beyond lie in haze. */
+export const newWorldEnd = 2620
 export const reversePeak: [number, number] = [365, 665]
 
 export type Biome = 'green' | 'town' | 'desert' | 'snow' | 'jungle' | 'stone' | 'dark' | 'cloud' | 'sea'
@@ -35,6 +38,7 @@ export const chartIslands: Record<IslandId, { at: [number, number], biome: Biome
   marineford: { at: [1410, 560], biome: 'stone' },
   amazonLily: { at: [1230, 908], biome: 'jungle' },
   impelDown: { at: [1415, 905], biome: 'dark' },
+  ...newWorldChart,
 }
 
 /** Small repeatable random numbers, so an island keeps the same coastline every time it is drawn. */

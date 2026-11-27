@@ -20,6 +20,7 @@ import { applyEffect } from '../world/timeline.ts'
 import { scale } from '../world/scale.ts'
 import { tierDamage, tierHit, tierOf } from '../world/forge.ts'
 import { attackCheck, bandageHeal, defense, grantXp, levelDamage, levelDefense, levelHit, maxHP } from './engine.ts'
+import { hakiRank } from './timeskip.ts'
 import type { Result, Roll } from './engine.ts'
 import { finishVoyage } from './sailing.ts'
 import { alliesAt, companionByName, companionFight, companionMaxHp, hurtCompanion, isCompanion, partyLevel, recruitable } from '../world/companions.ts'
@@ -183,7 +184,15 @@ function validate(combat: Combat, c: Character, choice: CombatChoice) {
     } else if (!/繃帶|草藥/.test(choice.item) || !dressingOf(c)) return '戰鬥中只能使用背包裡的繃帶、草藥、水壺、衝擊貝、火藥星、煙霧彈、火焰貝或鹽。'
   }
   if (choice.kind === 'negotiate' && !findFoe(combat, choice.target)) return '找不到可以交涉的對手。'
+  if (choice.kind === 'conqueror') {
+    if (!c.haki?.conqueror) return '你還沒有覺醒霸王色霸氣。'
+    if (combat.conquered?.includes(c.name)) return '這場戰鬥你已經放過一次霸王色了。'
+    if (c.sta < conquerorSta) return '霸王色需要 ' + conquerorSta + ' STA，你目前只有 ' + c.sta + '。'
+  }
 }
+
+/** STA it takes to let Conqueror's haki loose. */
+export const conquerorSta = 10
 
 /** Why a cannon cannot be fired right now. Each cannon fires once a round, whoever mans it. */
 function cannonFault(world: World, combat: Combat, target?: string) {
@@ -208,6 +217,18 @@ function resolveRound(world: World, combat: Combat, roll: Roll, opening: string)
     const fighter = member.character!
     const choice = combat.choices[member.id]
     if (choice.kind === 'guard') { guarding.add(member.id); lines.push(fighter.name + '擺出防守架勢。') }
+    if (choice.kind === 'conqueror') {
+      fighter.sta -= conquerorSta
+      ;(combat.conquered ??= []).push(fighter.name)
+      const felled: string[] = [], faltered: string[] = [], held: string[] = []
+      for (const foe of standing(combat)) {
+        if (foe.tier <= 2) { foe.down = true; lastHit.set(foe.id, member); felled.push(foe.name) }
+        else if (foe.tier <= 4 && !foe.haki) { foe.awed = 1; faltered.push(foe.name) }
+        else held.push(foe.name)
+      }
+      lines.push(fighter.name + '放出了霸王色霸氣！' + (felled.length ? felled.join('、') + '當場昏了過去。' : '') +
+        (faltered.length ? faltered.join('、') + '被震懾得動彈不得，這回合無法出手。' : '') + (held.length ? held.join('、') + '頂住了霸氣。' : ''))
+    }
     if (choice.kind === 'reload') {
       fighter.inventory['火槍彈藥']--
       fighter.loaded = true
@@ -298,7 +319,8 @@ function resolveRound(world: World, combat: Combat, roll: Roll, opening: string)
         continue
       }
       if (solid === 'seastone') lines.push(fighter.name + '握著海樓石十手，' + foe.name + '的身體在這一擊中變得實在。')
-      const hit = attackCheck(roll, { attr, skill: (fighter.skillRanks[skill] ?? 0) + spec.hit + levelHit(fighter.level) + tierHit(tierOf(fighter)) + raceHit(fighter, !!combat.sea) + (masteryOf(fighter)?.hit ?? 0), def: foe.def, die, bonus: spec.damage + levelDamage(fighter.level) + tierDamage(tierOf(fighter)) + fruitDamage(fighter.fruit, fighter.level) + (traitOf(fighter).damage ?? 0) + (masteryOf(fighter)?.damage ?? 0), armor: foe.armor })
+      if (solid === 'haki') lines.push(fighter.name + '裹上武裝色霸氣，' + foe.name + '的自然系身體擋不住這一擊。')
+      const hit = attackCheck(roll, { attr, skill: (fighter.skillRanks[skill] ?? 0) + spec.hit + levelHit(fighter.level) + tierHit(tierOf(fighter)) + raceHit(fighter, !!combat.sea) + (masteryOf(fighter)?.hit ?? 0), def: foe.def, die, bonus: spec.damage + levelDamage(fighter.level) + tierDamage(tierOf(fighter)) + fruitDamage(fighter.fruit, fighter.level) + (traitOf(fighter).damage ?? 0) + (masteryOf(fighter)?.damage ?? 0) + hakiRank(fighter, '武裝色'), armor: foe.armor })
       foe.hp = Math.max(0, foe.hp - hit.damage)
       lines.push(fighter.name + '對' + foe.name + '使出' + move + '，D20 ' + hit.natural + '，合計 ' + hit.total + '／' + foe.def +
         (hit.hit ? '，傷害 ' + hit.damage + '（武器骰 ' + hit.dice.join('+') + '，數值×' + scale + '）。' + foe.name + ' HP ' + foe.hp + '／' + foe.maxHp + '。' : '，未命中。'))
@@ -315,14 +337,18 @@ function resolveRound(world: World, combat: Combat, roll: Roll, opening: string)
   // NPC turn: every foe still standing strikes a random fighter on the spot.
   for (const foe of standing(combat)) {
     if (foe.blind) { lines.push(foe.name + '被火藥星嗆得睜不開眼，沒能出手。'); continue }
+    if (foe.awed) { lines.push(foe.name + '被霸氣震懾，沒能出手。'); continue }
     // Companions on the spot draw fire too, so a foe may pick a player or an NPC companion.
     const targets: Victim[] = [
       ...fighters.filter(m => m.character!.place === combat.place && m.character!.hp > 0).map(m => {
         const x = m.character!
         return {
           // A fruit user cannot swim: at sea a fall overboard costs defense. A logia body halves blows from ordinary foes.
-          name: x.name, def: defense(stat(x, 'AGI'), x.skillRanks['閃避'] ?? 0, (guarding.has(m.id) ? 2 : 0) + levelDefense(x.level) - (x.fruit && combat.sea ? 2 : 0) + raceDefense(x, !!combat.sea) + (armorOf(x)?.def ?? 0)),
-          hurt: (damage: number) => { x.hp = Math.max(0, x.hp - (isLogia(x.fruit) && !foe.logia ? Math.ceil(damage / 2) : damage)); return x.hp ? undefined : x.name + '倒下，仍可接受救援。' },
+          // Observation haki reads the blow coming; armament hardens the body against it.
+          name: x.name, def: defense(stat(x, 'AGI'), x.skillRanks['閃避'] ?? 0, (guarding.has(m.id) ? 2 : 0) + levelDefense(x.level) - (x.fruit && combat.sea ? 2 : 0) + raceDefense(x, !!combat.sea) + (armorOf(x)?.def ?? 0) +
+            Math.ceil(hakiRank(x, '見聞色') / 2) + Math.floor(hakiRank(x, '武裝色') / 2)),
+          // A logia body halves blows from ordinary foes; a foe with haki hits it in full.
+          hurt: (damage: number) => { x.hp = Math.max(0, x.hp - (isLogia(x.fruit) && !foe.logia && !foe.haki ? Math.ceil(damage / 2) : damage)); return x.hp ? undefined : x.name + '倒下，仍可接受救援。' },
         }
       }),
       ...alliesAt(world, combat.place).flatMap(npc => {
@@ -354,7 +380,7 @@ function resolveRound(world: World, combat: Combat, roll: Roll, opening: string)
     if (world.ship.hull < before) lines.push(shipName(world.ship) + '在交戰中受損，船體 ' + before + ' → ' + world.ship.hull + '／100。')
   }
 
-  for (const foe of combat.foes) { if (foe.exposed) foe.exposed--; if (foe.blind) foe.blind-- }
+  for (const foe of combat.foes) { if (foe.exposed) foe.exposed--; if (foe.blind) foe.blind--; if (foe.awed) foe.awed-- }
   combat.participants = combat.participants.filter(id => {
     const fighter = world.members.find(m => m.id === id)!.character!
     return fighter.hp > 0 && fighter.place === combat.place
@@ -384,15 +410,16 @@ function useSoak(combat: Combat, fighter: Character, tool: (typeof soakTools)[nu
   return fighter.name + tool.verb + foe.name + '！他的身體變得實在，接下來 ' + rounds + ' 回合大家的攻擊都打得到。'
 }
 
-/** Whether a blow can hurt this foe: true, false, or 'seastone' when the attacker's sea-stone jitte is what makes it land. */
-function canHurt(foe: Foe, fighter: Character): boolean | 'seastone' {
+/** Whether a blow can hurt this foe: true, false, or what makes it land on a logia body (sea stone, armament haki). */
+function canHurt(foe: Foe, fighter: Character): boolean | 'seastone' | 'haki' {
   if (!foe.logia || (foe.exposed ?? 0) > 0 || isLogia(fighter.fruit)) return true
+  if (hakiRank(fighter, '武裝色') > 0) return 'haki'
   return foe.weak?.includes('seastone') && !!fighter.inventory['海樓石十手'] ? 'seastone' : false
 }
 
 /** A nudge toward whatever works on this logia foe, so a stuck party always knows there is a way (or that there is none yet). */
 function weakHint(foe: Foe) {
-  if (!foe.weak?.length) return '\n（這種對手現在的你們碰不到，先避開，等學會別的本事再說。）'
+  if (!foe.weak?.length) return '\n（這種對手現在的你們碰不到，先避開，等學會別的本事再說：兩年修行後學會的武裝色霸氣打得到自然系。）'
   const tips = {
     water: '沙一遇水就會變重，也許能用水壺讓他現形（那諾哈娜的雜貨攤有賣）。',
     seastone: '海樓石能壓住惡魔果實的力量（羅格鎮的一本松武器店有賣海樓石十手）。',

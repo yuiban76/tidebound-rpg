@@ -6,6 +6,7 @@ import type { RouteStop } from './canon.ts'
 import { flagsHold, hasFlag } from './flags.ts'
 import { islandAt, islands } from './sea.ts'
 import { npcPlace } from './village.ts'
+import { luffyDoingAfterWar } from './newworld.ts'
 import type { World } from './village.ts'
 
 type Doing = {
@@ -121,6 +122,7 @@ export const luffyDoing: Record<string, Doing> = {
     then: [['warRescue', '救下了艾斯，兄弟倆正並肩殺向海灣。'], ['warAkainu', '抱著倒下的哥哥，再也說不出話來。']] },
   '72-20': { text: '頂上戰爭結束後，沒有人知道他去了哪裡。', where: '下落不明',
     instead: [if_('task:impelDown', '沒有人知道他去了哪裡。', '下落不明')] },
+  ...luffyDoingAfterWar,
 }
 
 type LuffyWorld = Pick<World, 'members' | 'minute' | 'npcPlaces'> & Partial<Pick<World, 'timeline' | 'islandTasks' | 'npcDown' | 'defeated' | 'flags' | 'companions' | 'crew'>>

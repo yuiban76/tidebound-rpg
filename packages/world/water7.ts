@@ -3,6 +3,7 @@
 // happens as in the original story.
 import type { IslandId, LocationId, NpcId } from '../shared/protocol.ts'
 import type { CanonEvent } from './canon.ts'
+import { newWorldSagas } from './newworld.ts'
 
 type Attribute = 'STR' | 'AGI' | 'CON' | 'PER' | 'INT' | 'WIL'
 export type SagaGoal = {
@@ -209,5 +210,5 @@ export const water7Saga: Saga = {
   id: 'water7', title: '七水之都與司法島', islands: ['water7', 'eniesLobby'], from: [40, 10], until: [53, 8], goals: water7Goals,
   stages: [...water7Stages.map(stage => stage.id), 'enies', ...water7Aftermath.map(stage => stage.id)],
 }
-export const sagas: Saga[] = [water7Saga]
+export const sagas: Saga[] = [water7Saga, ...newWorldSagas]
 export const sagaGoals = sagas.flatMap(saga => saga.goals)

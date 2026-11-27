@@ -45,6 +45,15 @@ export const specials = {
   fineSword: { label: '百鍊武士刀', price: 800_000, kind: 'weapon', weapon: 'sword', tier: 2, text: '強化二階的武士刀（需等級 5）' },
   fineSpear: { label: '百鍊長槍', price: 750_000, kind: 'weapon', weapon: 'spear', tier: 2, text: '強化二階的長槍（需等級 5）' },
   fineMusket: { label: '百鍊火槍', price: 900_000, kind: 'weapon', weapon: 'musket', tier: 2, text: '強化二階的火槍（需等級 5）' },
+  // The New World.
+  seaKingSteak: { label: '海王類肉排', price: 8_000, kind: 'food', sta: 36, hp: 12, text: '魚人島的名菜，一大塊就飽：STA +36、HP 回復' },
+  totoCake: { label: '托特蘭蛋糕', price: 10_000, kind: 'food', sta: 40, hp: 15, text: '萬國的蛋糕，甜得發膩：STA +40、HP 回復' },
+  minkHerb: { label: '毛皮族草藥', price: 60_000, kind: 'heal', hp: 40, text: '佐烏的草藥，連毒氣的傷也治得好，比櫻花藥更強' },
+  colosseumArmor: { label: '鬥士鎧甲', price: 3_000_000, kind: 'armor', def: 3, text: '科羅西姆鬥士穿的鎧甲，重量剛好：防禦 +3' },
+  masterSword: { label: '名匠武士刀', price: 3_000_000, kind: 'weapon', weapon: 'sword', tier: 3, text: '和之國刀匠打的刀，強化三階的武士刀（需等級 8）' },
+  masterSpear: { label: '名匠長槍', price: 2_800_000, kind: 'weapon', weapon: 'spear', tier: 3, text: '和之國的十文字槍，強化三階的長槍（需等級 8）' },
+  masterMusket: { label: '名匠火槍', price: 3_200_000, kind: 'weapon', weapon: 'musket', tier: 3, text: '和之國的鐵砲，強化三階的火槍（需等級 8）' },
+  laserGun: { label: '試作光束槍', price: 300_000, kind: 'combat', effect: 'burn', text: '蛋頭島的試作品，射出一道光束，造成一次大傷害' },
 } as const satisfies Record<string, Special>
 export type SpecialId = keyof typeof specials
 
@@ -58,6 +67,8 @@ export const traderSpecials: Record<TraderId, SpecialId[]> = {
   traderJaya: ['smokeBomb', 'starPowder'], traderSkypiea: ['flameDial'], traderWater7: ['adamWood', 'iron', ...fine],
   traderEnies: ['iron'], traderThriller: ['salt'], traderSabaody: [...fine, 'smokeBomb'], traderAmazon: ['snakeskin'],
   traderImpel: ['smokeBomb', 'sakura'], traderMarineford: ['marineArmor', ...fine],
+  traderFishman: ['seaKingSteak', 'sakura'], traderPunk: ['smokeBomb', 'sakura'], traderDressrosa: ['colosseumArmor', ...fine],
+  traderZou: ['minkHerb'], traderCake: ['totoCake'], traderWano: ['masterSword', 'masterSpear', 'masterMusket'], traderEgghead: ['laserGun', 'minkHerb'],
 }
 
 /** Underground brokers buy bounty slips for a share of the bounty: less in the orderly East Blue, more further out. */

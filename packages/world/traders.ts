@@ -3,6 +3,7 @@
 // supplies, so a party never sails somewhere it cannot re-arm. They are not canon characters and never join a crew.
 import type { IslandId, LocationId, NpcId } from '../shared/protocol.ts'
 import type { traderNpcs } from '../shared/atlas.ts'
+import { newWorldTraders } from './newworld.ts'
 
 export type TraderId = keyof typeof traderNpcs
 /** What every merchant sells, by goods id (see village.ts goods). Merchants restock from their guild ship, so stock never runs out. */
@@ -29,6 +30,7 @@ export const traders: Record<TraderId, { island: IslandId, place: LocationId, ro
   traderSabaody: { island: 'sabaody', place: 'sabaodyGrove', role: '潮行商會的行商', known: '在泡泡樹下擺攤的女商人，提醒客人看到天龍人要立刻低頭，別惹麻煩。' },
   traderAmazon: { island: 'amazonLily', place: 'kujaPort', role: '九蛇島的女行商', known: '少數被准許和島外做生意的九蛇女商人，對男人特別好奇，但價錢一分也不讓。' },
   traderImpel: { island: 'impelDown', place: 'impelGate', role: '暗中做生意的獄卒', known: '在推進城門口偷偷賣東西的獄卒，說只要付得起錢，他什麼都沒看見。' },
+  ...newWorldTraders,
   traderMarineford: { island: 'marineford', place: 'marinefordBay', role: '海軍的軍需商', known: '替海軍本部供應武器的商人，說最近軍隊調動頻繁，整個港口都在準備大事。' },
 }
 

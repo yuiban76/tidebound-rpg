@@ -205,6 +205,7 @@ function shipIntent(text: string): Intent | undefined {
   if (new RegExp('^(?:替|幫|給|為)?' + shipWords + '(?:取名字|取名|取個名字|命名|改名)$').test(text)) return { kind: 'ship', order: 'name' }
   const name = named?.[1].trim().replace(/^[「『"“]+|[」』"”]+$/g, '').trim()
   if (name && !/^(?:什麼|甚麼|啥|哪)|(?:嗎|呢|吧)$/.test(name)) return { kind: 'ship', order: 'name', name: [...name].slice(0, 24).join('') }
+  if (/^(?:替船|幫船|給船|把船)?(?:鍍膜|鍍上膜|做鍍膜|上鍍膜)$/.test(text)) return { kind: 'ship', order: 'coat' }
   const upgraded = /^(?:升級|強化|加裝|改裝|加強|安裝|裝上)(?:我們的|船的|這艘船的|船上的)?(.+)$/.exec(text)
   if (upgraded && Object.hasOwn(partWords, upgraded[1].trim())) return { kind: 'ship', order: 'upgrade', part: partWords[upgraded[1].trim()] }
   if (/^(?:升級|強化|改裝|改造)(?:我們的|這艘)?(?:主船|船隻|帆船|船)$/.test(text)) return { kind: 'ship', order: 'upgrade' }
@@ -335,6 +336,7 @@ export function familiarIntent(input: string, here?: LocationId): Intent | undef
   // Handing things to NPCs is a story action (e.g. returning the log), so only teammates get the give shortcut.
   if (giveItem && !Object.hasOwn(npcByName, giveItem[3].trim())) return { kind: 'give', to: giveItem[3].trim(), item: giveItem[2].trim(), ...(giveItem[1] ? { count: Number(giveItem[1]) } : {}) }
   if (text === '防守') return { kind: 'guard' }
+  if (/^(?:放出|釋放|使出|發動|用)?霸王色(?:霸氣)?$/.test(text)) return { kind: 'conqueror' }
   if (text === '撤退') return { kind: 'flee' }
   const movement = /^(?:前往|走到|走去|走向|走進|進入|移動到|跑到|回到|返回|去|到|回)\s*([^，,。\s]+?)(?:\s*[，,、]?\s*(?:再|然後)?\s*(找|問|拜訪|跟|和|向)([^，,。]+))?$/.exec(text)
   const local = movement && here ? localAliases[movement[1]]?.[islandAt(here)] : undefined

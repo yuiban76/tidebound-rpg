@@ -40,6 +40,7 @@ export function routeNeeds(route: Route) {
   return [
     route.logPose && '需記錄指針',
     route.needsTask && '需先完成「' + islandStories[route.needsTask]?.title + '」',
+    route.needsCoating && '船要先鍍膜',
     route.hazard?.name,
     route.oneWay && '單向航線',
   ].filter(Boolean) as string[]
@@ -56,6 +57,8 @@ export type Ship = {
   model?: ShipModel, parts?: Partial<Record<ShipPart, number>>
   /** Shared cargo and money; nobody can rob what lies aboard. */
   hold?: Record<string, number>, safe?: number
+  /** Coated at Sabaody: she can dive to Fishman Island. */
+  coated?: boolean
 }
 export type RouteChoice = { to: IslandId, pace: SailingPace }
 export type SailingPlan = { from: IslandId, ballots: Record<string, RouteChoice>, ready: string[] }

@@ -1,6 +1,7 @@
 // Canon landmarks beyond each island's original three spots, with map positions and the walking network.
 // Existing place ids never change, so saves, quests and NPC placements keep working.
 import type { IslandId, LocationId } from '../shared/protocol.ts'
+import { newWorldLayouts } from './newworld.ts'
 
 /** [place id, short map label, what the place offers]. Names live in shared/atlas.ts. */
 export type Site = [LocationId, string, string]
@@ -171,6 +172,7 @@ export const islandLayouts: Partial<Record<IslandId, IslandLayout>> = {
     roads: [['impelGate', 'impelLevel1'], ['impelLevel1', 'impelLevel2'], ['impelLevel2', 'impelLevel3'], ['impelLevel3', 'impelLevel4'],
       ['impelLevel4', 'impelLevel5'], ['impelLevel5', 'newkama'], ['impelLevel5', 'impelLevel6']],
   },
+  ...newWorldLayouts,
   marineford: {
     add: [
       ['oris', '廣場', '處刑台前的奧利斯廣場，戰場的中心'],
