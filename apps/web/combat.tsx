@@ -2,8 +2,8 @@ import { useId, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { Message } from '../../packages/shared/protocol.ts'
 import { tierNames } from '../../packages/world/foes.ts'
-import type { Character } from '../../packages/world/village.ts'
-import { selfMade } from '../../packages/world/village.ts'
+import type { Character, Technique, TechniqueEffect } from '../../packages/world/village.ts'
+import { effectLabels, selfMade, techniqueEffects } from '../../packages/world/village.ts'
 import type { View } from './network.ts'
 import { Field } from './lobby.tsx'
 import { Card, More } from './side.tsx'
@@ -27,7 +27,7 @@ export function CombatPanel({ combat, guns, character, player, suggest }: {
     <ul className="foe-list" aria-label="對手">
       {combat.foes.map(foe => <li key={foe.id} data-down={foe.down || foe.surrendered}>
         <strong>{foe.name}</strong>
-        <span className="hint">{tierNames[foe.tier]}{foe.logia ? (foe.exposed ? ' · 自然系（現形中，剩 ' + foe.exposed + ' 回合）' : ' · 自然系') : ''}{foe.bounty ? ' · 懸賞 ' + foe.bounty.toLocaleString('en-US') : ''}</span>
+        <span className="hint">{tierNames[foe.tier]}{foe.logia ? (foe.exposed ? ' · 自然系（現形中，剩 ' + foe.exposed + ' 回合）' : ' · 自然系') : ''}{foe.breached ? ' · 破甲（剩 ' + foe.breached + ' 回合）' : ''}{foe.bounty ? ' · 懸賞 ' + foe.bounty.toLocaleString('en-US') : ''}</span>
         <meter min={0} max={foe.maxHp} value={foe.hp} aria-label={foe.name + ' HP'}/>
         <span>{foe.down ? '倒下' : foe.surrendered ? '收手' : 'HP ' + foe.hp + '／' + foe.maxHp}</span>
       </li>)}
@@ -51,31 +51,52 @@ export function CombatPanel({ combat, guns, character, player, suggest }: {
   </section>
 }
 
-/** Self-made techniques (spec §7.6): only a name and a cost tier; a flashy name adds no damage. */
+/** What each effect does, in the player's words (rules: packages/rules/combat.ts effectRules). */
+const effectHints: Record<'' | TechniqueEffect, string> = {
+  '': '單體：打一名對手，等級的加成全拿。',
+  sweep: '橫掃：每名站著的對手各打一次；命中 −2，等級的傷害加成不算。不能搭配連續攻擊。',
+  breach: '破甲：傷害 −2；打中後對手防禦 −2，直到下一回合結束，全隊受益。',
+}
+
+/** Self-made techniques (spec §7.6): a name, a cost tier and an effect; a flashy name adds no damage. */
 export function Techniques({ character, post, disabled }: { character: Character, post: (msg: Message) => void, disabled: boolean }) {
   const [name, setName] = useState('')
   const [style, setStyle] = useState<'special' | 'advanced' | 'flurry'>('special')
+  const [effect, setEffect] = useState<'' | TechniqueEffect>('')
+  const [forgetting, setForgetting] = useState<string>()
+  const clash = effect === 'sweep' && style === 'flurry'
   function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!name.trim()) return
-    post({ kind: 'technique', name: name.trim(), style })
+    if (!name.trim() || clash) return
+    post({ kind: 'technique', name: name.trim(), style, ...effect && { effect } })
     setName('')
   }
   const own = character.techniques.filter(selfMade)
   const granted = character.techniques.filter(move => move.innate)
-  const list = (moves: typeof own) => <ul className="moves">{moves.map(move => <li key={move.name}><strong>{move.name}</strong><small>{styleLabels[move.style]}</small></li>)}</ul>
+  const label = (move: Technique) => styleLabels[move.style] + (move.effect ? '・' + effectLabels[move.effect] : '')
   return <>
-    {granted.length > 0 && <Card title="天生招式">{list(granted)}</Card>}
+    {granted.length > 0 && <Card title="天生招式"><ul className="moves">{granted.map(move =>
+      <li key={move.name}><strong>{move.name}</strong><small>{label(move)}</small></li>)}</ul></Card>}
     <Card title="自創招式" meta={own.length + '／6'}>
-      {own.length > 0 ? list(own) : <p className="hint">還沒有自創招式。</p>}
+      {own.length > 0 ? <ul className="moves">{own.map(move => <li key={move.name}>
+        <strong>{move.name}</strong><small>{label(move)}</small>
+        <button type="button" className="light forget" disabled={disabled}
+          onClick={() => forgetting === move.name ? (post({ kind: 'forgetTechnique', name: move.name }), setForgetting(undefined)) : setForgetting(move.name)}>
+          {forgetting === move.name ? '確定刪除' : '刪除'}</button>
+      </li>)}</ul> : <p className="hint">還沒有自創招式。</p>}
       {own.length < 6 && <More label="自創新招式" open={!own.length}><form onSubmit={create}>
         <Field label="招式名稱"><input maxLength={12} value={name} onChange={e => setName(e.target.value)} required/></Field>
         <Field label="招式等級"><select value={style} onChange={e => setStyle(e.target.value as typeof style)}>
           {Object.entries(styleLabels).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
         </select></Field>
-        <button type="submit" className="light" disabled={disabled}>建立招式</button>
+        <Field label="招式效果"><select value={effect} onChange={e => setEffect(e.target.value as typeof effect)}>
+          <option value="">單體</option>
+          {techniqueEffects.map(id => <option key={id} value={id} disabled={id === 'sweep' && style === 'flurry'}>{effectLabels[id]}</option>)}
+        </select></Field>
+        <p className="hint">{clash ? '橫掃不能搭配連續攻擊，請換一個等級或效果。' : effectHints[effect]}</p>
+        <button type="submit" className="light" disabled={disabled || clash}>建立招式</button>
       </form></More>}
-      <p className="hint">自創招式只決定名稱與等級；傷害和命中由等級與武器決定，華麗的名字不會讓它更強。</p>
+      <p className="hint">自創招式只決定名稱、等級與效果；傷害和命中由等級與武器決定，華麗的名字不會讓它更強。</p>
     </Card>
   </>
 }

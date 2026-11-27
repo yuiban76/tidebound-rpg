@@ -4,7 +4,7 @@ import { aiInput, locations, npcs } from '../../packages/shared/protocol.ts'
 import type { Intent, Message, NpcId } from '../../packages/shared/protocol.ts'
 import { allocatePoint, guideFor, makeCharacter, needsReview, resolve, trainSkill, voteThreshold } from '../../packages/rules/engine.ts'
 import { addressedNpc, asksAboutShipPurchase, dialogueQuestion, familiarIntent, sceneQuestion } from '../../packages/world/explore.ts'
-import { npcFacts, npcPlace, npcRole, npcsAt, opening, party, paths, people, selfMade } from '../../packages/world/village.ts'
+import { effectLabels, npcFacts, npcPlace, npcRole, npcsAt, opening, party, paths, people, selfMade } from '../../packages/world/village.ts'
 import { advanceTimeline } from '../../packages/world/timeline.ts'
 import { companionIds, companionMaxHp, isCompanion, recruitable } from '../../packages/world/companions.ts'
 import { islandAt, islands, routesFrom, shipPurchaseInfo } from '../../packages/world/sea.ts'
@@ -295,8 +295,8 @@ export class Game {
         combat: combat && {
           round: combat.round, place: combat.place, participants: combat.participants, locked: Object.keys(combat.choices),
           atSea: !!combat.sea,
-          foes: combat.foes.map(({ id, name, npc, tier, faction, hp, maxHp, logia, exposed, bounty, down, surrendered }) =>
-            ({ id, name, npc, tier, faction, hp, maxHp, logia, exposed, bounty, down, surrendered })),
+          foes: combat.foes.map(({ id, name, npc, tier, faction, hp, maxHp, logia, exposed, breached, bounty, down, surrendered }) =>
+            ({ id, name, npc, tier, faction, hp, maxHp, logia, exposed, breached, bounty, down, surrendered })),
           waitingForConnection: combat.participants.some(id => !connected.has(id)),
         },
       },
@@ -377,12 +377,27 @@ export class Game {
       const c = actor.character
       demand(c.techniques.filter(selfMade).length < 6, '最多建立 6 個招式。')
       demand(!c.techniques.some(move => move.name === msg.name), '已經有同名的招式。')
-      c.techniques.push({ name: msg.name, style: msg.style })
+      demand(!(msg.effect === 'sweep' && msg.style === 'flurry'), '橫掃不能搭配連續攻擊。')
+      c.techniques.push({ name: msg.name, style: msg.style, ...msg.effect && { effect: msg.effect } })
       const tier = { special: '基礎特殊招式（3 STA）', advanced: '進階招式（5 STA）', flurry: '高強度連續攻擊（7 STA）' }[msg.style]
+      const effect = msg.effect ? '・' + effectLabels[msg.effect] : ''
       this.store.transaction(() => {
         world.version++
         this.store.save(world)
-        this.store.entry(world, id, 'result', c.name + '練成了招式「' + msg.name + '」：' + tier + '。戰鬥中輸入「用「' + msg.name + '」攻擊 對手」。')
+        this.store.entry(world, id, 'result', c.name + '練成了招式「' + msg.name + '」：' + tier + effect + '。戰鬥中輸入「用「' + msg.name + '」攻擊 對手」。')
+      })
+      return this.view(code, id)
+    }
+    if (msg.kind === 'forgetTechnique') {
+      const c = actor.character
+      const at = c.techniques.findIndex(move => move.name === msg.name && selfMade(move))
+      demand(at >= 0, '沒有名為「' + msg.name + '」的自創招式。')
+      demand(!world.combat?.participants.includes(id), '戰鬥中不能刪除招式。')
+      c.techniques.splice(at, 1)
+      this.store.transaction(() => {
+        world.version++
+        this.store.save(world)
+        this.store.entry(world, id, 'result', c.name + '放棄了招式「' + msg.name + '」。')
       })
       return this.view(code, id)
     }

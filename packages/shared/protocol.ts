@@ -167,7 +167,9 @@ export const messageSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('vote'), id: identifier, yes: z.boolean() }),
   z.strictObject({ kind: z.literal('allocate'), attr: z.enum(attributes) }),
   z.strictObject({ kind: z.literal('train'), skill: z.enum([...skills, ...hakiSkills]) }),
-  z.strictObject({ kind: z.literal('technique'), name: text(12), style: z.enum(['special', 'advanced', 'flurry']) }),
+  // A self-made move: a name, a cost tier and an optional effect (橫掃 never comes as a flurry). forgetTechnique frees its slot.
+  z.strictObject({ kind: z.literal('technique'), name: text(12), style: z.enum(['special', 'advanced', 'flurry']), effect: z.enum(['sweep', 'breach']).optional() }),
+  z.strictObject({ kind: z.literal('forgetTechnique'), name: text(12) }),
 ])
 export type Message = z.infer<typeof messageSchema>
 /** A device code as typed: eight characters, with or without the dash, in either case. */

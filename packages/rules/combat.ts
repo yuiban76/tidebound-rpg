@@ -27,13 +27,13 @@ import { alliesAt, companionByName, companionFight, companionMaxHp, hurtCompanio
 
 const stop = (text: string): Result => ({ text, rejected: true })
 
-/** STA cost and bonuses of each attack style (spec §7.4). Flurry is two blows at −2 each. */
+/** STA cost and bonuses of each attack style (spec §7.4). Flurry is two blows, each at the normal chance to hit. */
 export const styles: Record<AttackStyle, { label: string, sta: number, hit: number, damage: number }> = {
   normal: { label: '普通攻擊', sta: 0, hit: 0, damage: 0 },
   power: { label: '強力攻擊', sta: 2, hit: 0, damage: 2 },
   special: { label: '基礎特殊招式', sta: 3, hit: 1, damage: 3 },
   advanced: { label: '進階招式', sta: 5, hit: 2, damage: 5 },
-  flurry: { label: '高強度連續攻擊', sta: 7, hit: -2, damage: 0 },
+  flurry: { label: '高強度連續攻擊', sta: 7, hit: 0, damage: 0 },
 }
 
 /** Die, skill and attribute of every weapon, with what it adds or takes for everyone who swings it. */
@@ -51,6 +51,13 @@ function weaponOf(c: Character) {
 }
 /** A bow looses two arrows for less effort than any other flurry. */
 export const staFor = (c: Pick<Character, 'weapon'>, style: AttackStyle) => style === 'flurry' && c.weapon === 'bow' ? 4 : styles[style].sta
+
+/** What a technique's effect does to the blow: 橫掃 hits every foe but loses the style's damage bonus and 2 to hit;
+ * 破甲 gives up 2 damage to leave the foe's guard open (defense −2) until the end of the next round. */
+export const effectRules = { sweep: { hit: -2 }, breach: { damage: -2 } } as const
+export const breachDef = 2
+/** A foe's defense right now, after a broken guard. */
+export const defOf = (foe: Foe) => foe.def - (foe.breached ? breachDef : 0)
 
 /** Resolves a self-made technique to its cost tier; an unknown name is not usable. */
 function styleOf(c: Character, choice: Extract<CombatChoice, { kind: 'attack' }>): AttackStyle | undefined {
@@ -298,9 +305,9 @@ function resolveRound(world: World, combat: Combat, roll: Roll, opening: string)
       if (!foe) continue
       if (foe.logia && !(foe.exposed ?? 0)) { lines.push(fighter.name + '的砲彈穿過了' + foe.name + '的身體，自然系的能力讓攻擊沒有效果。'); continue }
       const guns = partLevel(world.ship, 'cannon')
-      const shot = attackCheck(roll, { attr: stat(fighter, 'PER'), skill: (fighter.skillRanks['射擊'] ?? 0) + levelHit(fighter.level), def: foe.def, die: 10, bonus: guns * 2 + levelDamage(fighter.level), armor: foe.armor })
+      const shot = attackCheck(roll, { attr: stat(fighter, 'PER'), skill: (fighter.skillRanks['射擊'] ?? 0) + levelHit(fighter.level), def: defOf(foe), die: 10, bonus: guns * 2 + levelDamage(fighter.level), armor: foe.armor })
       foe.hp = Math.max(0, foe.hp - shot.damage)
-      lines.push(fighter.name + '對' + foe.name + '開砲，D20 ' + shot.natural + '，合計 ' + shot.total + '／' + foe.def +
+      lines.push(fighter.name + '對' + foe.name + '開砲，D20 ' + shot.natural + '，合計 ' + shot.total + '／' + defOf(foe) +
         (shot.hit ? '，傷害 ' + shot.damage + '。' + foe.name + ' HP ' + foe.hp + '／' + foe.maxHp + '。' : '，砲彈落在海裡。'))
       if (!foe.hp) { foe.down = true; lastHit.set(foe.id, member); lines.push(foe.name + '倒下了。') }
       continue
@@ -313,9 +320,14 @@ function resolveRound(world: World, combat: Combat, roll: Roll, opening: string)
     if (fighter.weapon === 'musket' && !--fighter.inventory['火槍彈藥']) delete fighter.inventory['火槍彈藥']
     const [die, skill, attr, weaponHit, weaponDamage] = weaponOf(fighter)
     const move = choice.technique ? '「' + choice.technique + '」' : spec.label === '普通攻擊' ? '攻擊' : spec.label
-    for (let blow = 0; blow < (style === 'flurry' ? 2 : 1); blow++) {
-      const foe = findFoe(combat, choice.target) ?? standing(combat)[0]
-      if (!foe) break
+    const effect = choice.technique ? fighter.techniques.find(m => m.name === choice.technique)?.effect : undefined
+    // 橫掃 swings once at each foe standing; every other blow (two for a flurry) goes to the chosen foe.
+    const swings = effect === 'sweep' ? standing(combat).map(foe => () => foe)
+      : Array.from({ length: style === 'flurry' ? 2 : 1 }, () => () => findFoe(combat, choice.target) ?? standing(combat)[0])
+    if (effect === 'sweep') lines.push(fighter.name + '使出' + move + '橫掃全場！')
+    for (const next of swings) {
+      const foe = next()
+      if (!foe) continue
       const solid = canHurt(foe, fighter)
       if (solid === false) {
         lines.push(fighter.name + '的' + move + '穿過了' + foe.name + '的身體，自然系的能力讓攻擊沒有效果。' + weakHint(foe))
@@ -323,14 +335,17 @@ function resolveRound(world: World, combat: Combat, roll: Roll, opening: string)
       }
       if (solid === 'seastone') lines.push(fighter.name + '握著海樓石十手，' + foe.name + '的身體在這一擊中變得實在。')
       if (solid === 'haki') lines.push(fighter.name + '裹上武裝色霸氣，' + foe.name + '的自然系身體擋不住這一擊。')
-      const hit = attackCheck(roll, { attr, skill: (fighter.skillRanks[skill] ?? 0) + weaponHit + spec.hit + levelHit(fighter.level) + tierHit(tierOf(fighter)) + raceHit(fighter, !!combat.sea) + (masteryOf(fighter)?.hit ?? 0), def: foe.def, die, bonus: spec.damage + levelDamage(fighter.level) + tierDamage(tierOf(fighter)) + fruitDamage(fighter.fruit, fighter.level) + (traitOf(fighter).damage ?? 0) + (masteryOf(fighter)?.damage ?? 0) + hakiRank(fighter, '武裝色') + weaponDamage, armor: foe.armor })
+      const hit = attackCheck(roll, { attr, skill: (fighter.skillRanks[skill] ?? 0) + weaponHit + spec.hit + (effect === 'sweep' ? effectRules.sweep.hit : 0) + levelHit(fighter.level) + tierHit(tierOf(fighter)) + raceHit(fighter, !!combat.sea) + (masteryOf(fighter)?.hit ?? 0), def: defOf(foe), die, bonus: (effect === 'sweep' ? 0 : spec.damage) + (effect === 'breach' ? effectRules.breach.damage : 0) + levelDamage(fighter.level) + tierDamage(tierOf(fighter)) + fruitDamage(fighter.fruit, fighter.level) + (traitOf(fighter).damage ?? 0) + (masteryOf(fighter)?.damage ?? 0) + hakiRank(fighter, '武裝色') + weaponDamage, armor: foe.armor })
       foe.hp = Math.max(0, foe.hp - hit.damage)
-      lines.push(fighter.name + '對' + foe.name + '使出' + move + '，D20 ' + hit.natural + '，合計 ' + hit.total + '／' + foe.def +
+      lines.push(fighter.name + '對' + foe.name + '使出' + move + '，D20 ' + hit.natural + '，合計 ' + hit.total + '／' + defOf(foe) +
         (hit.hit ? '，傷害 ' + hit.damage + '（武器骰 ' + hit.dice.join('+') + '，數值×' + scale + '）。' + foe.name + ' HP ' + foe.hp + '／' + foe.maxHp + '。' : '，未命中。'))
       if (!foe.hp) {
         foe.down = true
         lastHit.set(foe.id, member)
         lines.push(foe.name + '倒下了。')
+      } else if (hit.hit && effect === 'breach') {
+        foe.breached = 2
+        lines.push(foe.name + '的架勢被打破了！直到下一回合結束，大家打他時他的防禦 −' + breachDef + '。')
       }
     }
   }
@@ -383,7 +398,7 @@ function resolveRound(world: World, combat: Combat, roll: Roll, opening: string)
     if (world.ship.hull < before) lines.push(shipName(world.ship) + '在交戰中受損，船體 ' + before + ' → ' + world.ship.hull + '／100。')
   }
 
-  for (const foe of combat.foes) { if (foe.exposed) foe.exposed--; if (foe.blind) foe.blind--; if (foe.awed) foe.awed-- }
+  for (const foe of combat.foes) { if (foe.exposed) foe.exposed--; if (foe.blind) foe.blind--; if (foe.awed) foe.awed--; if (foe.breached) foe.breached-- }
   combat.participants = combat.participants.filter(id => {
     const fighter = world.members.find(m => m.id === id)!.character!
     return fighter.hp > 0 && fighter.place === combat.place
@@ -444,9 +459,9 @@ function allyStrikes(world: World, combat: Combat, roll: Roll, lines: string[]) 
       lines.push(npcs[npc] + '的' + fight.move + '穿過了' + foe.name + '的身體，自然系的能力讓攻擊沒有效果。')
       continue
     }
-    const hit = attackCheck(roll, { attr: fight.attr, skill: fight.skill, def: foe.def, die: fight.die, bonus: fight.bonus, armor: foe.armor })
+    const hit = attackCheck(roll, { attr: fight.attr, skill: fight.skill, def: defOf(foe), die: fight.die, bonus: fight.bonus, armor: foe.armor })
     foe.hp = Math.max(0, foe.hp - hit.damage)
-    lines.push(npcs[npc] + '使出' + fight.move + '攻擊' + foe.name + '，D20 ' + hit.natural + '，合計 ' + hit.total + '／' + foe.def +
+    lines.push(npcs[npc] + '使出' + fight.move + '攻擊' + foe.name + '，D20 ' + hit.natural + '，合計 ' + hit.total + '／' + defOf(foe) +
       (hit.hit ? '，傷害 ' + hit.damage + '。' + foe.name + ' HP ' + foe.hp + '／' + foe.maxHp + '。' : '，未命中。'))
     if (!foe.hp) {
       foe.down = true

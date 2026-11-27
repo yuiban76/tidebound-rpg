@@ -1051,3 +1051,16 @@ test('交談中提到別人的名字，話仍是對眼前的人說；明確轉�
   assert.deepEqual(intent.context.talkingWith, { id: 'keeper', name: '瑪琪諾' })
   assert.equal(game.room(code).members[0].character?.conversingWith, 'keeper')
 })
+
+test('自創招式可以帶效果、可以刪除；橫掃不能搭配連續攻擊', async t => {
+  const { game, code, ids } = await withGame(t)
+  ready(game, code, ids)
+  await game.start(code)
+  assert.throws(() => game.message(code, ids[0], { kind: 'technique', name: '亂舞', style: 'flurry', effect: 'sweep' }), /橫掃不能搭配連續攻擊/)
+  game.message(code, ids[0], { kind: 'technique', name: '旋風斬', style: 'special', effect: 'sweep' })
+  assert.deepEqual(game.room(code).members[0].character!.techniques, [{ name: '旋風斬', style: 'special', effect: 'sweep' }])
+  assert.ok(game.store.entries(code).some(entry => /旋風斬」：基礎特殊招式（3 STA）・橫掃/.test(entry.text)))
+  game.message(code, ids[0], { kind: 'forgetTechnique', name: '旋風斬' })
+  assert.deepEqual(game.room(code).members[0].character!.techniques, [])
+  assert.throws(() => game.message(code, ids[0], { kind: 'forgetTechnique', name: '旋風斬' }), /沒有名為「旋風斬」的自創招式/)
+})

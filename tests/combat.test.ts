@@ -6,6 +6,8 @@ import type { Member, World } from '../packages/world/village.ts'
 import { advanceTimeline } from '../packages/world/timeline.ts'
 import type { LocationId } from '../packages/shared/protocol.ts'
 import { character } from './fixtures.ts'
+import { gruntFoe } from '../packages/world/foes.ts'
+import { breachDef, styles } from '../packages/rules/combat.ts'
 
 /** Dice that follow a script, then roll the maximum (always a natural 20 and top damage). */
 const dice = (...script: number[]) => (sides: number) => Math.min(sides, script.length ? script.shift()! : sides)
@@ -131,4 +133,52 @@ test('沒指名就出手時，打的是正在交談的人', () => {
   const others = (['keeper'] as const)
   c.conversingWith = others[0]
   assert.match(act(world, member, { kind: 'attack' }).text, /旅人向瑪琪諾（平民）出手了/)
+})
+
+test('連續攻擊不再扣命中：兩下都用一般的命中率', () => {
+  assert.equal(styles.flurry.hit, 0)
+})
+
+/** A fight on the square against the mayor and two grunts, after an opening round that missed. */
+function brawl() {
+  const fight = solo('square')
+  fight.c.hp = 99_999
+  act(fight.world, fight.member, { kind: 'attack', target: '村長' }, dice(1, 1))
+  fight.world.combat!.foes.push(gruntFoe('g1', '嘍囉甲', 1, 'bandit'), gruntFoe('g2', '嘍囉乙', 1, 'bandit'))
+  for (const foe of fight.world.combat!.foes) foe.hp = foe.maxHp = 99_999
+  fight.c.sta = maxSTA(fight.c)
+  return fight
+}
+
+test('橫掃：每名站著的對手各打一次，命中 −2、不算等級的傷害加成', () => {
+  const { world, member, c } = brawl()
+  c.techniques.push({ name: '旋風斬', style: 'advanced', effect: 'sweep' }, { name: '重斬', style: 'advanced' })
+  // Natural 10 on every swing; the dice after it are damage.
+  const swept = act(world, member, { kind: 'attack', technique: '旋風斬' }, dice(10, 3, 10, 3, 10, 3, 1, 1, 1))
+  const swings = [...swept.text.matchAll(/對(.+?)使出「旋風斬」，D20 10，合計 (\d+)／\d+(?:，傷害 (\d+))?/g)]
+  assert.deepEqual(swings.map(m => m[1]).sort(), ['嘍囉乙', '嘍囉甲', '村長'].sort())
+  assert.equal(c.sta, maxSTA(c) - 5)
+
+  // The same tier aimed at one foe: 2 more to hit and the +5 damage bonus.
+  c.sta = maxSTA(c)
+  const single = act(world, member, { kind: 'attack', target: '村長', technique: '重斬' }, dice(10, 3, 1, 1, 1))
+  const one = /對村長使出「重斬」，D20 10，合計 (\d+)／\d+(?:，傷害 (\d+))?/.exec(single.text)!
+  const mayor = swings.find(m => m[1] === '村長')!
+  assert.equal(Number(one[1]) - Number(mayor[2]), 2)
+  if (one[2] && mayor[3]) assert.equal(Number(one[2]) - Number(mayor[3]), styles.advanced.damage * 10)
+})
+
+test('破甲讓對手防禦 −2 到下一回合結束', () => {
+  const { world, member, c } = brawl()
+  c.techniques.push({ name: '碎甲擊', style: 'special', effect: 'breach' })
+  const mayor = world.combat!.foes.find(foe => foe.npc === 'mayor')!
+  const before = mayor.def
+  const broke = act(world, member, { kind: 'attack', target: '村長', technique: '碎甲擊' }, dice(20, 1, 1, 1, 1))
+  assert.match(broke.text, /村長的架勢被打破了/)
+  assert.equal(mayor.breached, 1)
+  const next = act(world, member, { kind: 'attack', target: '村長' }, dice(2, 1, 1, 1, 1))
+  assert.match(next.text, new RegExp('對村長使出攻擊，D20 2，合計 -?\\d+／' + (before - breachDef) + '，'))
+  assert.equal(mayor.breached ?? 0, 0)
+  const after = act(world, member, { kind: 'attack', target: '村長' }, dice(2, 1, 1, 1, 1))
+  assert.match(after.text, new RegExp('對村長使出攻擊，D20 2，合計 -?\\d+／' + before + '，'))
 })

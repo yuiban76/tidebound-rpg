@@ -115,6 +115,19 @@
 .person > span:last-child { min-width: 0; }
 .person strong, .person small { display: block; line-height: 1.35; }
 .person small { color: var(--muted); font-size: .76rem; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.count-chip { padding: .05rem .5rem; border-radius: 999px; background: #e7efed; color: #2c5a64; font-size: .76rem; font-weight: 700; }
+.people-search { width: 100%; min-height: 36px; padding: .35rem .7rem; border: 1px solid #c9d6d4; border-radius: 8px; background: var(--white); font-size: .88rem; }
+.people-search:focus { outline: 2px solid var(--focus); outline-offset: 1px; }
+.people-groups { display: flex; flex-direction: column; gap: .55rem; }
+.people-group { display: flex; flex-direction: column; gap: .35rem; }
+.side-body button.people-head { display: flex; align-items: center; gap: .45rem; width: 100%; min-height: 0; padding: .2rem .1rem; border: 0; border-bottom: 1px solid #dfe8e6; border-radius: 0; background: none; color: #2c5a64; font-size: .82rem; font-weight: 700; text-align: left; }
+.side-body button.people-head:hover { background: none; color: var(--ink); }
+.people-head > span { flex: 1; min-width: 0; }
+.people-head > small { min-width: 1.5rem; padding: 0 .4rem; border-radius: 999px; background: #e7efed; color: var(--muted); font-size: .72rem; text-align: center; font-variant-numeric: tabular-nums; }
+.people-head::after { content: ''; width: .4rem; height: .4rem; margin: -.15rem .2rem 0; border: solid #5d7178; border-width: 0 2px 2px 0; transform: rotate(45deg); transition: transform .15s; }
+.people-head[aria-expanded='true']::after { transform: rotate(-135deg); margin-top: .2rem; }
+.people-group[data-kind='mate'] .people-head { color: #8a6418; border-bottom-color: #ecd9a8; }
+.people-group[data-kind='crew'] .people-head { color: #7b3d2a; border-bottom-color: #ead2c6; }
 .steps { display: grid; gap: .1rem; padding: 0; list-style: none; }
 .steps li { position: relative; padding: .15rem 0 .15rem 1.2rem; }
 .steps li::before { content: ''; position: absolute; left: .2rem; top: .62rem; width: .55rem; height: .55rem; border-radius: 50%; background: #7f979b; }
@@ -162,6 +175,7 @@
 .moves li[data-locked] { border-left-color: #b9c8c7; background: #edf2f0; color: var(--muted); }
 .moves strong, .moves small { display: block; line-height: 1.4; }
 .moves small { color: var(--muted); font-size: .78rem; }
+.side-body .moves button.forget { margin-top: .25rem; padding: .1rem .5rem; font-size: .72rem; }
 
 /* 背包 */
 .choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .4rem; padding: 0; list-style: none; }

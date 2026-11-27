@@ -28,6 +28,8 @@ export type Foe = {
   blind?: number
   /** Rounds the foe stands frozen by Conqueror's haki. */
   awed?: number
+  /** Rounds left with a broken guard (a 破甲 technique landed): defense is lower for everyone's blows. */
+  breached?: number
   bounty?: number, loot: number, items?: Record<string, number>
   down?: boolean, surrendered?: boolean
 }

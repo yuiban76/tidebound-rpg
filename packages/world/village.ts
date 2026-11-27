@@ -153,7 +153,12 @@ export type Character = CharacterInput & {
   /** Forge tier (0–3) of each weapon kind, from reforging at a forge (see world/forge.ts). */
   gear?: Partial<Record<Weapon, number>>
 }
-export type Technique = { name: string, style: 'special' | 'advanced' | 'flurry', /** Granted by a devil fruit; does not count toward the six self-made moves. */ fruit?: true,
+/** What a self-made move does besides hurt (none: one foe, full bonus). 橫掃 hits every foe; 破甲 lowers one foe's defense. */
+export const techniqueEffects = ['sweep', 'breach'] as const
+export type TechniqueEffect = (typeof techniqueEffects)[number]
+export const effectLabels: Record<TechniqueEffect, string> = { sweep: '橫掃', breach: '破甲' }
+export type Technique = { name: string, style: 'special' | 'advanced' | 'flurry', effect?: TechniqueEffect,
+  /** Granted by a devil fruit; does not count toward the six self-made moves. */ fruit?: true,
   /** Born with it (a race's move); does not count either. */ innate?: true }
 /** Moves the player made up themselves (at most six). */
 export const selfMade = (move: Technique) => !move.fruit && !move.innate
