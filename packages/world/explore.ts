@@ -293,6 +293,9 @@ export function familiarIntent(input: string, here?: LocationId): Intent | undef
   const sagaGoal = sagaGoals.find(goal => text === goal.title || text === '執行' + goal.title)
   if (sagaGoal) return { kind: 'goal', goal: sagaGoal.id }
   if (/^(?:搭|搭乘|坐|搭上|跳上)(?:海列車|火箭人|火車)(?:去司法島|到司法島)?$/.test(text)) return { kind: 'train' }
+  // 「把沙沙果實交給娜美」「果實給阿浪」: a dropped fruit goes to a teammate to decide.
+  const pass = /^(?:把|將)?(?:那顆|這顆|該顆)?(.{0,12}果實)(?:交給|轉交給|送給|讓給|給)(.{1,24}?)(?:吃|決定|處理)?$/.exec(text)
+  if (pass) return { kind: 'passFruit', to: pass[2].trim(), ...(!/^(?:惡魔)?果實$/.test(pass[1]) && { fruit: pass[1] }) }
   if (/^(?:吸收|吃下|吃掉|吞下)(?:那顆|這顆|該顆)?(?:惡魔)?果實$/.test(text)) return { kind: 'fruit', take: true }
   if (/^(?:放走|放棄|不吸收|不吃|丟掉|放生)(?:那顆|這顆|該顆)?(?:惡魔)?果實$/.test(text)) return { kind: 'fruit', take: false }
   const absorb = /^(?:吸收|吃下|吃掉|吞下)(.{1,12}果實.*)$/.exec(text)

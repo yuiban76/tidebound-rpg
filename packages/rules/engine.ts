@@ -12,7 +12,7 @@ import { resolveWar } from './war.ts'
 import { resolveGoal, rideTrain } from './saga.ts'
 import { alertWithin } from '../world/timeline.ts'
 import { dismissCompanion, handoverCompanion, recruitCompanion } from './companions.ts'
-import { buyFruit, chooseFruit, learnFruitArts } from './fruits.ts'
+import { buyFruit, chooseFruit, learnFruitArts, passFruit } from './fruits.ts'
 import { fruits } from '../world/fruits.ts'
 import { companionByName, companionMaxHp, hasMedic, healCompanions, partyLevel, recruitableAt } from '../world/companions.ts'
 import { isDown, resolveCombatAction } from './combat.ts'
@@ -101,6 +101,9 @@ export function makeCharacter(input: CharacterInput): Character {
 
 /** XP needed to leave the current level (spec §7.6). */
 export const xpToNext = (level: number) => 100 * level
+/** A reward worth this share of the character's current level, never under the story's own number. With levels up to 100,
+ * fixed rewards would be worthless later on: a quest is worth most of a level whatever the level. */
+export const levelXp = (c: Pick<Character, 'level'>, share: number, least = 0) => Math.max(least, Math.round(xpToNext(c.level) * share))
 const repeatYield = [1, .5, .25, 0]
 export const attributeCap = 10
 
@@ -301,7 +304,7 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
       const natural = roll(20)
       const total = natural + stat(c, attr) + rankOf(c, skill) + (intent.method === 'sneak' ? traitOf(c).sneak ?? 0 : 0) + checkTalent(c, skill)
       const text = label + ' D20 ' + natural + '，合計 ' + total + '／' + dc + '，' + (total >= dc ? '成功。' : '未成功。')
-      return withXp({ text, minutes: 5 }, total >= dc ? grantXp(c, 5, 'check:' + intent.method + ':' + c.place) : '')
+      return withXp({ text, minutes: 5 }, total >= dc ? grantXp(c, levelXp(c, .03, 5), 'check:' + intent.method + ':' + c.place) : '')
     }
     case 'buy': return buyWare(world, actor, intent.item)
     case 'sell': return sellWare(world, actor, intent.item, intent.count)
@@ -341,7 +344,11 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
       c.weapon = intent.weapon
       return { text: '你改用' + weaponLabel(c, weaponNames[c.weapon]) + '。', minutes: 1 }
     }
+    case 'passFruit': return passFruit(world, actor, intent.to, intent.fruit)
     case 'give': {
+      // A dropped fruit is not in the bag: 「把沙沙果實交給某某」 hands over the choice instead.
+      if (intent.item && /果實/.test(intent.item) && !findItem(c.inventory, intent.item.trim()) && world.fruitOffers?.some(offer => offer.to === actor.id))
+        return passFruit(world, actor, intent.to, intent.item)
       const target = party(world).find(m => m.id !== actor.id && m.character!.name === intent.to.trim())
       if (!target) return reject('找不到名叫「' + intent.to + '」的隊友。')
       const t = target.character!
@@ -457,7 +464,7 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
         if (!--c.inventory[dressing]) delete c.inventory[dressing]
         sheet.hp = Math.min(companionMaxHp(world, companion), sheet.hp + bandageHeal(c, partyLevel(world)))
         if (world.npcDown?.[companion]) delete world.npcDown[companion]
-        return withXp({ text: npcs[companion] + '接受包紮，目前 HP ' + sheet.hp + '。', minutes: 5 }, grantXp(c, 5, 'aid'))
+        return withXp({ text: npcs[companion] + '接受包紮，目前 HP ' + sheet.hp + '。', minutes: 5 }, grantXp(c, levelXp(c, .02, 5), 'aid'))
       }
       const target = party(world).find(m => m.character!.name === intent.patient)?.character
       const dressing = dressingOf(c)
@@ -465,7 +472,7 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
         return reject('治療需要繃帶或草藥，以及同地且有傷的角色。')
       if (!--c.inventory[dressing]) delete c.inventory[dressing]
       target.hp = Math.min(maxHP(target), target.hp + bandageHeal(c, target.level))
-      return withXp({ text: target.name + '接受包紮，目前 HP ' + target.hp + '。', minutes: 5 }, grantXp(c, 5, 'aid'))
+      return withXp({ text: target.name + '接受包紮，目前 HP ' + target.hp + '。', minutes: 5 }, grantXp(c, levelXp(c, .02, 5), 'aid'))
     }
     case 'challenge': return challengeGate(world, actor)
     case 'hunt': return hunt(world, actor, roll)
@@ -485,7 +492,7 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
       const wood = world.ship ? twice * (1 + fxOf(c, 'wood')) : 0
       if (world.ship) world.ship.wood += wood
       return withXp({ text: line + '採到草藥 × ' + herbs + (wood ? '，也撿到能修船的木料 × ' + wood : '') + '。草藥可以像繃帶一樣包紮。', minutes: 30 },
-        grantXp(c, 5, 'gather:' + c.place))
+        grantXp(c, levelXp(c, .03, 5), 'gather:' + c.place))
     }
     case 'social': return { ...freeAction(), minutes: 3 }
     case 'free': return checkedFreeAction(world, c, intent, raw, roll)

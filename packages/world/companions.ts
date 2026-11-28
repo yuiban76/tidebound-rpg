@@ -1,6 +1,7 @@
 // NPC companions: named NPCs who join the party and follow it, board the ship and fight beside the players.
 // The rules core owns every fact here. The narrator only describes it, so a companion can never "say yes"
 // in the story and then stay behind on the island.
+import { levelDamage, levelDefense, levelHit } from './growth.ts'
 import { scale } from './scale.ts'
 import { npcs } from '../shared/protocol.ts'
 import type { IslandId, NpcId } from '../shared/protocol.ts'
@@ -233,8 +234,8 @@ export function companionFight(world: Crewed, npc: NpcId) {
   const base = recruitable[npc]!.fight
   const level = partyLevel(world)
   return {
-    ...base, hp: companionMaxHp(world, npc), skill: base.skill + Math.floor(level * .75),
-    def: base.def + Math.floor((level - 1) / 3), bonus: base.bonus + Math.floor(level / 2),
+    ...base, hp: companionMaxHp(world, npc), skill: base.skill + levelHit(level),
+    def: base.def + levelDefense(level), bonus: base.bonus + levelDamage(level),
   }
 }
 

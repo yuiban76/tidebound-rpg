@@ -152,7 +152,8 @@ export function useSupply(world: World, c: Character, name: string) {
   const saved = ware.kind === 'food' && !bento && chance(world, c, fxOf(c, 'foodSave'))
   if (bento) c.bentoDay = day
   if (!bento && !saved && !--c.inventory[ware.label]) delete c.inventory[ware.label]
-  const boost = ware.kind === 'food' ? (fxOf(c, 'foodX2') ? 2 : 1) : pct(fxOf(c, 'potionPct'))
+  // Food fills a bigger body more (+10% a level), so a meal still matters at level 80.
+  const boost = ware.kind === 'food' ? (fxOf(c, 'foodX2') ? 2 : 1) * (1 + c.level / 10) : pct(fxOf(c, 'potionPct'))
   const hp = Math.round(((ware.hp ?? 0) + (ware.kind === 'heal' ? c.level : 0)) * boost) * scale
   if (c.hp > 0) c.hp = Math.min(maxHP(c), c.hp + hp)
   c.sta = Math.min(maxSTA(c), c.sta + Math.round((ware.sta ?? 0) * boost))

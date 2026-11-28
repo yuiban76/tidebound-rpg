@@ -666,7 +666,7 @@ export class Game {
       // and a fight gets one narration when it ends instead of one per round.
       const fightGoesOn = ['attack', 'cannon', 'guard', 'flee', 'negotiate', 'useItem', 'conqueror'].includes(intent.kind) && !!world.combat
       const narrate = !result.rejected && !result.directReply && !fightGoesOn &&
-        !['sail', 'ship', 'cannon', 'islandTask', 'give', 'equip', 'wait', 'recruit', 'dismiss', 'handover', 'fruit', 'buyFruit', 'upgrade', 'use', 'rest', 'meal', 'useItem'].includes(intent.kind) &&
+        !['sail', 'ship', 'cannon', 'islandTask', 'give', 'equip', 'wait', 'recruit', 'dismiss', 'handover', 'fruit', 'passFruit', 'buyFruit', 'upgrade', 'use', 'rest', 'meal', 'useItem'].includes(intent.kind) &&
         (!!result.spokeWith || !['move', 'meal', 'crew'].includes(shortcut?.kind ?? ''))
       const narrationContext = intent.kind === 'move' && result.spokeWith
         ? this.context(world, actorAt(world), { kind: 'talk', npc: result.spokeWith }, true) : before

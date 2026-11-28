@@ -122,6 +122,8 @@ test('規則真的打出來的文字也讀得到', () => {
   const world = newWorld('STRIKES001', 'host')
   const member = world.members[0]
   const c = member.character = makeCharacter(character('阿浪'))
+  // Zoro fights at his story strength (level 15): a level-20 fighter lands the scripted blow.
+  c.level = 20
   world.started = true
   world.combat = { round: 1, place: c.place, participants: ['host'], foes: [npcFoe('zoro', 0)], choices: {} }
   const rolls = [19, 4, 19, 6]

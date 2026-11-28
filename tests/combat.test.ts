@@ -55,7 +55,8 @@ test('招式依等級扣 STA；自創招式只能用已建立的名稱，連續�
   assert.equal(world.combat, undefined)
   assert.match(act(world, member, { kind: 'attack', target: '村長', technique: '風車斬' }).text, /還沒有名為「風車斬」的招式/)
   c.techniques.push({ name: '風車斬', style: 'special' })
-  const strike = act(world, member, { kind: 'attack', target: '村長', technique: '風車斬' }, dice(10, 1, 1))
+  // A miss: the village chief stays up for the flurry below (townsfolk go down to one good blow).
+  const strike = act(world, member, { kind: 'attack', target: '村長', technique: '風車斬' }, dice(1, 1, 1))
   assert.match(strike.text, /使出「風車斬」/)
   assert.equal(c.sta, 1)
   c.sta = maxSTA(c)
@@ -147,7 +148,8 @@ function brawl() {
   fight.c.hp = 99_999
   act(fight.world, fight.member, { kind: 'attack', target: '村長' }, dice(1, 1))
   fight.world.combat!.foes.push(gruntFoe('g1', '嘍囉甲', 1, 'bandit'), gruntFoe('g2', '嘍囉乙', 1, 'bandit'))
-  for (const foe of fight.world.combat!.foes) foe.hp = foe.maxHp = 99_999
+  // Tough but easy to hit, so every scripted natural 10 lands and the damage dice line up.
+  for (const foe of fight.world.combat!.foes) { foe.hp = foe.maxHp = 99_999; foe.def = 12 }
   fight.c.sta = maxSTA(fight.c)
   return fight
 }

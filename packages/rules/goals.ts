@@ -8,7 +8,7 @@ import { stat } from '../world/races.ts'
 import { npcPlace, party } from '../world/village.ts'
 import type { Member, World } from '../world/village.ts'
 import { isDown } from './combat.ts'
-import { grantXp, maxHP } from './engine.ts'
+import { grantXp, maxHP, levelXp } from './engine.ts'
 import type { Roll } from './engine.ts'
 
 type Attribute = 'STR' | 'AGI' | 'CON' | 'PER' | 'INT' | 'WIL'
@@ -39,6 +39,6 @@ export function attemptGoal(world: World, actor: Member, goal: Goal, options: {
   setFlag(world, options.flag)
   const here = party(world).filter(m => m.character!.place === goal.place)
   const note = options.onDone?.(here) ?? ''
-  const rewards = here.map(m => grantXp(m.character!, 150, options.xpKey)).filter(Boolean)
+  const rewards = here.map(m => grantXp(m.character!, levelXp(m.character!, .6, 150), options.xpKey)).filter(Boolean)
   return { text: line + goal.done + note + (rewards.length ? '\n' + rewards.join('\n') : ''), minutes: 30, announce: true }
 }

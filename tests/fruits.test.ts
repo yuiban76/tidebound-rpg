@@ -37,6 +37,8 @@ test('每顆果實都有主人，主人是遊戲裡的 NPC，而且魯夫的橡�
 test('打倒有果實的 NPC：最後一擊的玩家可以選吸收，吸收後對方失去能力', () => {
   const { world, member, c } = solo('logueSquare')
   c.inventory['海樓石十手'] = 1
+  // Smoker fights at his story strength (level 32): only a strong fighter lands a blow.
+  c.level = 45
   c.hp = 99999
   let text = ''
   for (let i = 0; i < 60 && world.combat !== undefined || i === 0; i++) text += act(world, member, { kind: 'attack', target: '斯摩格' }, dice(20, 6, 6, 6, 1, 1, 1)).text
@@ -92,6 +94,8 @@ test('自然系玩家打得到自然系、被普通對手打到只受一半傷�
   const ace = solo('scaffold')
   ace.world.npcPlaces = { ace: 'scaffold' }
   ace.c.fruit = 'moku'
+  // Ace fights at his story strength: a fighter of his league is needed to land a blow at all.
+  ace.c.level = 70
   const hit = act(ace.world, ace.member, { kind: 'attack', target: '艾斯' }, dice(20, 2, 2, 1, 1))
   assert.doesNotMatch(hit.text, /穿過了/)
   assert.ok(ace.world.combat!.foes[0].hp < ace.world.combat!.foes[0].maxHp)
@@ -158,4 +162,33 @@ test('每顆果實有五招，依等級 1／3／6／9／12 學會，吃下時達
   assert.equal(late.c.techniques.length, 5)
   // Fruit moves never use up the six self-made slots.
   assert.equal(late.c.techniques.filter(move => !move.fruit).length, 0)
+})
+
+test('掉落的果實可以交給同地的隊友決定；不在場、戰鬥中都不行，已吃過果實的人只能放走', () => {
+  const { world, member, c } = solo('nanohana')
+  const mate = { ...structuredClone(member), id: 'mate', host: false } as Member
+  mate.character = { ...makeCharacter(character('娜美')), place: 'nanohana' }
+  world.members.push(mate)
+  const both = new Set(['host', 'mate'])
+  const run = (who: Member, intent: Parameters<typeof resolve>[2]) => resolve(world, who, intent, '', dice(), both)
+  world.fruitOffers = [{ fruit: 'suna', npc: 'crocodile', to: 'host', since: 0 }]
+  assert.deepEqual(familiarIntent('把沙沙果實交給娜美'), { kind: 'passFruit', to: '娜美', fruit: '沙沙果實' })
+  assert.deepEqual(familiarIntent('果實給娜美'), { kind: 'passFruit', to: '娜美' })
+  mate.character.place = 'alubarnaPalace' as LocationId
+  assert.match(run(member, { kind: 'passFruit', to: '娜美' }).text, /不在這裡/)
+  mate.character.place = 'nanohana'
+  world.minute = 600
+  const passed = run(member, { kind: 'give', to: '娜美', item: '沙沙果實' })
+  assert.match(passed.text, /把沙沙果實交給了娜美/)
+  assert.deepEqual(world.fruitOffers.map(o => [o.to, o.since]), [['mate', 600]], '換人決定，兩天的期限重新算')
+  assert.match(run(member, { kind: 'fruit', take: true }).text, /手上沒有等著決定的惡魔果實/)
+  assert.match(run(mate, { kind: 'fruit', take: true }).text, /吞了下去/)
+  assert.equal(mate.character.fruit, 'suna')
+  assert.equal(c.fruit, undefined)
+
+  world.fruitOffers = [{ fruit: 'mera', npc: 'ace', to: 'host', since: 0 }]
+  assert.match(run(member, { kind: 'passFruit', to: '娜美' }).text, /已經吃過沙沙果實，只能放走它/)
+  world.combat = { round: 1, place: 'nanohana', participants: ['mate'], foes: [], choices: {} }
+  assert.match(run(mate, { kind: 'passFruit', to: '旅人' }).text, /戰鬥/)
+  assert.equal(world.fruitOffers[0].to, 'mate', '戰鬥中交不出去')
 })

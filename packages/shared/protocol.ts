@@ -141,6 +141,8 @@ export const intentSchema = z.discriminatedUnion('kind', [
   // Eat (take: true) or let go of a devil fruit dropped by a defeated NPC; buyFruit buys a drifted one at the Sabaody auction.
   z.strictObject({ kind: z.literal('fruit'), take: z.boolean(), fruit: z.string().trim().min(1).max(24).optional() }),
   z.strictObject({ kind: z.literal('buyFruit'), fruit: z.string().trim().min(1).max(24).optional() }),
+  // Hand a dropped fruit's decision (eat or let go) to a party member on the same spot.
+  z.strictObject({ kind: z.literal('passFruit'), to: z.string().trim().min(1).max(24), fruit: z.string().trim().min(1).max(24).optional() }),
   z.strictObject({ kind: z.literal('social') }),
   z.strictObject({
     kind: z.literal('free'),

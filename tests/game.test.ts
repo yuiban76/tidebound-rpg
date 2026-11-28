@@ -439,9 +439,10 @@ test('單人可購船、完成兩座新島的委託並返航，規則直接保�
   await play('前往橘子鎮大街')
   assert.match(await play('回報布德鎮長'), /紅著眼眶/)
   assert.equal(world().members[0].character?.money, 92_500)
-  // 20 XP per newly reached island plus 60 per island task: 160 XP crosses level 2 at 100.
-  assert.equal(world().members[0].character?.level, 2)
-  assert.equal(world().members[0].character?.xp, 60)
+  // Rewards follow the level: a new island pays a quarter of a level, an island task most of one (at least the story's 20 and 60).
+  // Level 1: 25 + 80 = 105 → level 2 with 5; level 2: 50 + 160 → 215 → level 3 with 15.
+  assert.equal(world().members[0].character?.level, 3)
+  assert.equal(world().members[0].character?.xp, 15)
   assert.equal(world().ship?.wood, 6)
 
   await play('前往橘子鎮港口')
@@ -662,6 +663,8 @@ test('同步戰鬥等所有參戰者鎖定，離線不代操', () => {
   assert.match(resolveAction(world, one, attack, '攻擊', next, connected).text, /鎖定/)
   const mayor = () => world.combat!.foes[0]
   assert.equal(mayor().hp, mayor().maxHp)
+  // Townsfolk drop to one good blow; this one has to stand long enough to strike back.
+  mayor().hp = mayor().maxHp = 99_999
   assert.equal(resolveAction(world, two, { kind: 'guard' }, '防守', next, new Set(['host'])).rejected, true)
   assert.match(resolveAction(world, two, { kind: 'guard' }, '防守', next, connected).text, /反擊/)
   assert.ok(mayor().hp < mayor().maxHp)

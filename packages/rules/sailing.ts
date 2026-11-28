@@ -20,7 +20,7 @@ import { beli } from '../world/scale.ts'
 import { hasFlag, setFlag } from '../world/flags.ts'
 import { warFlag } from '../world/war.ts'
 import { applyEffect } from '../world/timeline.ts'
-import { grantXp, maxHP, maxSTA } from './engine.ts'
+import { grantXp, maxHP, maxSTA, levelXp } from './engine.ts'
 import type { Result, Roll } from './engine.ts'
 
 type SeaIntent = Extract<Intent, { kind: 'sail' }>
@@ -171,7 +171,8 @@ export function resolveSailing(world: World, actor: Member, intent: SeaIntent, r
   delete world.sailing
   // Spec §9: sea events include pirates, Marines and Sea Kings. The fight interrupts the voyage until it ends.
   // A navigator reads the weather and the currents like an extra lookout.
-  const encounter = world.calmSeas ? undefined : rollSeaEncounter(roll, route, partLevel(ship, 'lookout') + (withJob(party(world), 'navigator') ? 1 : 0) + bestFx(party(world).map(m => m.character!), 'lookout'))
+  const encounter = world.calmSeas ? undefined : rollSeaEncounter(roll, route, partLevel(ship, 'lookout') + (withJob(party(world), 'navigator') ? 1 : 0) + bestFx(party(world).map(m => m.character!), 'lookout'),
+    Math.round(party(world).reduce((sum, m) => sum + m.character!.level, 0) / party(world).length))
   if (encounter) {
     startSeaFight(world, encounter.foes, voyage)
     return {
@@ -206,7 +207,7 @@ export function finishVoyage(world: World, voyage: PendingVoyage): { text: strin
     member.character!.place = ship.port
     member.character!.conversingWith = null
     // Reaching a new island is meaningful exploration; the home island pays nothing.
-    if (voyage.to !== 'wind') discoveries.push(grantXp(member.character!, voyage.landfallXp, 'island:' + voyage.to))
+    if (voyage.to !== 'wind') discoveries.push(grantXp(member.character!, levelXp(member.character!, .25, voyage.landfallXp), 'island:' + voyage.to))
   }
   // Reaching a new sea lifts the level cap; XP saved at the old cap pays out now.
   const lifted = raiseCaps(world)
@@ -274,7 +275,7 @@ export function resolveIslandTask(world: World, actor: Member, intent: TaskInten
   if (island === 'marineford') setFlag(world, warFlag('pullAce'))
   // Everyone on the island shares the experience of a finished island quest.
   const rewards = party(world).filter(m => islandAt(m.character!.place) === island)
-    .map(m => grantXp(m.character!, Math.round((story.xp ?? 60) * pct(fxOf(m.character!, 'questXpPct'))))).filter(Boolean)
+    .map(m => grantXp(m.character!, Math.round(levelXp(m.character!, .8, story.xp ?? 60) * pct(fxOf(m.character!, 'questXpPct'))))).filter(Boolean)
   return {
     text: story.close + (reward ? c.name + '取得 ' + beli(reward) + '。' : '') + '船上補充兩份木料。\n' + rewards.join('\n'),
     minutes: 5, announce: true,

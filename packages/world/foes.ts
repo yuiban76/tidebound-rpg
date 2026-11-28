@@ -1,6 +1,6 @@
 // Combat profiles for every NPC and for random sea encounters.
 // Strength follows the canon tiers (spec §7.7: luck alone cannot bridge a large power gap).
-import { levelStats } from './growth.ts'
+import { levelStats, roleXp, seaForLevel, seaPay } from './growth.ts'
 import type { Role, Sea } from './growth.ts'
 import { scale } from './scale.ts'
 import type { NpcId } from '../shared/protocol.ts'
@@ -35,6 +35,8 @@ export type Foe = {
   /** Rounds left with a broken guard (a 破甲 technique landed): defense is lower for everyone's blows. */
   breached?: number
   bounty?: number, loot: number, items?: Record<string, number>
+  /** Strikes a round (a story boss facing several fighters strikes once for each). */
+  strikes?: number
   /** XP each winner gets, paid in full every time (training fights and guard crews); otherwise it comes from the tier. */
   xp?: number
   /** The level this foe was built for (training fights and guard crews). */
@@ -106,8 +108,57 @@ export function levelFoe(id: string, name: string, level: number, role: Role, se
   return { id, name, tier: s.tier, faction, hp: maxHp, maxHp, def: s.def, armor: s.armor, attack: s.attack, die: s.die, bonus: s.bonus, loot: 0, level, ...extra }
 }
 
-/** An unnamed crewman (bandit, fishman, zombie…) who fights alongside a named captain. */
-export const gruntFoe = (id: string, name: string, tier: number, faction: Faction) => foeFrom(id, name, { tier, faction })
+/**
+ * How strong each of the story's people is, on the same 1–100 scale as the players' levels: one number, or
+ * [before the two years, after]. Ordered by the original story (Arlong < Crocodile < Enel < Lucci < Doflamingo < Kaido),
+ * and fitted to the islands they meet the party on (a little above that island's guard fight). Everyone else follows
+ * their tier, and the strong ones grow by half again in the two years.
+ */
+const canonLevels: Partial<Record<NpcId, number | [number, number]>> = {
+  // East Blue
+  morgan: 6, klahadore: 10, jango: 8, buggy: [8, 45], krieg: 12, gin: 11, arlong: 15, zoro: [15, 76], sanji: [14, 72], zeff: 20,
+  smoker: [32, 64], tashigi: [14, 46],
+  // The first half of the Grand Line
+  laboon: 36, wapol: 27, chopper: [20, 60], dalton: 20, crocodile: [32, 70], daz: 28, bonclay: 27, ace: 58, bellamy: [27, 40],
+  wyper: 30, ohm: 31, enel: 37, ganfall: 26, franky: [34, 66], kaku: [35, 72], jabra: 34, lucci: [41, 82], blueno: 33,
+  kumadori: 32, fukurou: 31, kalifa: 29, robin: [33, 66], brook: [38, 66], moria: [42, 60], absalom: 35, perona: [31, 50],
+  dorry: 48, brogy: 48, hancock: 53, sandersonia: 42, marigold: 42, magellan: 52, hannyabal: 42, ivankov: 50, jinbe: [52, 78],
+  marco: 72, jozu: 68, vista: 66, whitebeard: 98, sengoku: 95, garp: 95, akainu: [86, 93], aokiji: [86, 91], kizaru: [86, 93],
+  tsuru: 72, teach: [62, 96], rayleigh: 96, shakky: 50, sentomaru: [46, 62], kid: [46, 86], law: [47, 82], drake: [46, 72],
+  hawkins: 45, bonney: [41, 72], killer: [43, 78], bege: [45, 72], oarsJr: 62, dragon: 100, sabo: 84,
+  // The New World
+  hody: 54, caesar: 60, monet: 54, vergo: 64, doflamingo: 76, trebol: 70, diamante: 68, pica: 68, sugar: 42, cavendish: 68,
+  bartolomeo: 64, kyros: 72, fujitora: 90, jack: 75, inuarashi: 72, nekomamushi: 72, pedro: 68, carrot: 52, wanda: 52,
+  perospero: 74, cracker: 80, katakuri: 86, brulee: 56, bigMom: 97, kaido: 99, king: 89, queen: 87, orochi: 42, denjiro: 76,
+  kawamatsu: 74, kinemon: 72, kiku: 68, raizo: 66, yamato: 89,
+}
+const tierLevels = [1, 4, 9, 16, 26, 45, 92]
+/** Luffy grows along his own voyage, as the story tells it. */
+const luffyLevels: [number, number][] = [[849, 97], [831, 86], [816, 80], [803, 66], [48, 44], [25, 33], [8, 16], [0, 12]]
+const twoYears = (803 - 1) * 1440
+
+/** A named NPC's strength right now (it can change after the two years). */
+export function npcLevel(npc: NpcId, minute: number) {
+  if (npc === 'luffy') return luffyLevels.find(([d]) => minute >= (d - 1) * 1440)![1]
+  const known = canonLevels[npc]
+  if (typeof known === 'number') return known
+  if (known) return minute >= twoYears ? known[1] : known[0]
+  const base = tierLevels[npcProfiles[npc]?.tier ?? 0]
+  return minute >= twoYears && (npcProfiles[npc]?.tier ?? 0) >= 4 ? Math.min(100, Math.round(base * 1.5)) : base
+}
+/** The story's named people of tier 4 and up are bosses: they fight a party on their own. */
+const roleOf = (tier: number): Role => tier >= 4 ? 'boss' : tier >= 3 ? 'officer' : tier >= 1 ? 'grunt' : 'civilian'
+
+/** Turns a tier-built foe into one of this level: numbers from world/growth.ts, the tier name kept for show. */
+function atLevel(foe: Foe, level: number, role: Role): Foe {
+  const s = levelStats(level, role, seaForLevel(level))
+  const maxHp = s.hp * scale
+  return { ...foe, hp: maxHp, maxHp, def: s.def, armor: s.armor, attack: s.attack, die: s.die, bonus: s.bonus, level, xp: roleXp[role] * level }
+}
+
+/** An unnamed crewman (bandit, fishman, zombie…) who fights alongside a named captain, a good deal weaker than them. */
+export const gruntFoe = (id: string, name: string, tier: number, faction: Faction, captainLevel?: number) =>
+  atLevel(foeFrom(id, name, { tier, faction }), Math.max(1, Math.round((captainLevel ?? tierLevels[tier]) * .7)), 'grunt')
 
 const day = (n: number) => (n - 1) * 1440
 /** Luffy grows along his own voyage: after Alabasta he fights like a Warlord, after Wano like an Emperor.
@@ -117,7 +168,7 @@ export function npcFoe(npc: NpcId, minute: number): Foe {
   const profile = base.tier >= 5 && minute >= day(803) ? { ...base, haki: true } : base
   const grown = npc === 'luffy' ? { ...profile, tier: minute >= day(849) ? 6 : minute >= day(25) ? 5 : profile.tier, ...(minute >= day(803) && { haki: true }) } : profile
   const bounty = npc === 'luffy' ? ([[849, 3_000_000_000], [831, 1_500_000_000], [816, 500_000_000], [803, 400_000_000], [48, 300_000_000], [25, 100_000_000], [8, 30_000_000]] as const).find(([d]) => minute >= day(d))?.[1] : grown.bounty
-  return foeFrom('npc:' + npc, npcs[npc], { ...grown, bounty }, npc)
+  return atLevel(foeFrom('npc:' + npc, npcs[npc], { ...grown, bounty }, npc), npcLevel(npc, minute), roleOf(grown.tier))
 }
 
 type SeaEncounter = { text: string, foes: [string, Profile][] }
@@ -142,12 +193,21 @@ const calmBelt: SeaEncounter = { text: '無風帶的海底震動，一頭比船�
  * Rolls for a random encounter on a voyage. Calm Belt crossings are the most dangerous,
  * the Grand Line is rougher than East Blue. Returns undefined for a quiet voyage.
  */
-export function rollSeaEncounter(roll: (sides: number) => number, lane: { logPose?: boolean, newWorld?: boolean, hazard?: { name: string } }, lookout = 0) {
+export function rollSeaEncounter(roll: (sides: number) => number, lane: { logPose?: boolean, newWorld?: boolean, hazard?: { name: string } }, lookout = 0, level = 1) {
   const chance = roll(20)
   const calm = lane.hazard?.name.includes('無風帶')
   // A good lookout spots trouble early enough to steer around it.
   if (chance < Math.min(20, (calm ? 11 : lane.newWorld ? 15 : lane.logPose ? 16 : 18) + lookout)) return undefined
   const pool = calm ? [calmBelt] : lane.newWorld ? newWorld : lane.logPose ? grandLine : eastBlue
   const pick = pool[roll(pool.length) - 1]
-  return { text: pick.text, foes: pick.foes.map(([name, profile], index) => foeFrom('sea:' + index, name, profile)) }
+  // The sea sends what the party can just about handle: the first foe leads (a captain, a big Sea King), the rest follow.
+  const sea: Sea = lane.newWorld ? 'newWorld' : lane.logPose || calm ? 'paradise' : 'east'
+  const lead = calm ? level + 3 : level
+  return {
+    text: pick.text, foes: pick.foes.map(([name, profile], index) => {
+      const role: Role = index === 0 && (pick.foes.length > 1 || profile.tier >= 2) ? 'captain' : 'grunt'
+      const foe = atLevel(foeFrom('sea:' + index, name, profile), role === 'captain' ? lead : Math.max(1, level - 1), role)
+      return { ...foe, xp: Math.round(foe.xp! / 2), loot: (role === 'captain' ? 4_000 : 1_000) * level * seaPay[sea] }
+    }),
+  }
 }

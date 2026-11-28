@@ -156,6 +156,13 @@ function makeFoe(world: World, npc: NpcId): Foe {
 /** Starts a land fight against one named NPC and their crew; every standing party member on the spot joins. */
 function startFight(world: World, place: Character['place'], foes: Foe[]): Combat {
   const participants = party(world).filter(m => m.character!.place === place && m.character!.hp > 0).map(m => m.id)
+  // The story's captains and bosses fight a whole party on their own: more HP and one strike a round for each fighter.
+  const toughen = (1 + participants.length) / 2
+  for (const foe of foes) if (foe.npc && foe.tier >= 4 && participants.length > 1) {
+    foe.maxHp = Math.round(foe.maxHp * toughen)
+    foe.hp = foe.maxHp
+    foe.strikes = participants.length
+  }
   return world.combat = { round: 1, place, participants, foes, choices: {} }
 }
 
@@ -406,10 +413,12 @@ function resolveRound(world: World, combat: Combat, roll: Roll, opening: string)
   allyStrikes(world, combat, roll, lines)
   if (!standing(combat).length) return victory(world, combat, lines, lastHit)
 
-  // NPC turn: every foe still standing strikes a random fighter on the spot.
-  for (const foe of standing(combat)) {
-    if (foe.blind) { lines.push(foe.name + '被火藥星嗆得睜不開眼，沒能出手。'); continue }
-    if (foe.awed) { lines.push(foe.name + '被霸氣震懾，沒能出手。'); continue }
+  // NPC turn: every foe still standing strikes a random fighter on the spot; a boss strikes once for each fighter facing it.
+  const held = new Set<Foe>()
+  for (const foe of standing(combat).flatMap(f => Array<Foe>(f.strikes ?? 1).fill(f))) {
+    if (foe.down || foe.surrendered || held.has(foe)) continue
+    if (foe.blind) { held.add(foe); lines.push(foe.name + '被火藥星嗆得睜不開眼，沒能出手。'); continue }
+    if (foe.awed) { held.add(foe); lines.push(foe.name + '被霸氣震懾，沒能出手。'); continue }
     // Companions on the spot draw fire too, so a foe may pick a player or an NPC companion.
     const here = fighters.map(m => m.character!).filter(x => x.place === combat.place && x.hp > 0)
     const targets: Victim[] = [
@@ -606,9 +615,10 @@ function victory(world: World, combat: Combat, lines: string[], lastHit: Map<str
   for (const foe of combat.foes) {
     if (!foe.down && !foe.surrendered) continue
     for (const m of winners) {
-      // Guard crews and training foes pay their own XP every time; story foes pay by tier, less on each repeat.
+      // XP follows the foe's level. Guard crews, training fights and sea encounters pay in full every time; the story's
+      // named people pay less on each repeat, so nobody farms the same captain.
       const base = foe.xp ?? tierXp[foe.tier]
-      const xp = grantXp(m.character!, foe.surrendered ? Math.floor(base / 2) : base, foe.xp ? undefined : 'defeat:' + (foe.npc ?? foe.name))
+      const xp = grantXp(m.character!, foe.surrendered ? Math.floor(base / 2) : base, foe.xp && !foe.npc ? undefined : 'defeat:' + (foe.npc ?? foe.name))
       if (xp) lines.push(xp)
     }
     if (!foe.npc) continue

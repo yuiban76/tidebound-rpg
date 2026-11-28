@@ -87,7 +87,7 @@ test('食物和櫻花藥可以直接吃喝；亞當木在停船處把船修滿',
   c.inventory['帶骨肉'] = 1
   c.sta = 0
   assert.match(act(world, member, { kind: 'use', item: '帶骨肉' }).text, /你吃了帶骨肉/)
-  assert.equal(c.sta, Math.min(maxSTA(c), 20))
+  assert.equal(c.sta, Math.min(maxSTA(c), Math.round(20 * (1 + c.level / 10))), '食物會隨等級多回復一些')
   c.inventory['櫻花藥'] = 1
   c.hp = 10
   act(world, member, { kind: 'use', item: '櫻花藥' })

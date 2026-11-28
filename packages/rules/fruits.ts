@@ -77,6 +77,31 @@ export function chooseFruit(world: World, actor: Member, take: boolean, name?: s
   }
 }
 
+/**
+ * Hands the decision over a dropped fruit to a party member on the same spot, outside a fight. They may eat it, let it
+ * go, or pass it on again; the two days before it rolls away start over.
+ */
+export function passFruit(world: World, actor: Member, to: string, name?: string): Result & { rejected?: boolean } {
+  const c = actor.character!
+  const offers = (world.fruitOffers ?? []).filter(offer => offer.to === actor.id)
+  const offer = (name && offers.find(o => fruits[o.fruit].name.includes(name) || name.includes(fruits[o.fruit].name.replace('果實', '')))) || offers[0]
+  if (!offer) return { text: '你手上沒有等著決定的惡魔果實。只有打倒能力者時最後出手的人會拿到。', rejected: true }
+  const target = world.members.find(m => !m.pendingJoin && m.id !== actor.id && m.character?.name === to.trim())
+  if (!target) return { text: '找不到名叫「' + to + '」的隊友。', rejected: true }
+  const t = target.character!
+  if (t.place !== c.place) return { text: t.name + '不在這裡，要在同一個地點才能把果實交給他。', rejected: true }
+  if (world.combat?.participants.includes(actor.id) || world.combat?.participants.includes(target.id)) return { text: '戰鬥中沒空交接果實。', rejected: true }
+  const fruit = fruits[offer.fruit]
+  offer.to = target.id
+  offer.since = world.minute
+  return {
+    text: c.name + '把' + fruit.name + '交給了' + t.name + '。' + (t.fruit
+      ? t.name + '已經吃過' + fruits[t.fruit].name + '，只能放走它，或再交給別的隊友。'
+      : t.name + '可以輸入「吸收果實」吃下它（' + eatenWarning + '），或「放走果實」。'),
+    announce: true, minutes: 1,
+  }
+}
+
 /** The Sabaody auction house sells released fruits once their three days of drifting are over. */
 export function buyFruit(world: World, actor: Member, name?: string): Result {
   const c = actor.character!

@@ -3,7 +3,7 @@
 // someone the players recruited fights on the players' side instead, and a knocked-out member stays out.
 import type { LocationId, NpcId } from '../shared/protocol.ts'
 import { minuteOf } from './canon.ts'
-import { gruntFoe } from './foes.ts'
+import { gruntFoe, npcLevel } from './foes.ts'
 import type { Faction, Foe } from './foes.ts'
 import { npcPlace } from './village.ts'
 import { newWorldCrews, reunion } from './newworld.ts'
@@ -102,7 +102,7 @@ export function crewmates(world: World, target: NpcId, place: LocationId): { cre
   }
   const grunts = crew.grunts && crew.grunts.home.includes(place) && (captainHere || crew.captain === target)
     ? Array.from({ length: crew.grunts.count }, (_, i) =>
-      gruntFoe('crew:' + crew.captain + ':' + i, crew.grunts!.name + '甲乙丙丁'[i], crew.grunts!.tier, crew.faction))
+      gruntFoe('crew:' + crew.captain + ':' + i, crew.grunts!.name + '甲乙丙丁'[i], crew.grunts!.tier, crew.faction, npcLevel(crew.captain, world.minute)))
     : []
   return { crew, npcs, grunts }
 }

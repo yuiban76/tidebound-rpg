@@ -149,7 +149,9 @@ export const fruitPrice: Record<Fruit['rank'], number> = { 1: 50_000_000, 2: 100
 export const driftHours = 72
 
 /** Extra damage a fruit adds to every blow. */
-export const fruitDamage = (fruit: FruitId | undefined, level: number) => fruit ? 1 + fruits[fruit].rank + Math.floor(level / 4) : 0
+/** Damage a fruit adds to every blow: +1 per 4 levels up to 30, then +1 per 10 (like the levels' own growth, it slows). */
+export const fruitDamage = (fruit: FruitId | undefined, level: number) =>
+  fruit ? 1 + fruits[fruit].rank + Math.floor(Math.min(level, 30) / 4) + Math.floor(Math.max(0, level - 30) / 10) : 0
 export const isLogia = (fruit: FruitId | undefined) => !!fruit && fruits[fruit].kind === 'logia'
 
 /** Starts the drift: the fruit is on the market after three days, and the paper says so. */

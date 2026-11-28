@@ -4,7 +4,7 @@ import { locations } from '../shared/protocol.ts'
 import { levelFoe } from '../world/foes.ts'
 import type { Faction, Foe } from '../world/foes.ts'
 import { capAt, furthestSea, gateCrews, gateOpen, islandOrder, seaOf } from '../world/gates.ts'
-import { levelCaps, seaNames } from '../world/growth.ts'
+import { levelCaps, seaNames, seaPay } from '../world/growth.ts'
 import type { Sea } from '../world/growth.ts'
 import { islandAt, islands } from '../world/sea.ts'
 import { party } from '../world/village.ts'
@@ -14,8 +14,6 @@ import { liftCap } from './engine.ts'
 import type { Result, Roll } from './engine.ts'
 
 const stop = (text: string): Result => ({ text, rejected: true })
-/** Money is worth less the further the voyage goes (canon prices grow), so rewards grow with the sea. */
-const seaPay: Record<Sea, number> = { east: 1, paradise: 3, newWorld: 8 }
 
 /** The guard crew of the island the actor stands on, ready to fight: captain, officers and a grunt for each fighter. */
 export function gateFoes(island: keyof typeof gateCrews, fighters: number): Foe[] {
@@ -23,10 +21,13 @@ export function gateFoes(island: keyof typeof gateCrews, fighters: number): Foe[
   const sea = seaOf(island)
   const L = gate.level
   const officers = gate.officers.slice(0, Math.min(2, fighters))
+  // The captain stands up to the whole party: more HP and one strike a round for each fighter.
+  const captain = levelFoe('gate:captain', '「' + gate.title + '」' + gate.captain, L, 'captain', sea, gate.faction,
+    // No bounty slip: the story's own captain still carries the real bounty for whoever beats them in the story.
+    { xp: 60 * L, loot: 20_000 * L * seaPay[sea], ...(fighters > 1 && { strikes: fighters }) })
+  captain.maxHp = captain.hp = Math.round(captain.maxHp * (1 + fighters) / 2)
   return [
-    levelFoe('gate:captain', '「' + gate.title + '」' + gate.captain, L, 'captain', sea, gate.faction,
-      // No bounty slip: the story's own captain still carries the real bounty for whoever beats them in the story.
-      { xp: 60 * L, loot: 20_000 * L * seaPay[sea] }),
+    captain,
     ...officers.map((name, i) => levelFoe('gate:officer' + i, name, L, 'officer', sea, gate.faction, { xp: 20 * L, loot: 4_000 * L * seaPay[sea] })),
     ...Array.from({ length: fighters }, (_, i) => levelFoe('gate:grunt' + i, gate.grunt + (fighters > 1 ? ' ' + '甲乙丙丁'[i] : ''), Math.max(1, L - 2), 'grunt', sea, gate.faction,
       { xp: 8 * L, loot: 1_000 * L * seaPay[sea] })),
