@@ -201,7 +201,7 @@ const named: Record<string, Named> = {
   'k.fury': keystone('越戰越勇', 'HP 低於一半時傷害 +3。代價：休息、睡覺的回復量 −50%。', { lowHpDmg: 3, restPct: -50 }),
 
   // Devil fruit
-  'f.develop': notable('能力開發', '果實招式提早兩級學會。', { fruitEarly: 2 }),
+  'f.develop': notable('能力開發', '果實招式提早五級學會。', { fruitEarly: 5 }),
   'f.skill': notable('果實的熟練', '果實招式命中 +1。', { fruitHit: 1 }),
   'f.resist': notable('抗性', '在海上戰鬥時，不再受到能力者的防禦 −2。', { seaGuard: 2 }),
   'k.symbiosis': keystone('與果實共生', '果實招式的 STA 花費減半。代價：在海上戰鬥時防禦再 −4。', { fruitStaHalf: 1, seaPenalty: 4 }),

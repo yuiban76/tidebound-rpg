@@ -18,24 +18,39 @@ export function eatFruit(c: Character, id: FruitId) {
   learnFruitArts(c)
 }
 
-/** Teaches every fruit move whose level has been reached (first at 1, then 3, 6, 9, 12). Returns the names just learned. */
+/**
+ * Teaches every fruit move whose level has been reached (moveLevels: 1, 5, 10 … 70) and returns the names just learned.
+ * It also keeps the list in step with the fruit table: a move the table no longer has (renamed, or now learned later)
+ * is taken off, so an old save follows the current rules.
+ */
 export function learnFruitArts(c: Character): string[] {
+  const reached = (i: number) => c.level + fxOf(c, 'fruitEarly') >= moveLevels[i]
+  const table: readonly string[] = c.fruit ? fruitMoves[c.fruit] : []
+  c.techniques = c.techniques.filter(move => !move.fruit || (table.includes(move.name) && reached(table.indexOf(move.name))))
   if (!c.fruit) return []
   const learned: string[] = []
   fruitMoves[c.fruit].forEach((name, i) => {
-    if (c.level + fxOf(c, 'fruitEarly') < moveLevels[i] || c.techniques.some(move => move.name === name)) return
+    if (!reached(i) || c.techniques.some(move => move.name === name)) return
     c.techniques.push({ name, style: moveStyles[i], fruit: true })
     learned.push(name)
   })
   return learned
 }
 
-/** "Learned X, Y. Later: level 3 Z…" for a fruit just eaten; `before` is how many techniques the eater had. */
+/** Brings every character's fruit moves in step with the fruit table (an old save, or a table that changed). */
+export function syncFruitArts(world: World) {
+  for (const member of world.members) if (member.character) learnFruitArts(member.character)
+  return world
+}
+
+/** "Learned X, Y. Later: level 5 Z…" for a fruit just eaten; `before` is how many techniques the eater had. */
 function learnedText(c: Character, id: FruitId, before: number) {
   const known = c.techniques.length - before
   const moves = fruitMoves[id]
-  const later = moves.slice(known).map((name, i) => '等級 ' + moveLevels[known + i] + '「' + name + '」').join('、')
-  return '學會招式「' + moves.slice(0, known).join('」「') + '」。' + (later ? '之後隨等級學會：' + later + '。' : '五招全部到手。')
+  // The next few by name, then how far the road goes.
+  const next = moves.slice(known, known + 3).map((name, i) => '等級 ' + moveLevels[known + i] + '「' + name + '」').join('、')
+  const later = next && (known + 3 < moves.length ? next + '……一共十招，最後一招「' + moves.at(-1) + '」在等級 ' + moveLevels.at(-1) : next)
+  return '學會招式「' + moves.slice(0, known).join('」「') + '」。' + (later ? '之後隨等級學會：' + later + '。' : '十招全部到手。')
 }
 
 /** Called when a fight ends: the last-blow winner is offered the fruit of every knocked-out NPC that carried one. */

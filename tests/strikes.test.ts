@@ -57,7 +57,7 @@ test('招式的特效：自創招式看名稱，沒線索就看武器；越貴�
     ['櫻花斬', 'petalBlade'], ['彗星狙擊', 'light'], ['鐵槌', 'hammer'], ['猛虎爪', 'claw'], ['暗影刃', 'dark'], ['黃金長槍', 'thrust']] as const) assert.equal(effectOfMove(move), effect, move)
 })
 
-test('惡魔果實：每一顆都有特效，五招一招比一招重，能力者的強力攻擊也用果實', () => {
+test('惡魔果實：每一顆都有特效，十招一招比一招重，能力者的強力攻擊也用果實', () => {
   for (const id of Object.keys(fruits) as FruitId[]) {
     assert.ok(effects.includes(fruitEffect[id]), id)
     const user: Attacker = { name: '小川', weapon: 'fist', fruit: id, techniques: fruitMoves[id].map(name => ({ name, style: 'special', fruit: true as const })) }
@@ -68,7 +68,7 @@ test('惡魔果實：每一顆都有特效，五招一招比一招重，能力�
       return strike.power
     })
     assert.deepEqual(powers, [...powers].sort((a, b) => a - b), id)
-    assert.ok(powers[4] > powers[0])
+    assert.ok(powers[9] > powers[0])
   }
   assert.deepEqual([blow('攻擊', '小川').effect, blow('強力攻擊', '小川').effect], ['punch', 'fire'])
 })

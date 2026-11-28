@@ -1,5 +1,7 @@
 import { npcs } from '../../packages/shared/protocol.ts'
-import { fruitMoves, fruitPrice, fruits, kindNames, moveLevels } from '../../packages/world/fruits.ts'
+import { fruitMoves, fruitPrice, fruits, kindNames, moveLevels, moveStyles } from '../../packages/world/fruits.ts'
+import { staFor, styles } from '../../packages/rules/combat.ts'
+import { fxOf } from '../../packages/world/talents.ts'
 import { beli } from '../../packages/world/scale.ts'
 import { party } from '../../packages/world/village.ts'
 import { Card, meIn, Pill, Row, Rows } from './side.tsx'
@@ -24,8 +26,16 @@ export function FruitPanel({ world, player, suggest }: PanelProps) {
     </Card>}
     {own && <Card title={own.name} meta={<Pill tone="gold">{kindNames[own.kind]}</Pill>}>
       <p>{own.text}</p>
-      <ul className="moves">{fruitMoves[character.fruit!].map((name, i) => <li key={name} data-locked={character.level < moveLevels[i] || undefined}>
-        <strong>{name}</strong><small>{character.level < moveLevels[i] ? '等級 ' + moveLevels[i] + ' 學會' : '已學會'}</small></li>)}</ul>
+      <ul className="moves">{fruitMoves[character.fruit!].map((name, i) => {
+        // The level it comes at (能力開發 brings it earlier) and what it costs this character to use.
+        const at = Math.max(1, moveLevels[i] - fxOf(character, 'fruitEarly'))
+        const known = character.techniques.some(move => move.fruit && move.name === name)
+        return <li key={name} data-locked={!known || undefined}>
+          <strong>{name}</strong>
+          <small>{styles[moveStyles[i]].label}・{staFor(character, moveStyles[i], true)} STA</small>
+          <small>{known ? '已學會' : '等級 ' + at + ' 學會'}</small></li>
+      })}</ul>
+      <p className="hint">十招依等級學會，越後面的招式越強，最後一招在等級 {Math.max(1, moveLevels.at(-1)! - fxOf(character, 'fruitEarly'))} 學會。</p>
       <p className="hint">代價：不能游泳，海上戰鬥防禦 −2。</p>
     </Card>}
   </>

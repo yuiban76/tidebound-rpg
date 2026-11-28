@@ -2,6 +2,7 @@ import { createHash, createHmac, randomBytes } from 'node:crypto'
 import { DatabaseSync, backup } from 'node:sqlite'
 import { newWorld, normalizeWorld } from '../../packages/world/village.ts'
 import { settleOldSave } from '../../packages/rules/gates.ts'
+import { syncFruitArts } from '../../packages/rules/fruits.ts'
 import type { World } from '../../packages/world/village.ts'
 
 export type Entry = {
@@ -63,7 +64,7 @@ export class Store {
   }
   get(code: string): World | undefined {
     const row = this.db.prepare('SELECT body FROM worlds WHERE code=?').get(code)
-    return row ? settleOldSave(normalizeWorld(JSON.parse(String(row.body)) as World)) : undefined
+    return row ? syncFruitArts(settleOldSave(normalizeWorld(JSON.parse(String(row.body)) as World))) : undefined
   }
   list() {
     const rows = this.db.prepare('SELECT body FROM worlds ORDER BY rowid DESC').all()

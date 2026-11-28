@@ -113,8 +113,8 @@ function playerBlow(player: Attacker | undefined, spoken: string): { effect: Eff
   }
   const technique = player?.techniques.find(move => move.name === named)
   const rank = player?.fruit ? (fruitMoves[player.fruit] as readonly string[]).indexOf(named) : -1
-  // The five fruit moves grow with each level learned; the last one is the showpiece.
-  if (player?.fruit && rank >= 0) return { effect: fruitEffect[player.fruit], move: named, power: [1.5, 1.6, 1.85, 2, 2.4][rank] }
+  // The ten fruit moves grow with each level learned; the last one is the showpiece.
+  if (player?.fruit && rank >= 0) return { effect: fruitEffect[player.fruit], move: named, power: [1.5, 1.55, 1.6, 1.65, 1.8, 1.85, 1.9, 2, 2.2, 2.4][rank] }
   return { effect: effectOfMove(named) ?? weapon, move: named, power: techniquePower[technique?.style ?? 'special'] ?? 1.5 }
 }
 

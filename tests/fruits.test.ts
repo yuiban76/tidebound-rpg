@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { grantXp, makeCharacter, maxHP, resolve, xpToNext } from '../packages/rules/engine.ts'
-import { expireOffers } from '../packages/rules/fruits.ts'
+import { expireOffers, learnFruitArts } from '../packages/rules/fruits.ts'
 import { familiarIntent } from '../packages/world/explore.ts'
-import { fruitMoves, fruitOf, fruits } from '../packages/world/fruits.ts'
+import { fruitMoves, fruitOf, fruits, moveLevels, moveStyles } from '../packages/world/fruits.ts'
 import { scale } from '../packages/world/scale.ts'
 import { newWorld } from '../packages/world/village.ts'
 import type { Member, World } from '../packages/world/village.ts'
@@ -132,36 +132,52 @@ test('用說的就行：吸收果實、放走果實、買果實', () => {
   assert.deepEqual(familiarIntent('買惡魔果實'), { kind: 'buyFruit' })
 })
 
-test('每顆果實有五招，依等級 1／3／6／9／12 學會，吃下時達標的一次學會', () => {
+test('每顆果實有十招，依等級 1／5／10／15／20／30／40／50／60／70 學會，吃下時達標的一次學會', () => {
   for (const [id, moves] of Object.entries(fruitMoves)) {
-    assert.equal(moves.length, 5, id + ' 要有五招')
-    assert.equal(new Set(moves).size, 5, id + ' 的招式名稱重複')
+    assert.equal(moves.length, 10, id + ' 要有十招')
+    assert.equal(new Set(moves).size, 10, id + ' 的招式名稱重複')
     assert.equal(fruits[id as keyof typeof fruits].move, moves[0], id)
+    for (const name of moves) assert.doesNotMatch(name, /[A-Za-z]/, id + ' 的「' + name + '」要用中文譯名')
   }
   assert.deepEqual(Object.keys(fruitMoves).sort(), Object.keys(fruits).sort())
+  assert.deepEqual([...moveLevels], [1, 5, 10, 15, 20, 30, 40, 50, 60, 70])
 
   const { world, member, c } = solo('road')
+  c.cap = 100
   world.fruitOffers = [{ fruit: 'mera', npc: 'ace', to: member.id, since: world.minute }]
   const eaten = act(world, member, { kind: 'fruit', take: true })
-  assert.match(eaten.text, /學會招式「火拳」。之後隨等級學會：等級 3「十字火」、等級 6「火達摩」、等級 9「炎上網」、等級 12「大炎戒・炎帝」/)
+  assert.match(eaten.text, /學會招式「火拳」。之後隨等級學會：等級 5「十字火」、等級 10「火銃」、等級 15「火柱」……一共十招，最後一招「大炎戒・炎帝」在等級 70/)
   assert.deepEqual(c.techniques.map(move => move.name), ['火拳'])
   const levelTo = (level: number) => { while (c.level < level) { c.xp = xpToNext(c.level) - 1; grantXp(c, 1) } }
-  levelTo(3)
+  levelTo(5)
   assert.deepEqual(c.techniques.map(move => move.name), ['火拳', '十字火'])
-  levelTo(6)
+  levelTo(20)
   assert.equal(c.techniques.at(-1)?.style, 'advanced')
-  levelTo(12)
-  assert.deepEqual(c.techniques.map(move => [move.name, move.style]), [
-    ['火拳', 'special'], ['十字火', 'special'], ['火達摩', 'advanced'], ['炎上網', 'advanced'], ['大炎戒・炎帝', 'flurry']])
+  levelTo(70)
+  assert.deepEqual(c.techniques.map(move => move.name), [...fruitMoves.mera])
+  assert.deepEqual(c.techniques.map(move => move.style), [...moveStyles])
   assert.ok(c.techniques.every(move => move.fruit))
   // A high-level eater gets everything they qualify for at once.
   const late = solo('road')
-  late.c.level = 12
+  late.c.level = 70
   late.world.fruitOffers = [{ fruit: 'hie', npc: 'aokiji', to: late.member.id, since: 0 }]
-  assert.match(act(late.world, late.member, { kind: 'fruit', take: true }).text, /五招全部到手/)
-  assert.equal(late.c.techniques.length, 5)
+  assert.match(act(late.world, late.member, { kind: 'fruit', take: true }).text, /十招全部到手/)
+  assert.equal(late.c.techniques.length, 10)
   // Fruit moves never use up the six self-made slots.
   assert.equal(late.c.techniques.filter(move => !move.fruit).length, 0)
+})
+
+test('舊存檔的果實招式跟著新表同步：改名的招式換成新名字，還沒到等級的先收回，自創招式不動', () => {
+  const { c } = solo('road')
+  c.level = 12
+  c.fruit = 'ope'
+  c.techniques = [
+    { name: '房間・切割', style: 'special', fruit: true }, { name: 'Shambles', style: 'advanced', fruit: true },
+    { name: '伽瑪刀', style: 'advanced', fruit: true }, { name: '風車斬', style: 'special' },
+  ]
+  learnFruitArts(c)
+  assert.deepEqual(c.techniques.filter(move => move.fruit).map(move => move.name), ['房間・切割', '注射射擊', '交換'])
+  assert.ok(c.techniques.some(move => move.name === '風車斬'), '自創招式留著')
 })
 
 test('掉落的果實可以交給同地的隊友決定；不在場、戰鬥中都不行，已吃過果實的人只能放走', () => {
