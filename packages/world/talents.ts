@@ -1,4 +1,4 @@
-// The talent forest: 1000 nodes on one sea chart. Every level pays three talent points; a node can be learned once it
+// The talent forest: 500 nodes on one sea chart. Every level pays three talent points; a node can be learned once it
 // touches something already learned. The job's start, the fruit's start (once a fruit is eaten) and the haki start
 // (after the two years) are free and count as starting points. Minor nodes add a little; notables have names and rules;
 // keystones are the strongest and cost something, and only one may be taken in each sea.
@@ -8,7 +8,7 @@ import type { FruitKind } from './fruits.ts'
 import type { Character } from './village.ts'
 
 export const talentsPerLevel = 3
-export const talentTotal = 1000
+export const talentTotal = 500
 /** Learning everything again is free one node at a time; wiping the whole forest at once costs this much per level. */
 export const resetPricePerLevel = 10_000
 /** Keystones that need the character to have grown far. */
@@ -59,10 +59,7 @@ export const fxKeys = [
 export const meleeWeapons: readonly Weapon[] = ['fist', 'kick', 'sword', 'spear', 'staff', 'heavy']
 export const rangedWeapons: readonly Weapon[] = ['musket', 'sling', 'bow']
 /** The groups a weapon belongs to, for narrowed keys. */
-export const armedWeapons: readonly Weapon[] = ['sword', 'spear', 'staff', 'heavy']
-/** The groups a weapon belongs to, for narrowed keys: `ranged` (shooting), `melee`, and within melee `unarmed` or `armed`. */
-export const weaponScopes = (weapon: Weapon) => [weapon, meleeWeapons.includes(weapon) ? 'melee' : 'ranged',
-  ...(weapon === 'fist' || weapon === 'kick' ? ['unarmed'] : armedWeapons.includes(weapon) ? ['armed'] : [])]
+export const weaponScopes = (weapon: Weapon) => [weapon, meleeWeapons.includes(weapon) ? 'melee' : 'ranged', ...(weapon === 'fist' || weapon === 'kick' ? ['unarmed'] : [])]
 
 export const regionInfo: Record<TalentRegion, { label: string, colour: string, about: string }> = {
   start: { label: '舵輪', colour: '#e0b35a', about: '每個職業的起點和六屬性之門' },
@@ -245,67 +242,6 @@ const named: Record<string, Named> = {
   'h.king': notable('王者風範', '邀請夥伴、說服類判定 +2。', { recruit: 2, persuade: 2 }),
   'k.conqCoat': keystone('霸王色纏繞', '傷害 +4，打有霸氣的對手時再 +2。代價：每次攻擊多花 3 STA。需要 40 級。', { dmg: 4, vsHakiDmg: 2, staAttack: 3 }, { conqueror: true, level: awakeningLevel }),
   'k.fullHaki': keystone('霸氣全開', '武裝色、見聞色的等級 ×1.5。代價：每場戰鬥結束時 STA 歸零。', { hakiMult: 50, hakiDrain: 1 }),
-  'h.basics': notable('霸氣的基本功', '命中 +1；每次受到的傷害 −1。', { hit: 1, dr: 1 }),
-  'h.breath': notable('霸氣的呼吸', 'STA 上限 +4；休息、睡覺時多回復 1 STA。', { sta: 4, restSta: 1 }),
-  'h.sense': notable('霸氣感應', '攻擊有霸氣的對手時命中 +1；搜索判定 +1。', { vsHakiHit: 1, search: 1 }),
-
-  // Shared hubs in the combat sea: one ability for every weapon of a kind, between the roads it serves.
-  'r.sight': notable('準星', '所有射擊武器（火槍、彈弓、弓）命中 +1。', { 'hit@ranged': 1 }),
-  'r.pierce': notable('穿透射擊', '射擊無視 1 點護甲。', { 'pierce@ranged': 1 }),
-  'r.weak': notable('瞄準要害', '射擊骰出 19 也算爆擊。', { 'crit@ranged': 1 }),
-  'r.rhythm': notable('連射的節奏', '射擊的連續攻擊少花 1 STA。', { 'staFlurry@ranged': 1 }),
-  'r.first': notable('先發制人', '每場戰鬥第一回合射擊命中 +2。', { 'firstRoundHit@ranged': 2 }),
-  'a.grip': notable('兵器握法', '持兵器（刀劍、長槍、鐵棍、大斧）命中 +1。', { 'hit@armed': 1 }),
-  'a.edge': notable('磨利的鋒刃', '持兵器傷害 +2。', { 'dmg@armed': 2 }),
-  'a.parry': notable('招架', '持兵器時防禦 +1。', { 'def@armed': 1 }),
-  'a.swing': notable('全力揮擊', '持兵器的強力攻擊傷害再 +2。', { 'powerDmg@armed': 2 }),
-  'a.split': notable('劈甲', '持兵器攻擊無視 1 點護甲。', { 'pierce@armed': 1 }),
-  'k.master': keystone('武器大師', '持兵器時命中 +1、傷害 +2，骰出 19 也算爆擊。代價：徒手、腿技和射擊傷害 −4。',
-    { 'hit@armed': 1, 'dmg@armed': 2, 'crit@armed': 1, 'dmg@unarmed': -4, 'dmg@ranged': -4 }),
-  'u.combo': notable('拳腳連打', '徒手或腿技的連續攻擊每擊傷害 +1。', { 'flurryDmg@unarmed': 1 }),
-  'u.close': notable('貼身防禦', '徒手或腿技時防禦 +1。', { 'def@unarmed': 1 }),
-  'u.vital': notable('打要害', '徒手或腿技骰出 19 也算爆擊。', { 'crit@unarmed': 1 }),
-  'u.shock': notable('震擊', '徒手或腿技命中時，10% 機率讓對手愣住、這回合無法出手。', { 'aweOnHit@unarmed': 10 }),
-  'u.burst': notable('爆發力', '徒手或腿技的強力攻擊傷害再 +2。', { 'powerDmg@unarmed': 2 }),
-  'm.grapple': notable('近身纏鬥', '所有近戰（兵器和拳腳）命中 +1。', { 'hit@melee': 1 }),
-  'm.opening': notable('搶攻', '每場戰鬥第一次近戰命中，傷害 +2。', { 'openingDmg@melee': 2 }),
-  'm.step': notable('步法', '近戰時防禦 +1。', { 'def@melee': 1 }),
-  'm.crush': notable('擊碎', '近戰爆擊時再多擲一顆傷害骰。', { 'critDice@melee': 1 }),
-  'm.press': notable('步步進逼', '近戰傷害 +8%。', { 'dmgPct@melee': 8 }),
-
-  // Hubs in the other seas: abilities that serve two roads at once.
-  's.order': notable('號令', '開砲命中 +1；同地夥伴命中 +1。', { cannonHit: 1, allyHit: 1 }),
-  's.together': notable('齊心協力', '每場戰鬥第一回合，同地全隊防禦 +1；同地夥伴傷害 +1。', { round1AuraDef: 1, allyDmg: 1 }),
-  's.back': notable('船長的背影', '邀請夥伴的判定 +1；夥伴傷害 +5%。', { recruit: 1, allyDmgPct: 5 }),
-  's.plan': notable('戰術板', '每場戰鬥第一回合命中 +1；開砲傷害 +1。', { firstRoundHit: 1, cannonDmg: 1 }),
-  'g.calm': notable('沉著', '防禦 +1；每次受到的傷害 −1。', { def: 1, dr: 1 }),
-  'g.grit': notable('咬牙撐住', 'HP 低於 25% 時防禦 +1；上一回合沒被打中時回復 2% HP。', { lowHpDef: 1, regen: 2 }),
-  'g.recover': notable('恢復力', '休息、睡覺的回復量 +15%；包紮回復 +10%。', { restPct: 15, healPct: 10 }),
-  'g.thick': notable('皮粗肉厚', 'HP 上限 +6%。', { hpPct: 6 }),
-  'f.blend': notable('果實與武藝', '果實招式傷害 +1；所有攻擊傷害 +1。', { fruitDmg: 1, dmg: 1 }),
-  'f.pace': notable('能力的節奏', '果實招式傷害 +6%；STA 上限 +3。', { fruitDmgPct: 6, sta: 3 }),
-
-  // Borders: where two seas meet, abilities that belong to both.
-  'b.trade': notable('以傷換傷', 'HP 低於一半時傷害 +2；HP 低於 25% 時防禦 +1。', { lowHpDmg: 2, lowHpDef: 1 }),
-  'b.guardstrike': notable('守中帶攻', '防守架勢的防禦加成 +1；對手打空你之後，下一擊命中 +1。', { guard: 1, missHit: 1 }),
-  'b.patchup': notable('包紮後再上', '戰鬥中包紮回復 +30%；每場戰鬥第一回合防禦 +1。', { fieldHealPct: 30, firstRoundDef: 1 }),
-  'b.hardy': notable('硬底子', '每次受到的傷害 −1；傷害 +1。', { dr: 1, dmg: 1 }),
-  'b.vessel': notable('能力者的體質', 'HP 上限 +4%；果實招式命中 +1。', { hpPct: 4, fruitHit: 1 }),
-  'b.ballast': notable('壓艙石', '在海上戰鬥時，能力者的防禦懲罰少 1；船受到的損傷 −5%。', { seaGuard: 1, wearPct: -5 }),
-  'b.mend': notable('自癒', '上一回合沒被打中時回復 2% HP；吃東西的回復量 +10%。', { regen: 2, cookPct: 10 }),
-  'b.wild': notable('野外求生', '採集時草藥多 1 份；HP 上限 +3%。', { herb: 1, hpPct: 3 }),
-  'b.seaborn': notable('海上的能力者', '航程時間 −5%；果實招式傷害 +1。', { voyagePct: -5, fruitDmg: 1 }),
-  'b.drift': notable('漂流者', '海戰中甩開對手的判定 +2；在海上戰鬥時，能力者的防禦懲罰少 1。', { flee: 2, seaGuard: 1 }),
-  'b.legend': notable('傳說的果實', '觀察類的自由行動判定 +1；果實招式傷害 +4%。', { observe: 1, fruitDmgPct: 4 }),
-  'b.market': notable('黑市門路', '賣東西給行商多拿 10%；果實招式命中 +1。', { sellPct: 10, fruitHit: 1 }),
-  'b.gaze': notable('霸氣的眼神', '交涉判定 +2；觀察類的自由行動判定 +2。', { negotiate: 2, observe: 2 }),
-  'b.voice': notable('萬物之聲', '航行遇上麻煩的機會降低一級；搜索判定 +1。', { lookout: 1, search: 1 }),
-  'b.presence': notable('存在感', '說服類判定 +1；同地夥伴命中 +1。', { persuade: 1, allyHit: 1 }),
-  'b.weather': notable('風的預感', '航程時間 −5%；每場戰鬥第一回合防禦 +1。', { voyagePct: -5, firstRoundDef: 1 }),
-  'b.will': notable('戰意', '命中 +1；攻擊有霸氣的對手時命中再 +1。', { hit: 1, vsHakiHit: 1 }),
-  'b.forged': notable('鍛鍊的拳頭', '徒手或腿技時，武裝色每級傷害再 +1。', { 'armamentDmg@unarmed': 1 }),
-  'b.edgeHaki': notable('刃上的氣', '持兵器時，武裝色每級傷害再 +1。', { 'armamentDmg@armed': 1 }),
-  'b.arrowHaki': notable('箭上的氣', '射擊時，武裝色每級傷害再 +1。', { 'armamentDmg@ranged': 1 }),
 }
 
 type Minor = [string, Fx]
