@@ -1,5 +1,7 @@
 // Combat profiles for every NPC and for random sea encounters.
 // Strength follows the canon tiers (spec §7.7: luck alone cannot bridge a large power gap).
+import { levelStats } from './growth.ts'
+import type { Role, Sea } from './growth.ts'
 import { scale } from './scale.ts'
 import type { NpcId } from '../shared/protocol.ts'
 import { npcs } from '../shared/protocol.ts'
@@ -33,6 +35,10 @@ export type Foe = {
   /** Rounds left with a broken guard (a 破甲 technique landed): defense is lower for everyone's blows. */
   breached?: number
   bounty?: number, loot: number, items?: Record<string, number>
+  /** XP each winner gets, paid in full every time (training fights and guard crews); otherwise it comes from the tier. */
+  xp?: number
+  /** The level this foe was built for (training fights and guard crews). */
+  level?: number
   down?: boolean, surrendered?: boolean
 }
 
@@ -91,6 +97,13 @@ function foeFrom(id: string, name: string, profile: Profile, npc?: NpcId): Foe {
     ...(profile.logia && { logia: true, weak: profile.weak ?? ['seastone'] }), ...(profile.haki && { haki: true }), ...(profile.bounty && { bounty: profile.bounty }),
     loot: profile.faction === 'civilian' || profile.faction === 'beast' ? profile.tier * 1_000 : (profile.tier + 1) ** 2 * 5_000,
   }
+}
+
+/** A foe built for a level (world/growth.ts) rather than a fixed tier: training fights and the crews that guard each island. */
+export function levelFoe(id: string, name: string, level: number, role: Role, sea: Sea, faction: Faction, extra: Partial<Foe> = {}): Foe {
+  const s = levelStats(level, role, sea)
+  const maxHp = s.hp * scale
+  return { id, name, tier: s.tier, faction, hp: maxHp, maxHp, def: s.def, armor: s.armor, attack: s.attack, die: s.die, bonus: s.bonus, loot: 0, level, ...extra }
 }
 
 /** An unnamed crewman (bandit, fishman, zombie…) who fights alongside a named captain. */

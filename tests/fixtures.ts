@@ -1,3 +1,4 @@
+import { islandOrder } from '../packages/world/gates.ts'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import type { CharacterInput } from '../packages/shared/protocol.ts'
@@ -128,3 +129,6 @@ export async function compatibilityFixture() {
     close: () => new Promise<void>((resolve, reject) => { server.close(e => e ? reject(e) : resolve()); server.closeAllConnections() }),
   }
 }
+
+/** Every island's guard crew beaten, for tests about sailing rather than about the guard crews. */
+export const allGates = () => Object.fromEntries(islandOrder.map(id => [id, true as const]))

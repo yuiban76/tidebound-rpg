@@ -1,4 +1,5 @@
 // After the Summit War: the two years of training, haki, the dive to Fishman Island, and the New World up to Egghead.
+import { allGates } from './fixtures.ts'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import type { TestContext } from 'node:test'
@@ -32,6 +33,7 @@ function party(place: LocationId = 'square', minute = at(1, 8)) {
   const world = newWorld('NEWWORLD01', 'host')
   world.started = true
   world.calmSeas = true
+  world.gates = allGates()
   const member = world.members[0] as Member
   member.character = makeCharacter(character('阿浪'))
   member.character.place = place

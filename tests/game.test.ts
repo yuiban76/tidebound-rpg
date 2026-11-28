@@ -1,3 +1,4 @@
+import { allGates } from './fixtures.ts'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
@@ -30,6 +31,7 @@ async function withGame(t: TestContext, count = 1, open = true) {
   // Sea encounters are random; tests that are not about them sail on calm seas.
   const calm = game.room(code)
   calm.calmSeas = true
+  calm.gates = allGates()
   game.store.save(calm)
   const ids = [view.player]
   const tokens: string[] = []

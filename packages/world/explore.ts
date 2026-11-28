@@ -283,6 +283,8 @@ export function familiarIntent(input: string, here?: LocationId): Intent | undef
   const bandage = /^(?:使用|用)(繃帶|草藥)(?:給|替|幫)?\s*(.*)$/.exec(text)
   if (bandage) return { kind: 'useItem', item: bandage[1], ...(bandage[2].trim() && { target: bandage[2].trim() }) }
   if (/^(?:採集|採草藥|採藥|撿木料|找草藥|蒐集木料|收集木料)$/.test(text)) return { kind: 'gather' }
+  if (/^(?:挑戰|打|找)?(?:守關|守島|守門)(?:的)?(?:海賊團|海賊|敵人|對手)?$|^挑戰守關/.test(text)) return { kind: 'challenge' }
+  if (/^(?:四處|到處|去)?(?:找架打|找人打架|找怪打|打怪|練等|練功|狩獵|打小怪)$/.test(text)) return { kind: 'hunt' }
   if (/^(?:站在|加入|協助|幫助|支援)(?:白鬍子|白鬍子海賊團)(?:這邊|那邊|一方)?$/.test(text)) return { kind: 'war', side: 'whitebeard' }
   if (/^(?:站在|加入|協助|幫助|支援)海軍(?:這邊|那邊|一方)?$/.test(text)) return { kind: 'war', side: 'marine' }
   if (/^(?:只)?(?:旁觀|觀戰|在一旁觀戰)$/.test(text)) return { kind: 'war', side: 'none' }

@@ -22,6 +22,9 @@ import { buyWare, cashSlips, sellWare, useSupply } from './market.ts'
 import { professions, startingSkills, withJob } from '../world/professions.ts'
 import { cookAt, crafted, doctorAt, dressingOf, skillCap, wildPlaces } from '../world/skills.ts'
 import { bestFx, fxOf, pct, rankOf, rangedWeapons, talentsPerLevel } from '../world/talents.ts'
+import { levelCaps } from '../world/growth.ts'
+import { challengeGate, hunt } from './gates.ts'
+import { levelDamage, levelDefense, levelHit } from '../world/growth.ts'
 
 export type Attribute = keyof Character['stats']
 
@@ -64,11 +67,8 @@ const hoursAndMinutes = (minutes: number) =>
 
 export const maxHP = (c: Character) => Math.round((20 + 5 * stat(c, 'CON') + 4 * (c.level - 1) + (c.fruit && fruits[c.fruit].kind === 'zoan' ? 10 + fxOf(c, 'zoanHp') : 0)) *
   (traitOf(c).hp ?? 1) * pct(fxOf(c, 'hpPct'), .5)) * scale
-// Levels make fighters better, not only tougher: +3 to hit per 4 levels, +1 damage per 2, +1 defense per 3 (all 0 at level 1).
-// Balanced with the Monte Carlo tables in the README: a 2-player party needs about level 5 for a tier-4 foe and level 12 for tier 5.
-export const levelHit = (level: number) => Math.floor(level * .75)
-export const levelDamage = (level: number) => Math.floor(level / 2)
-export const levelDefense = (level: number) => Math.floor((level - 1) / 3)
+// How levels turn into hit, damage and defense lives in world/growth.ts (it slows down past level 30).
+export { levelDamage, levelDefense, levelHit } from '../world/growth.ts'
 /** HP a bandage restores: it keeps up with bigger HP pools (+1 per 2 levels of the patient). */
 export const bandageHeal = (healer: Character, patientLevel: number, inFight = false) =>
   Math.round((4 + rankOf(healer, '醫術') + Math.floor((patientLevel - 1) / 2)) * pct(fxOf(healer, 'healPct') + (inFight ? fxOf(healer, 'fieldHealPct') : 0))) * scale
@@ -117,8 +117,23 @@ export function grantXp(c: Character, amount: number, key?: string) {
   }
   if (gained <= 0) return ''
   c.xp += gained
-  let text = c.name + '獲得 ' + gained + ' XP。'
-  while (c.xp >= xpToNext(c.level)) {
+  const text = c.name + '獲得 ' + gained + ' XP。' + levelUps(c)
+  return capOf(c) <= c.level && c.xp >= xpToNext(c.level) ? text + '（已到這片海的等級上限 ' + capOf(c) + '，經驗值先存著，到下一片海會一次升上去。）' : text
+}
+
+/** The level cap the character is under (world/growth.ts levelCaps); a character from before caps existed has none yet. */
+export const capOf = (c: Pick<Character, 'cap' | 'level'>) => Math.max(c.cap ?? levelCaps.east, c.level)
+/** Raises the character's cap (the party reached a new sea) and spends the XP they saved up against it. */
+export function liftCap(c: Character, cap: number) {
+  if ((c.cap ?? 0) >= cap) return ''
+  c.cap = cap
+  return levelUps(c)
+}
+
+/** Every level the stored XP pays for, up to the cap. */
+function levelUps(c: Character) {
+  let text = ''
+  while (c.level < capOf(c) && c.xp >= xpToNext(c.level)) {
     const hp = maxHP(c)
     const sta = maxSTA(c)
     c.xp -= xpToNext(c.level)
@@ -452,6 +467,8 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
       target.hp = Math.min(maxHP(target), target.hp + bandageHeal(c, target.level))
       return withXp({ text: target.name + '接受包紮，目前 HP ' + target.hp + '。', minutes: 5 }, grantXp(c, 5, 'aid'))
     }
+    case 'challenge': return challengeGate(world, actor)
+    case 'hunt': return hunt(world, actor, roll)
     case 'gather': {
       if (!wildPlaces.includes(c.place)) return reject('這裡沒有東西可採集。山道、森林、叢林和海岸可以採草藥與木料。')
       const day = Math.floor(world.minute / 1440)

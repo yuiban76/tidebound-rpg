@@ -152,6 +152,8 @@ export type Character = CharacterInput & {
   raceReady?: boolean
   /** Forge tier (0–3) of each weapon kind, from reforging at a forge (see world/forge.ts). */
   gear?: Partial<Record<Weapon, number>>
+  /** The highest level reachable in the sea the party has got to (world/growth.ts levelCaps). */
+  cap?: number
   /** Talent forest nodes paid for with talent points (world/talents.ts); free starts are not listed. */
   talents: string[]
   /** Day a 便當 (talent) was last eaten for free. */
@@ -179,6 +181,10 @@ export type Combat = {
   sea?: PendingVoyage
   /** Who has already let out Conqueror's haki in this fight. */
   conquered?: string[]
+  /** The island whose guard crew this fight is against (world/gates.ts). */
+  gate?: IslandId
+  /** A training fight (「四處找架打」). */
+  hunt?: true
   /** What each fighter's talents have already used up or set going in this fight, by name (rules/talents.ts). */
   marks?: Record<string, Record<string, number>>
 }
@@ -219,6 +225,12 @@ export type PaperItem = { minute: number, due: number, text: string, island?: Is
 
 export type World = {
   code: string
+  /** Islands whose guard crew the party has beaten (world/gates.ts). */
+  gates?: Partial<Record<IslandId, true>>
+  /** The furthest sea the party has reached; it sets the level cap. */
+  frontier?: 'east' | 'paradise' | 'newWorld'
+  /** Old saves had their beaten gates worked out from where the party has been (rules/gates.ts settleOldSave). */
+  gatesSettled?: true
   version: number
   started: boolean
   minute: number

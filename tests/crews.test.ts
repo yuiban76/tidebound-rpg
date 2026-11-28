@@ -1,4 +1,5 @@
 // Crew battles: attacking a captain or a crewmate brings every crewmate who is with them into the fight.
+import { allGates } from './fixtures.ts'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import type { LocationId } from '../packages/shared/protocol.ts'
@@ -19,6 +20,7 @@ function scene(place: LocationId, minute: number) {
   const world = newWorld('CREWS00001', 'host')
   world.started = true
   world.calmSeas = true
+  world.gates = allGates()
   world.minute = minute
   advanceTimeline(world)
   const member = world.members[0] as Member

@@ -1,3 +1,4 @@
+import { allGates } from './fixtures.ts'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { makeCharacter, maxSTA, resolve } from '../packages/rules/engine.ts'
@@ -16,6 +17,7 @@ const online = new Set(['host'])
 function solo(place: LocationId) {
   const world = newWorld('FIGHT00001', 'host')
   world.started = true
+  world.gates = allGates()
   const member = world.members[0] as Member
   member.character = makeCharacter(character('旅人'))
   member.character.place = place

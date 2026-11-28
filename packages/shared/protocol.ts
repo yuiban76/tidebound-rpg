@@ -125,6 +125,9 @@ export const intentSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('upgrade') }),
   z.strictObject({ kind: z.literal('use'), item: z.string().trim().min(1).max(24) }),
   z.strictObject({ kind: z.literal('gather') }),
+  // Fight the crew that guards this island (needed to sail on), or pick a training fight anywhere on an island.
+  z.strictObject({ kind: z.literal('challenge') }),
+  z.strictObject({ kind: z.literal('hunt') }),
   z.strictObject({ kind: z.literal('goal'), goal: z.string().trim().min(1).max(40) }),
   z.strictObject({ kind: z.literal('train') }),
   z.strictObject({ kind: z.literal('war'), side: z.enum(['whitebeard', 'marine', 'none']).optional(), goal: z.string().trim().min(1).max(40).optional() }),

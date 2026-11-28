@@ -240,3 +240,14 @@
 .talent-chips { display: flex; flex-wrap: wrap; gap: .3rem; margin: .6rem 0 0; padding: 0; list-style: none; }
 .talent-chips li { padding: .1rem .55rem; border: 1px solid var(--c); border-radius: 999px; font-size: .82rem; font-weight: 700; color: var(--ink); background: color-mix(in srgb, var(--c) 14%, white); }
 .talent-chips li[data-kind='keystone'] { color: #2a1a05; background: linear-gradient(#f0c869, #d59d34); border-color: #8a6a2c; }
+
+/* Guard crews and the story's crews on the map tab */
+.gate-name { display: flex; flex-wrap: wrap; align-items: baseline; gap: .2rem .6rem; margin: 0; }
+.gate-name strong { font-size: 1.05rem; }
+.gate-name small { color: var(--muted); }
+.story-crews { margin-top: .7rem; padding-top: .55rem; border-top: 1px dashed var(--line); }
+.story-crews h4 { margin: 0 0 .3rem; font-size: .85rem; color: var(--muted); }
+.story-crews ul { display: grid; gap: .3rem; margin: 0; padding: 0; list-style: none; }
+.story-crews li { display: grid; }
+.story-crews li small { color: var(--muted); font-size: .8rem; line-height: 1.4; }
+.story-crews li[data-down] strong { text-decoration: line-through; color: var(--muted); }

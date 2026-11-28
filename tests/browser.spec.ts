@@ -1,3 +1,4 @@
+import { allGates } from './fixtures.ts'
 import { expect, test } from '@playwright/test'
 import type { Page, BrowserContext } from '@playwright/test'
 import type { AddressInfo } from 'node:net'
@@ -241,6 +242,7 @@ test('從船塢購船，出海後地圖更新並顯示登島委託，返航後�
   // Random sea encounters are tested elsewhere; this voyage should land directly.
   const calm = hostRef.game.room(code)
   calm.calmSeas = true
+  calm.gates = allGates()
   hostRef.store.save(calm)
   await ready(page, '燈火')
   await page.getByRole('button', { name: '開始遊戲' }).click()

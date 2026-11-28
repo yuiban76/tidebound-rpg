@@ -1,4 +1,5 @@
 // The Summit War in stages: sides, battlefield goals, and endings that follow what the party did (world/war.ts).
+import { allGates } from './fixtures.ts'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import type { LocationId } from '../packages/shared/protocol.ts'
@@ -18,6 +19,7 @@ function battlefield(place: LocationId = 'marinefordBay', hour = 11) {
   const world = newWorld('SUMMITWAR1', 'host')
   world.started = true
   world.calmSeas = true
+  world.gates = allGates()
   const member = world.members[0] as Member
   member.character = { ...makeCharacter(character('阿浪')), place, level: 10, hp: 99_999 }
   world.minute = warMinute([hour, 0])

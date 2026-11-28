@@ -1,4 +1,5 @@
 // Races: one small bonus, one canon trait, and a price for the strong ones (packages/world/races.ts).
+import { allGates } from './fixtures.ts'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import type { LocationId, Race } from '../packages/shared/protocol.ts'
@@ -20,6 +21,7 @@ function solo(race: Race, place: LocationId = 'square') {
   const world = newWorld('RACES00001', 'host')
   world.started = true
   world.calmSeas = true
+  world.gates = allGates()
   const member = world.members[0] as Member
   member.character = make(race)
   member.character.place = place
@@ -122,6 +124,7 @@ test('巨人上船佔 2 個座位：四個玩家都是巨人也坐得下小帆�
   const world = newWorld('RACES00002', 'host')
   world.started = true
   world.calmSeas = true
+  world.gates = allGates()
   const ids = ['host', 'b', 'c', 'd']
   world.members = ids.map((id, i) => ({ id, host: i === 0, ready: true, agree: true, approved: true, character: { ...make('巨人'), place: 'dock' as const } }))
   world.ship = { owner: 'host', port: 'dock', hull: 100, wood: 2, trips: 0 }

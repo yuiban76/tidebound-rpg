@@ -1,4 +1,5 @@
 // The ship: her name, new hulls, parts and what each of them does, the shared hold and safe.
+import { allGates } from './fixtures.ts'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { intentSchema, shipModels, shipParts } from '../packages/shared/protocol.ts'
@@ -22,6 +23,7 @@ function scene(place: LocationId, ship?: Partial<Ship>) {
   c.money = 200_000_000
   world.started = true
   world.calmSeas = true
+  world.gates = allGates()
   if (ship) world.ship = { owner: 'host', port: 'dock', hull: 100, wood: 2, trips: 0, ...ship }
   return { world, member, c }
 }

@@ -1,4 +1,5 @@
 // Skills grow with levels, and every life skill has a fixed use (packages/world/skills.ts).
+import { allGates } from './fixtures.ts'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import type { LocationId, Skill } from '../packages/shared/protocol.ts'
@@ -89,6 +90,7 @@ test('航海：最好的航海士每級讓航程縮短 3%', () => {
   const minutes = (rank: number) => {
     const { world, member } = solo('dock', { 航海: rank })
     world.calmSeas = true
+    world.gates = allGates()
     world.ship = { owner: 'host', port: 'dock', hull: 100, wood: 2, trips: 0 }
     return act(world, member, { kind: 'sail', order: 'depart', destination: 'shells' }, dice(10)).minutes!
   }

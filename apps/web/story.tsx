@@ -12,7 +12,7 @@ import type { Entry } from '../host/store.ts'
 import { IslandMap, SeaMap } from './world-map.tsx'
 import { HerePanel } from './here.tsx'
 import { CombatPanel } from './combat.tsx'
-import { IslandAdventure, VoyagePanel } from './voyage.tsx'
+import { IslandAdventure, VoyagePanel, GatePanel, TrainingPanel } from './voyage.tsx'
 import { CharacterPanel } from './character.tsx'
 import { BagPanel } from './bag.tsx'
 import { CompanionPanel } from './companions.tsx'
@@ -237,6 +237,8 @@ export function Story({ view, send, history, connected, gap, review }: {
         <SagaPanel {...panelProps}/>
         <WarPanel {...panelProps}/>
         <IslandAdventure {...panelProps}/>
+        <GatePanel {...panelProps}/>
+        <TrainingPanel {...panelProps}/>
         <FruitStalls {...panelProps}/>
         <MarketPanel {...panelProps}/>
       </> : <>

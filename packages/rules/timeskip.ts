@@ -12,6 +12,7 @@ import type { Character, World } from '../world/village.ts'
 import { grantXp, maxHP, maxSTA, xpToNext } from './engine.ts'
 import type { Roll } from './engine.ts'
 import { fxOf, pct } from '../world/talents.ts'
+import { levelCaps } from '../world/growth.ts'
 
 /** Where the crew meets again. */
 export const reunionPlace = 'shakkyBar' as const
@@ -36,7 +37,9 @@ export function timeskipBlock(world: World) {
 export function train(c: Character, roll: Roll) {
   if (c.haki?.trained) return ''
   const before = c.level
-  const target = Math.max(c.level + 5, 14)
+  // The training ends at Sabaody, in the first half of the Grand Line: its level cap holds.
+  c.cap = Math.max(c.cap ?? 0, levelCaps.paradise)
+  const target = Math.min(c.cap, Math.max(c.level + 5, 14))
   while (c.level < target) grantXp(c, xpToNext(c.level) - c.xp)
   for (const skill of hakiSkills) c.skillRanks[skill] = Math.max(1, c.skillRanks[skill] ?? 0)
   const natural = roll(20)

@@ -1,4 +1,5 @@
 // The canon people who live at each island's important places (packages/world/cast.ts).
+import { allGates } from './fixtures.ts'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import type { LocationId, NpcId } from '../packages/shared/protocol.ts'
@@ -15,6 +16,7 @@ function world(minute = at(1, 9)) {
   const w = newWorld('RESIDENT01', 'host')
   w.started = true
   w.calmSeas = true
+  w.gates = allGates()
   w.minute = minute
   advanceTimeline(w)
   return w

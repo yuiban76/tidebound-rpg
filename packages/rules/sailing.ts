@@ -1,3 +1,5 @@
+import { gateBlock } from '../world/gates.ts'
+import { raiseCaps } from './gates.ts'
 import { bestFx, fxOf, pct, rankOf } from '../world/talents.ts'
 import { locations, npcs } from '../shared/protocol.ts'
 import type { Intent, IslandId } from '../shared/protocol.ts'
@@ -146,6 +148,8 @@ export function resolveSailing(world: World, actor: Member, intent: SeaIntent, r
     return stop('偉大航路的磁場會讓普通羅盤失靈，隊伍裡必須有人帶著記錄指針才能出航。羅格鎮的一本松武器店有賣。')
   if (route.needsTask && world.islandTasks?.[route.needsTask]?.stage !== 'done')
     return stop('這條航線要先完成「' + islandStories[route.needsTask]?.title + '」才能出發。')
+  const guarded = gateBlock(world, from, option.to)
+  if (guarded) return stop(guarded)
   if (route.needsCoating && !ship.coated)
     return stop('要潛進海底，船得先鍍膜。到夏波帝的' + locations.coatingYard + '輸入「鍍膜」（' + coatingPrice.toLocaleString('en-US') + ' 貝里）。')
 
@@ -204,6 +208,8 @@ export function finishVoyage(world: World, voyage: PendingVoyage): { text: strin
     // Reaching a new island is meaningful exploration; the home island pays nothing.
     if (voyage.to !== 'wind') discoveries.push(grantXp(member.character!, voyage.landfallXp, 'island:' + voyage.to))
   }
+  // Reaching a new sea lifts the level cap; XP saved at the old cap pays out now.
+  const lifted = raiseCaps(world)
   return {
     text: voyage.text + '\n全隊抵達' + islands[voyage.to].name + '的' + locations[ship.port] +
       '。船體 ' + before + ' → ' + ship.hull + '／100' + (mend ? '（靠岸時順手修了 ' + mend + '）' : '') + '。' +
@@ -211,7 +217,7 @@ export function finishVoyage(world: World, voyage: PendingVoyage): { text: strin
       (companionIds(world).length ? '\n隨船夥伴：' + companionIds(world).map(npc => npcs[npc]).join('、') + '也一起上岸。' : '') +
       (islandStories[voyage.to] && !['done', 'closed'].includes(world.islandTasks?.[voyage.to]?.stage ?? '')
         ? '\n島上消息：' + islandStories[voyage.to]!.title + '。可找' + npcs[islandStories[voyage.to]!.guide] + '。' : '') +
-      discoveries.filter(Boolean).map(text => '\n' + text).join(''),
+      discoveries.filter(Boolean).map(text => '\n' + text).join('') + lifted.map(text => '\n' + text).join(''),
     minutes: voyage.minutes,
   }
 }

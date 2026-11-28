@@ -1,4 +1,5 @@
 // 職業: the job on the character card replaced the free choice of starting skills.
+import { allGates } from './fixtures.ts'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { characterInput, professionIds } from '../packages/shared/protocol.ts'
@@ -17,6 +18,7 @@ function crew(place: LocationId, mine: Profession, theirs?: Profession) {
   const world = newWorld('JOBS000001', 'host')
   world.started = true
   world.calmSeas = true
+  world.gates = allGates()
   const me = world.members[0] as Member
   me.character = makeCharacter({ ...character('阿浪'), profession: mine })
   me.character.place = place

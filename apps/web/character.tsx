@@ -1,6 +1,6 @@
 import { attributes, attributeLabels, hakiSkills, skills } from '../../packages/shared/protocol.ts'
 import type { Message } from '../../packages/shared/protocol.ts'
-import { xpToNext } from '../../packages/rules/engine.ts'
+import { capOf, xpToNext } from '../../packages/rules/engine.ts'
 import { beli } from '../../packages/world/scale.ts'
 import { islandAt } from '../../packages/world/sea.ts'
 import { raceSummary, stat } from '../../packages/world/races.ts'
@@ -49,7 +49,8 @@ export function CharacterPanel({ view, world, player, suggest, send, post, pause
         <div><h3>{c.name}</h3><p className="hint">{c.race} · {fightingStyles[c.fighting].label} · {professions[c.profession].label}</p></div>
         <span className="level"><small>等級</small>{c.level}</span>
       </div>
-      <Bar label="XP" value={c.xp} max={xpToNext(c.level)} tone="gold"/>
+      <Bar label="XP" value={Math.min(c.xp, xpToNext(c.level))} max={xpToNext(c.level)} tone="gold"/>
+      {c.level >= capOf(c) && <p className="hint">已到這片海的等級上限 {capOf(c)}，經驗值先存著（{c.xp.toLocaleString('en-US')}），到下一片海會一次升上去。</p>}
       <Tiles items={[['懸賞金', <span title={beli(c.bounty)}>{c.bounty.toLocaleString('en-US')}</span>],
         ['海軍注意度', (world.renown?.marineHeat ?? 0) + '／100'], ['本島聲望', world.renown?.islandRep[islandAt(c.place)] ?? 0]]}/>
       <More label="種族、攻擊方式與職業">

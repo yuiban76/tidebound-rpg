@@ -1,4 +1,5 @@
 // Canon-beli economy: bounty slips, brokers, crew treasure, merchant specialties, armor, selling and combat items.
+import { allGates } from './fixtures.ts'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import type { LocationId } from '../packages/shared/protocol.ts'
@@ -19,6 +20,7 @@ function solo(place: LocationId, race: '人類' | '魚人' = '人類') {
   const world = newWorld('MARKET0001', 'host')
   world.started = true
   world.calmSeas = true
+  world.gates = allGates()
   const member = world.members[0] as Member
   member.character = { ...makeCharacter({ ...character('旅人'), race }), place, unspent: 0 }
   return { world, member, c: member.character }

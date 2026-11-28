@@ -4,6 +4,12 @@ import { ballotCount, boatYard, islandAt, islands, islandStories, paceNames, rou
 import { beli } from '../../packages/world/scale.ts'
 import { shipName } from '../../packages/world/ships.ts'
 import { npcPlace, party } from '../../packages/world/village.ts'
+import { gateCrews, gateOpen, seaOf } from '../../packages/world/gates.ts'
+import { levelCaps, seaNames } from '../../packages/world/growth.ts'
+import { bossDefeats } from '../../packages/world/canon.ts'
+import { crews } from '../../packages/world/crews.ts'
+import { capOf } from '../../packages/rules/engine.ts'
+import type { NpcId } from '../../packages/shared/protocol.ts'
 import { Bar, Card, meIn, Pill } from './side.tsx'
 import type { PanelProps } from './side.tsx'
 
@@ -99,5 +105,53 @@ export function IslandAdventure({ world, player, suggest }: PanelProps) {
   return <Card title={story.title} tone={settled ? 'quiet' : undefined} meta={<Pill tone={stage === 'done' ? 'on' : settled ? undefined : 'gold'}>{state}</Pill>}>
     <p className={settled ? 'hint' : undefined}>{detail}</p>
     {!settled && <button type="button" className="light" onClick={() => suggest(command)}>{command}</button>}
+  </Card>
+}
+
+/**
+ * The island's two kinds of crews: the guard crew the party must beat itself to sail on, and the story's own crews,
+ * which the party or the Straw Hats may beat (those drop devil fruits and change what happens next).
+ */
+export function GatePanel({ world, player, suggest }: PanelProps) {
+  const c = meIn(world, player)
+  const island = islandAt(c.place)
+  const gate = gateCrews[island]
+  if (!gate) return null
+  const beaten = gateOpen(world, island)
+  const port = islands[island].port
+  const fighting = !!world.combat
+  const story = Object.values(crews).filter(crew => crew.captain !== 'luffy' && bossDefeats[crew.captain] && (place => !!place && islandAt(place) === island)(npcPlace(world, crew.captain)))
+  const levels = party(world).map(m => m.character!.level)
+  const lowest = Math.min(...levels)
+  return <Card title="守關海賊團" tone={beaten ? 'quiet' : undefined}
+    meta={beaten ? <Pill tone="on">已打倒</Pill> : <Pill tone={lowest >= gate.level ? 'on' : 'gold'}>建議 {gate.level} 級</Pill>}>
+    <p className="gate-name"><strong>{gate.crew}</strong><small>船長「{gate.title}」{gate.captain}</small></p>
+    <p className={beaten ? 'hint' : undefined}>{beaten ? '你們在守關戰打倒了他們，往下一座島的航路已經打開。主線裡的他們還在，要不要再打一次由你們決定。' : gate.text}</p>
+    {!beaten && <>
+      <p className="hint">{'打倒他們才能往下一座島（回頭的航線不受影響）。守關戰只負責開航路，不會改變劇情。'}{lowest < gate.level ? '隊伍裡最低的是 ' + lowest + ' 級，可以先「四處找架打」練等。' : ''}</p>
+      <button type="button" className="light" disabled={fighting} onClick={() => suggest(c.place === port ? '挑戰守關海賊團' : '前往' + locations[port])}>
+        {c.place === port ? '挑戰「' + gate.crew + '」' : '前往' + locations[port]}</button>
+    </>}
+    {story.length > 0 && <div className="story-crews">
+      <h4>主線海賊團</h4>
+      <ul>{story.map(crew => {
+        const down = !!world.defeated?.includes(crew.captain as NpcId)
+        return <li key={crew.name} data-down={down || undefined}><strong>{crew.name}</strong><small>{npcs[crew.captain]}{down ? '：已被打倒' : '：可以不打。你們或草帽一夥打倒都算；打倒會掉惡魔果實、改寫之後的劇情'}</small></li>
+      })}</ul>
+    </div>}
+  </Card>
+}
+
+/** 「四處找架打」: training fights against foes of the party's level, and the level cap of the sea. */
+export function TrainingPanel({ world, player, suggest }: PanelProps) {
+  const c = meIn(world, player)
+  const sea = seaOf(islandAt(c.place))
+  const cap = capOf(c)
+  const capped = c.level >= cap
+  return <Card title="練等" meta={<Pill tone={capped ? 'gold' : undefined}>上限 {cap} 級</Pill>}>
+    <p>四處找架打：遇到和隊伍等級相當的對手，打贏拿經驗值和貝里，有時還會撿到繃帶、帶骨肉或傷藥。重複打也不會變少。</p>
+    <p className="hint">{capped ? '你已經到' + seaNames[world.frontier ?? sea] + '的等級上限，經驗值會先存著，到下一片海時一次升上去。'
+      : '目前在' + seaNames[world.frontier ?? sea] + '，等級上限 ' + cap + '。東海 ' + levelCaps.east + '、偉大航路前半段 ' + levelCaps.paradise + '、新世界 ' + levelCaps.newWorld + '。'}</p>
+    <button type="button" className="light" disabled={!!world.combat || c.hp <= 0} onClick={() => suggest('四處找架打')}>四處找架打</button>
   </Card>
 }

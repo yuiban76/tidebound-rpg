@@ -4,6 +4,7 @@ import { aiInput, locations, npcs } from '../../packages/shared/protocol.ts'
 import type { Intent, Message, NpcId } from '../../packages/shared/protocol.ts'
 import { allocatePoint, guideFor, makeCharacter, needsReview, resolve, trainSkill, voteThreshold } from '../../packages/rules/engine.ts'
 import { learnTalents, refundTalent, resetTalents } from '../../packages/rules/talents.ts'
+import { raiseCaps } from '../../packages/rules/gates.ts'
 import { ownedTalents, talentNodes } from '../../packages/world/talents.ts'
 import { addressedNpc, asksAboutShipPurchase, dialogueQuestion, familiarIntent, sceneQuestion } from '../../packages/world/explore.ts'
 import { effectLabels, npcFacts, npcPlace, npcRole, npcsAt, opening, party, paths, people, selfMade } from '../../packages/world/village.ts'
@@ -514,7 +515,9 @@ export class Game {
     delete member.pendingJoin
     // Someone joining after the two years trained too.
     const trained = catchUpTraining(world).join('')
-    return '新夥伴' + member.character!.name + '在' + locations[place] + '與大家會合。' + trained
+    // A newcomer sails under the cap of the sea the party has reached.
+    const caught = raiseCaps(world).join('')
+    return '新夥伴' + member.character!.name + '在' + locations[place] + '與大家會合。' + trained + caught
   }
   private sceneAnswer(world: World, actor: Member, question: 'guide' | 'location') {
     if (question === 'guide') return guideFor(world, actor).text

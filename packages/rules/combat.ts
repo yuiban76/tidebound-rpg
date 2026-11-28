@@ -5,7 +5,9 @@ import type { AttackStyle, NpcId } from '../shared/protocol.ts'
 import { npcFoe, tierNames, tierXp } from '../world/foes.ts'
 import { crewmates, crews } from '../world/crews.ts'
 import type { Foe } from '../world/foes.ts'
-import { islandAt } from '../world/sea.ts'
+import { islandAt, islands } from '../world/sea.ts'
+import { gateCrews } from '../world/gates.ts'
+import { queuePaper } from '../world/flags.ts'
 import { partLevel, shipName, shipWear } from '../world/ships.ts'
 import { raceDefense, raceHit, stat, traitOf } from '../world/races.ts'
 import { dressingOf } from '../world/skills.ts'
@@ -155,6 +157,11 @@ function makeFoe(world: World, npc: NpcId): Foe {
 function startFight(world: World, place: Character['place'], foes: Foe[]): Combat {
   const participants = party(world).filter(m => m.character!.place === place && m.character!.hp > 0).map(m => m.id)
   return world.combat = { round: 1, place, participants, foes, choices: {} }
+}
+
+/** A land fight against foes made up on the spot (a guard crew, a training fight). */
+export function beginFight(world: World, place: Character['place'], foes: Foe[], kind: Pick<Combat, 'gate' | 'hunt'>) {
+  Object.assign(startFight(world, place, foes), kind)
 }
 
 /** Creates a sea fight that interrupts a voyage; the whole party is aboard. */
@@ -599,7 +606,9 @@ function victory(world: World, combat: Combat, lines: string[], lastHit: Map<str
   for (const foe of combat.foes) {
     if (!foe.down && !foe.surrendered) continue
     for (const m of winners) {
-      const xp = grantXp(m.character!, foe.surrendered ? Math.floor(tierXp[foe.tier] / 2) : tierXp[foe.tier], 'defeat:' + (foe.npc ?? foe.name))
+      // Guard crews and training foes pay their own XP every time; story foes pay by tier, less on each repeat.
+      const base = foe.xp ?? tierXp[foe.tier]
+      const xp = grantXp(m.character!, foe.surrendered ? Math.floor(base / 2) : base, foe.xp ? undefined : 'defeat:' + (foe.npc ?? foe.name))
       if (xp) lines.push(xp)
     }
     if (!foe.npc) continue
@@ -617,6 +626,19 @@ function victory(world: World, combat: Combat, lines: string[], lastHit: Map<str
       applyEffect(world, boss.effect)
       lines.push(boss.text)
     }
+  }
+  // What the beaten foes carried goes to whoever brought them down.
+  for (const foe of beaten.filter(foe => foe.items)) {
+    const holder = (lastHit.get(foe.id) ?? winners[0])?.character
+    if (!holder) continue
+    for (const [item, count] of Object.entries(foe.items!)) holder.inventory[item] = (holder.inventory[item] ?? 0) + count
+    lines.push(holder.name + '從' + foe.name + '身上拿到' + Object.entries(foe.items!).map(([item, count]) => item + (count > 1 ? ' × ' + count : '')).join('、') + '。')
+  }
+  if (combat.gate && winners.length) {
+    ;(world.gates ??= {})[combat.gate] = true
+    lines.push('守關的「' + gateCrews[combat.gate].crew + '」被打倒了！往下一座島的航路打開了。')
+    queuePaper(world, '【報紙】' + islands[combat.gate].name + '的「' + gateCrews[combat.gate].crew + '」被一支新起的隊伍擊潰，帶頭的是' +
+      winners.map(m => m.character!.name).join('、') + '。', world.minute + 6 * 60)
   }
   if (combat.sea) {
     const voyage = finishVoyage(world, combat.sea)
