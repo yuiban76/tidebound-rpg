@@ -11,6 +11,7 @@ import type { View } from './network.ts'
 import type { Entry } from '../host/store.ts'
 import { IslandMap, SeaMap } from './world-map.tsx'
 import { HerePanel } from './here.tsx'
+import { Bulletin } from './bulletin.tsx'
 import { CombatPanel } from './combat.tsx'
 import { IslandAdventure, VoyagePanel, GatePanel, TrainingPanel } from './voyage.tsx'
 import { CharacterPanel } from './character.tsx'
@@ -297,10 +298,11 @@ export function Story({ view, send, history, connected, gap, review }: {
 
     <div className="game-grid" ref={grid}>
       <main className="story-column">
-        <section className="bulletin world-log" aria-label="世界公告">
-          <h2>世界公告</h2>
+        <Bulletin>
           <Log entries={windowEntries('world')} names={names} speaking={voice.now?.seq} onPlay={voice.settings.on ? voice.replay : undefined}/>
-        </section>
+        </Bulletin>
+        {/* The player's side of the column: their window, the fight and the input. Beside the bulletin on wide screens. */}
+        <div className="story-main">
         {/* Teammates' windows are a tab away; playing alone there is nothing to switch. */}
         {windows.length > 1 && <div className="window-tabs" role="tablist" aria-label="切換視窗">
           {windows.map(([id, label]) => <Tab key={id} selected={windowId === id} badge={unread(id)} onClick={() => setWindowId(id)}><MemberAvatar id={id} name={label} size="tiny"/>{label}</Tab>)}
@@ -363,6 +365,7 @@ export function Story({ view, send, history, connected, gap, review }: {
             <VoiceSettingsPanel voice={voice}/>
           </details>
         </form>
+        </div>
       </main>
 
       <aside className="side-column" aria-label="資訊面板">

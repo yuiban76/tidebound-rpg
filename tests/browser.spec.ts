@@ -112,10 +112,12 @@ test('地圖在資訊分頁、輸入框不用捲動就看得到，手機也能�
   await page.getByRole('button', { name: '開始遊戲' }).click()
   const map = page.getByRole('region', { name: '島上地圖' })
   await expect(map).toBeVisible()
-  // The world bulletin sits on top of the story and needs no switching.
+  // The world bulletin needs no switching: on a wide screen it stands beside the story, both as tall as the column.
   const bulletin = (await page.getByRole('region', { name: '世界公告' }).boundingBox())!
   const story = (await page.locator('.windows').boundingBox())!
-  expect(bulletin.y).toBeLessThan(story.y)
+  expect(bulletin.x + bulletin.width).toBeLessThanOrEqual(story.x + 1)
+  expect(Math.abs(bulletin.y - story.y)).toBeLessThan(40)
+  expect(bulletin.height).toBeGreaterThan(story.height * .9)
   // The redesign keeps the action box inside the first screen on desktop.
   const input = (await page.getByLabel('輸入行動或聊天').boundingBox())!
   expect(input.y + input.height).toBeLessThanOrEqual(920)
