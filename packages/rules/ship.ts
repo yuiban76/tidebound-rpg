@@ -7,6 +7,7 @@ import { holdCount, maxPart, modelOf, models, partLevel, partPrice, parts, sameI
 import { itemFor } from '../world/village.ts'
 import type { Character, Member, World } from '../world/village.ts'
 import type { Result } from './engine.ts'
+import { fxOf, pct } from '../world/talents.ts'
 
 type ShipIntent = Extract<Intent, { kind: 'ship' }>
 const stop = (text: string): Result => ({ text, rejected: true })
@@ -58,7 +59,7 @@ export function resolveShip(world: World, actor: Member, intent: ShipIntent): Re
     const level = partLevel(ship, part) + 1
     if (level > maxPart(ship)) return stop(modelOf(ship).label + '的' + parts[part].label + '最多 ' + maxPart(ship) + ' 級' + (maxPart(ship) < 3 ? '，換更大的船才能再升。' : '，已經是最好的了。'))
     if (level > yard.level) return stop(yard.name + '只做得到 ' + yard.level + ' 級，更好的要到' + locations.galleyLa + '或' + locations.coatingYard + '。')
-    const price = partPrice(world, part, level)
+    const price = Math.round(partPrice(world, part, level) * pct(fxOf(c, 'upgradePct')))
     if (c.money < price) return stop(parts[part].label + '升到 ' + level + ' 級要 ' + beli(price) + '，你只有 ' + beli(c.money) + '。')
     c.money -= price
     ship.parts = { ...ship.parts, [part]: level }

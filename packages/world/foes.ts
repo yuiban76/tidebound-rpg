@@ -26,6 +26,8 @@ export type Foe = {
   exposed?: number
   /** Rounds the foe cannot see to strike (a 火藥星 in the face). */
   blind?: number
+  /** Attack lost this round to a fighter's threats (the 威嚇 talent). */
+  shaken?: number
   /** Rounds the foe stands frozen by Conqueror's haki. */
   awed?: number
   /** Rounds left with a broken guard (a 破甲 technique landed): defense is lower for everyone's blows. */

@@ -36,6 +36,8 @@ export const sailingPaces = ['steady', 'fast'] as const
 export type SailingPace = (typeof sailingPaces)[number]
 const text = (length: number) => z.string().trim().min(1).max(length)
 const identifier = z.uuid()
+/** A talent forest node id, such as 「w.sword.iron」 or 「c.core.3」. */
+const talentId = z.string().regex(/^[a-zA-Z0-9.]{1,40}$/)
 const stats = z.strictObject({
   STR: z.number().int().min(2).max(4), AGI: z.number().int().min(2).max(4),
   CON: z.number().int().min(2).max(4), PER: z.number().int().min(2).max(4),
@@ -167,6 +169,10 @@ export const messageSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('vote'), id: identifier, yes: z.boolean() }),
   z.strictObject({ kind: z.literal('allocate'), attr: z.enum(attributes) }),
   z.strictObject({ kind: z.literal('train'), skill: z.enum([...skills, ...hakiSkills]) }),
+  // The talent forest (world/talents.ts): learn a path of nodes in order, give one back, or wipe it all at a port.
+  z.strictObject({ kind: z.literal('learnTalents'), ids: z.array(talentId).min(1).max(80) }),
+  z.strictObject({ kind: z.literal('refundTalent'), id: talentId }),
+  z.strictObject({ kind: z.literal('resetTalents') }),
   // A self-made move: a name, a cost tier and an optional effect (橫掃 never comes as a flurry). forgetTechnique frees its slot.
   z.strictObject({ kind: z.literal('technique'), name: text(12), style: z.enum(['special', 'advanced', 'flurry']), effect: z.enum(['sweep', 'breach']).optional() }),
   z.strictObject({ kind: z.literal('forgetTechnique'), name: text(12) }),

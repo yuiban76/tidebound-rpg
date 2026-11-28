@@ -1,3 +1,4 @@
+import { fxOf } from '../world/talents.ts'
 import { scale } from '../world/scale.ts'
 import { npcs } from '../shared/protocol.ts'
 import { fruitMoves, fruitOf, fruitPrice, fruits, kindNames, moveLevels, moveStyles, releaseFruit } from '../world/fruits.ts'
@@ -22,7 +23,7 @@ export function learnFruitArts(c: Character): string[] {
   if (!c.fruit) return []
   const learned: string[] = []
   fruitMoves[c.fruit].forEach((name, i) => {
-    if (c.level < moveLevels[i] || c.techniques.some(move => move.name === name)) return
+    if (c.level + fxOf(c, 'fruitEarly') < moveLevels[i] || c.techniques.some(move => move.name === name)) return
     c.techniques.push({ name, style: moveStyles[i], fruit: true })
     learned.push(name)
   })

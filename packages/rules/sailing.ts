@@ -1,3 +1,4 @@
+import { bestFx, fxOf, pct, rankOf } from '../world/talents.ts'
 import { locations, npcs } from '../shared/protocol.ts'
 import type { Intent, IslandId } from '../shared/protocol.ts'
 import { ballotCount, boatYard, islandAt, islands, islandStories, paceNames, routesFrom, sameRoute, selectedRoute, shipPurchaseInfo } from '../world/sea.ts'
@@ -98,11 +99,12 @@ export function resolveSailing(world: World, actor: Member, intent: SeaIntent, r
     if (!ship.wood) return stop('需要一份木料。靠港後可輸入「買木料」。')
     ship.wood--
     const before = ship.hull
-    const craft = c.skillRanks['工藝'] ?? 0
+    const craft = rankOf(c, '工藝')
     const wright = shipwright(world)
-    ship.hull = Math.min(100, ship.hull + boatYard.repairGain + craft * 5 + (wright ? 15 : 0))
+    const patch = fxOf(c, 'repair')
+    ship.hull = Math.min(100, ship.hull + boatYard.repairGain + craft * 5 + (wright ? 15 : 0) + patch)
     return { text: '用一份木料把' + (ship.name ? shipName(ship) + '的' : '') + '船體從 ' + before + ' 修到 ' + ship.hull + '／100' + (craft ? '（工藝 ' + craft + '，多修了 ' + craft * 5 + '）' : '') +
-      (wright ? '（' + wright + '動手，多修了 15）' : '') + '。', minutes: 25, announce: true }
+      (wright ? '（' + wright + '動手，多修了 15）' : '') + (patch ? '（應急修補，多修了 ' + patch + '）' : '') + '。', minutes: 25, announce: true }
   }
 
   const plan = world.sailing
@@ -147,13 +149,13 @@ export function resolveSailing(world: World, actor: Member, intent: SeaIntent, r
   if (route.needsCoating && !ship.coated)
     return stop('要潛進海底，船得先鍍膜。到夏波帝的' + locations.coatingYard + '輸入「鍍膜」（' + coatingPrice.toLocaleString('en-US') + ' 貝里）。')
 
-  const navigator = Math.max(...party(world).map(m => stat(m.character!, 'INT') + (m.character!.skillRanks['航海'] ?? 0)))
+  const navigator = Math.max(...party(world).map(m => stat(m.character!, 'INT') + rankOf(m.character!, '航海')))
   const natural = roll(20)
   const score = natural + navigator
   const base = Math.ceil(route.miles * 60 / shipSpeed(ship))
   const fast = option.pace === 'fast'
   // Each rank of the best navigator's 航海 trims the voyage by 3%.
-  const minutes = Math.max(20, Math.round(((fast ? Math.ceil(base * .82) : base + 16) + (score < 9 ? 24 : score >= 18 ? -12 : 0)) * (1 - .03 * navigatorRank(world)) * (crippled(ship) ? 1.25 : 1)))
+  const minutes = Math.max(20, Math.round(((fast ? Math.ceil(base * .82) : base + 16) + (score < 9 ? 24 : score >= 18 ? -12 : 0)) * (1 - .03 * navigatorRank(world)) * (crippled(ship) ? 1.25 : 1) * voyagePace(world)))
   const damage = (fast ? (score < 9 ? 22 : score < 15 ? 8 : 2) : (score < 9 ? 4 : 0)) + (route.hazard?.damage ?? 0)
   const weather = score < 9 ? '遇見逆風與碎浪' : score >= 18 ? '順著有利的海流' : '越過平穩海面'
   const voyage: PendingVoyage = {
@@ -165,7 +167,7 @@ export function resolveSailing(world: World, actor: Member, intent: SeaIntent, r
   delete world.sailing
   // Spec §9: sea events include pirates, Marines and Sea Kings. The fight interrupts the voyage until it ends.
   // A navigator reads the weather and the currents like an extra lookout.
-  const encounter = world.calmSeas ? undefined : rollSeaEncounter(roll, route, partLevel(ship, 'lookout') + (withJob(party(world), 'navigator') ? 1 : 0))
+  const encounter = world.calmSeas ? undefined : rollSeaEncounter(roll, route, partLevel(ship, 'lookout') + (withJob(party(world), 'navigator') ? 1 : 0) + bestFx(party(world).map(m => m.character!), 'lookout'))
   if (encounter) {
     startSeaFight(world, encounter.foes, voyage)
     return {
@@ -182,7 +184,9 @@ export function resolveSailing(world: World, actor: Member, intent: SeaIntent, r
 export function finishVoyage(world: World, voyage: PendingVoyage): { text: string, minutes: number } {
   const ship = world.ship!
   const before = ship.hull
-  ship.hull = Math.max(1, ship.hull - shipWear(ship, voyage.damage))
+  ship.hull = Math.max(1, ship.hull - Math.ceil(shipWear(ship, voyage.damage) * hullCare(world)))
+  const mend = bestFx(party(world).map(m => m.character!), 'autoRepair')
+  if (mend) ship.hull = Math.min(100, ship.hull + mend)
   ship.port = islands[voyage.to].port
   ship.trips++
   const discoveries: string[] = []
@@ -202,7 +206,7 @@ export function finishVoyage(world: World, voyage: PendingVoyage): { text: strin
   }
   return {
     text: voyage.text + '\n全隊抵達' + islands[voyage.to].name + '的' + locations[ship.port] +
-      '。船體 ' + before + ' → ' + ship.hull + '／100。' +
+      '。船體 ' + before + ' → ' + ship.hull + '／100' + (mend ? '（靠岸時順手修了 ' + mend + '）' : '') + '。' +
       (cabin ? '大家在船室裡休息過，恢復了體力。' : '') +
       (companionIds(world).length ? '\n隨船夥伴：' + companionIds(world).map(npc => npcs[npc]).join('、') + '也一起上岸。' : '') +
       (islandStories[voyage.to] && !['done', 'closed'].includes(world.islandTasks?.[voyage.to]?.stage ?? '')
@@ -242,7 +246,7 @@ export function resolveIslandTask(world: World, actor: Member, intent: TaskInten
     const dc = story.dc ?? 11
     const minutes = story.searchMinutes ?? 10
     const die = roll(20)
-    const check = die + stat(c, attr) + (c.skillRanks[skill] ?? 0) + (task.attempts ?? 0) * (story.retry ?? 3) +
+    const check = die + stat(c, attr) + rankOf(c, skill) + fxOf(c, 'search') + (task.attempts ?? 0) * (story.retry ?? 3) +
       (story.helpedBy ?? []).filter(flag => hasFlag(world, flag)).length * 2 +
       // An archaeologist on the spot finds what others miss.
       (withJob(party(world), 'archaeologist', c.place) ? 2 : 0)
@@ -256,19 +260,25 @@ export function resolveIslandTask(world: World, actor: Member, intent: TaskInten
   }
   if (task.stage !== 'found' || c.place !== story.meeting) return stop('先完成上一步，再回' + locations[story.meeting] + '交付。')
   task.stage = 'done'
-  c.money += story.reward
+  const reward = Math.round(story.reward * pct(fxOf(c, 'beliPct')))
+  c.money += reward
   if (world.ship) world.ship.wood += 2
   applyEffect(world, story.onDone)
   // Freeing Ace with the Marineford quest saves him from the war's canon ending too.
   if (island === 'marineford') setFlag(world, warFlag('pullAce'))
   // Everyone on the island shares the experience of a finished island quest.
   const rewards = party(world).filter(m => islandAt(m.character!.place) === island)
-    .map(m => grantXp(m.character!, story.xp ?? 60)).filter(Boolean)
+    .map(m => grantXp(m.character!, Math.round((story.xp ?? 60) * pct(fxOf(m.character!, 'questXpPct'))))).filter(Boolean)
   return {
-    text: story.close + (story.reward ? c.name + '取得 ' + beli(story.reward) + '。' : '') + '船上補充兩份木料。\n' + rewards.join('\n'),
+    text: story.close + (reward ? c.name + '取得 ' + beli(reward) + '。' : '') + '船上補充兩份木料。\n' + rewards.join('\n'),
     minutes: 5, announce: true,
   }
 }
+
+/** How much of the usual time a voyage takes with the crew's talents (the best of each; never under half). */
+const voyagePace = (world: World) => Math.max(.5, pct(Math.min(0, ...party(world).map(m => fxOf(m.character!, 'voyagePct')))))
+/** What share of the usual wear the hull takes, with the crew's talents (never under a quarter). */
+export const hullCare = (world: World) => Math.max(.25, pct(party(world).reduce((sum, m) => sum + fxOf(m.character!, 'wearPct'), 0)))
 
 function duration(minutes: number) {
   const days = Math.floor(minutes / 1440)

@@ -152,6 +152,10 @@ export type Character = CharacterInput & {
   raceReady?: boolean
   /** Forge tier (0–3) of each weapon kind, from reforging at a forge (see world/forge.ts). */
   gear?: Partial<Record<Weapon, number>>
+  /** Talent forest nodes paid for with talent points (world/talents.ts); free starts are not listed. */
+  talents: string[]
+  /** Day a 便當 (talent) was last eaten for free. */
+  bentoDay?: number
 }
 /** What a self-made move does besides hurt (none: one foe, full bonus). 橫掃 hits every foe; 破甲 lowers one foe's defense. */
 export const techniqueEffects = ['sweep', 'breach'] as const
@@ -175,6 +179,8 @@ export type Combat = {
   sea?: PendingVoyage
   /** Who has already let out Conqueror's haki in this fight. */
   conquered?: string[]
+  /** What each fighter's talents have already used up or set going in this fight, by name (rules/talents.ts). */
+  marks?: Record<string, Record<string, number>>
 }
 export type Member = {
   id: string, host: boolean, ready: boolean, agree: boolean, approved: boolean, character?: Character
@@ -366,6 +372,7 @@ export function normalizeWorld(world: World): World {
     c.xpLog ??= {}
     c.bounty ??= 0
     c.techniques ??= []
+    c.talents ??= []
     // Age and background were dropped from the character card; the attack method used to follow the main skill.
     const card = c as Character & { age?: number, background?: string }
     delete card.age

@@ -4,6 +4,7 @@
 import type { NpcId } from '../shared/protocol.ts'
 import { npcs } from '../shared/protocol.ts'
 import { queuePaper } from './flags.ts'
+import { registerFruitKinds } from './talents.ts'
 import type { World } from './village.ts'
 
 export type FruitKind = 'paramecia' | 'zoan' | 'logia'
@@ -157,3 +158,5 @@ export function releaseFruit(world: World, id: FruitId, from: NpcId) {
   ;(world.fruitStalls ??= []).push({ fruit: id, from, ready: world.minute + driftHours * 60 })
   queuePaper(world, '【報紙】傳聞' + npcs[from] + '身上的' + fruits[id].name + '流落在外，據說三天後會在夏波帝的人口拍賣所露面。')
 }
+
+registerFruitKinds(fruit => fruits[fruit as FruitId]?.kind)

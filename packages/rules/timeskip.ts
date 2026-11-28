@@ -1,5 +1,6 @@
 // The two years after the Summit War (the crew votes to go and train), and haki, which the training teaches.
-// Haki ranks live with the skills (skillRanks['武裝色'], ['見聞色']); Conqueror's haki is a flag a few awaken with.
+// Training gives rank 1 of each (kept in skillRanks); the haki sea of the talent forest raises them, and Conqueror's haki
+// is the gift a few awaken with (its node in the forest comes free with it).
 import { hakiSkills, locations } from '../shared/protocol.ts'
 import type { HakiSkill } from '../shared/protocol.ts'
 import { minuteOf } from '../world/canon.ts'
@@ -10,10 +11,14 @@ import { party } from '../world/village.ts'
 import type { Character, World } from '../world/village.ts'
 import { grantXp, maxHP, maxSTA, xpToNext } from './engine.ts'
 import type { Roll } from './engine.ts'
+import { fxOf, pct } from '../world/talents.ts'
 
 /** Where the crew meets again. */
 export const reunionPlace = 'shakkyBar' as const
-export const hakiRank = (c: Pick<Character, 'skillRanks'>, skill: HakiSkill) => c.skillRanks[skill] ?? 0
+export const hakiRank = (c: Pick<Character, 'skillRanks' | 'profession' | 'level'> & Partial<Pick<Character, 'talents' | 'fruit' | 'haki'>>, skill: HakiSkill) => {
+  const rank = (c.skillRanks[skill] ?? 0) + fxOf(c, skill === '武裝色' ? 'armament' : 'observation')
+  return Math.floor(rank * pct(fxOf(c, 'hakiMult')))
+}
 export const isHaki = (skill: string): skill is HakiSkill => (hakiSkills as readonly string[]).includes(skill)
 
 /** Why the crew cannot set out to train right now, or undefined when it can. */

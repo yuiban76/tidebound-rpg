@@ -75,7 +75,7 @@ test('考古學家在場，島上委託的搜索判定 +2', () => {
     me.character!.place = 'marineBase'
     return Number(/合計 (\d+)/.exec(act(world, me, { kind: 'islandTask', step: 'search' }, dice(5)).text)?.[1])
   }
-  assert.equal(search('archaeologist') - search('musician'), 2 + 2 - 0, '觀察 2 的底子，加上考古學家 +2')
+  assert.equal(search('archaeologist') - search('musician'), 2 + 2 + 1, '觀察 2 的底子，加上考古學家 +2，再加上職業起點的觀察 +1')
 })
 
 test('戰鬥員防禦 +1；航海士讓航行少遇上麻煩', () => {

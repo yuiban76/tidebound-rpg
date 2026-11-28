@@ -21,6 +21,7 @@ import { applyRace, stat, traitOf } from '../world/races.ts'
 import { buyWare, cashSlips, sellWare, useSupply } from './market.ts'
 import { professions, startingSkills, withJob } from '../world/professions.ts'
 import { cookAt, crafted, doctorAt, dressingOf, skillCap, wildPlaces } from '../world/skills.ts'
+import { bestFx, fxOf, pct, rankOf, rangedWeapons, talentsPerLevel } from '../world/talents.ts'
 
 export type Attribute = keyof Character['stats']
 
@@ -40,7 +41,7 @@ function checkedFreeAction(world: World, c: Character, intent: Extract<Intent, {
   const { attr, skill, difficulty } = intent.check
   const dc = freeDc[difficulty]
   const natural = roll(20)
-  const total = natural + stat(c, attr) + (skill ? c.skillRanks[skill] ?? 0 : 0) + (skill === '閃避' && /潛|躲|溜/.test(raw) ? traitOf(c).sneak ?? 0 : 0)
+  const total = natural + stat(c, attr) + (skill ? rankOf(c, skill) : 0) + (skill === '閃避' && /潛|躲|溜/.test(raw) ? traitOf(c).sneak ?? 0 : 0) + checkTalent(c, skill)
   const success = natural === 20 || (natural !== 1 && total >= dc)
   const label = attributeLabels[attr] + (skill ? '・' + skill : '')
   const record = c.name + '在' + locations[c.place] + '嘗試「' + raw.trim().slice(0, 60) + '」，' + (success ? '成功' : '失敗') + '了。'
@@ -54,21 +55,26 @@ function checkedFreeAction(world: World, c: Character, intent: Extract<Intent, {
     minutes: 10, free: true,
   }
 }
+/** What talents add to a free check of this skill (人脈, 消息靈通, 王者風範, and 磐石's cost). */
+export const checkTalent = (c: Character, skill?: string) =>
+  skill === '說服' ? fxOf(c, 'persuade') : skill === '觀察' ? fxOf(c, 'observe') : skill === '閃避' ? fxOf(c, 'dodgeCheck') : 0
 const reject = (text: string): Result => ({ text, rejected: true })
 const hoursAndMinutes = (minutes: number) =>
   ((Math.floor(minutes / 60) ? Math.floor(minutes / 60) + ' 小時' : '') + (minutes % 60 ? ' ' + (minutes % 60) + ' 分鐘' : '')).trim()
 
-export const maxHP = (c: Character) => Math.round((20 + 5 * stat(c, 'CON') + 4 * (c.level - 1) + (c.fruit && fruits[c.fruit].kind === 'zoan' ? 10 : 0)) * (traitOf(c).hp ?? 1)) * scale
+export const maxHP = (c: Character) => Math.round((20 + 5 * stat(c, 'CON') + 4 * (c.level - 1) + (c.fruit && fruits[c.fruit].kind === 'zoan' ? 10 + fxOf(c, 'zoanHp') : 0)) *
+  (traitOf(c).hp ?? 1) * pct(fxOf(c, 'hpPct'), .5)) * scale
 // Levels make fighters better, not only tougher: +3 to hit per 4 levels, +1 damage per 2, +1 defense per 3 (all 0 at level 1).
 // Balanced with the Monte Carlo tables in the README: a 2-player party needs about level 5 for a tier-4 foe and level 12 for tier 5.
 export const levelHit = (level: number) => Math.floor(level * .75)
 export const levelDamage = (level: number) => Math.floor(level / 2)
 export const levelDefense = (level: number) => Math.floor((level - 1) / 3)
 /** HP a bandage restores: it keeps up with bigger HP pools (+1 per 2 levels of the patient). */
-export const bandageHeal = (healer: Character, patientLevel: number) => (4 + (healer.skillRanks['醫術'] ?? 0) + Math.floor((patientLevel - 1) / 2)) * scale
+export const bandageHeal = (healer: Character, patientLevel: number, inFight = false) =>
+  Math.round((4 + rankOf(healer, '醫術') + Math.floor((patientLevel - 1) / 2)) * pct(fxOf(healer, 'healPct') + (inFight ? fxOf(healer, 'fieldHealPct') : 0))) * scale
 /** Every level pays for two more basic moves (3 STA each). */
 export const levelSTA = 6
-export const maxSTA = (c: Character) => (10 + 3 * stat(c, 'CON') + 2 * stat(c, 'WIL')) * staScale + levelSTA * (c.level - 1)
+export const maxSTA = (c: Character) => (10 + 3 * stat(c, 'CON') + 2 * stat(c, 'WIL')) * staScale + levelSTA * (c.level - 1) + fxOf(c, 'sta')
 export const defense = (agi: number, dodge = 0, situational = 0) => 12 + agi + dodge + situational
 /** A recruited ship's doctor, or a party member on the spot with 醫術 2 or more. */
 const medicHere = (world: World, place: Character['place']) => hasMedic(world) || doctorAt(world, place)
@@ -80,7 +86,7 @@ export function makeCharacter(input: CharacterInput): Character {
   const kit = professions[input.profession].kit ?? {}
   const equipment = itemFor(weapon) ?? '基礎工具組'
   const c: Character = {
-    ...input, place: 'square', conversingWith: null, money: 100_000, level: 1, xp: 0, unspent: 0, skillPoints: 0, xpLog: {}, bounty: 0, techniques: [], hp: 0, sta: 0, weapon,
+    ...input, place: 'square', conversingWith: null, money: 100_000, level: 1, xp: 0, unspent: 0, skillPoints: 0, xpLog: {}, bounty: 0, techniques: [], talents: [], hp: 0, sta: 0, weapon,
     raceReady: false,
     inventory: { 普通衣物: 1, [equipment]: 1 },
     skillRanks: startingSkills(weapon, input.profession),
@@ -103,10 +109,10 @@ export const attributeCap = 10
  * Returns the announcement text, or '' when nothing was earned.
  */
 export function grantXp(c: Character, amount: number, key?: string) {
-  let gained = amount
+  let gained = key?.startsWith('island:') ? Math.round(amount * pct(fxOf(c, 'islandXpPct'))) : amount
   if (key) {
     const times = c.xpLog[key] ?? 0
-    gained = Math.floor(amount * (repeatYield[times] ?? 0))
+    gained = Math.floor(gained * (repeatYield[times] ?? 0))
     c.xpLog[key] = times + 1
   }
   if (gained <= 0) return ''
@@ -121,7 +127,7 @@ export function grantXp(c: Character, amount: number, key?: string) {
     c.sta += maxSTA(c) - sta
     text += c.name + '升到等級 ' + c.level + '（HP 上限 ' + maxHP(c) + '、STA 上限 ' + maxSTA(c) + '）。'
     c.skillPoints++
-    text += '獲得 1 個技能點。'
+    text += '獲得 1 個技能點、' + talentsPerLevel + ' 點天賦點。'
     if (c.level % 4 === 0) {
       c.unspent++
       text += '獲得 1 點自由屬性點。'
@@ -135,7 +141,7 @@ export function grantXp(c: Character, amount: number, key?: string) {
 /** Spends one skill point on a skill, up to the cap for the character's level. */
 export function trainSkill(c: Character, skill: Skill | HakiSkill): Result {
   if (!c.skillPoints) return reject('目前沒有技能點，升級時會得到。')
-  if ((hakiSkills as readonly string[]).includes(skill) && !c.skillRanks[skill]) return reject('還沒學會' + skill + '霸氣。頂上戰爭後全隊出發修行兩年，才會學會。')
+  if ((hakiSkills as readonly string[]).includes(skill)) return reject(c.haki?.trained ? '霸氣改從天賦林的霸氣海域提升：' + skill + ' Ⅱ～Ⅵ。' : '還沒學會' + skill + '霸氣。頂上戰爭後全隊出發修行兩年，才會學會。')
   const rank = c.skillRanks[skill] ?? 0
   const cap = skillCap(c.level)
   if (rank >= cap) return reject(skill + '已達目前上限 ' + cap + '，等級越高上限越高。')
@@ -165,14 +171,18 @@ function findItem(inventory: Record<string, number>, name: string) {
   return matches.length === 1 ? matches[0] : undefined
 }
 
-export function attackCheck(roll: Roll, stats: { attr: number, skill: number, def: number, die: number, bonus?: number, armor?: number, possible?: boolean }) {
+/**
+ * One blow. A natural 20 (or more of the top of the die with talents: `crit` 1 makes 19 count) rolls one extra damage
+ * die, plus `critDice` more; `scaleBy` multiplies the damage before the number scale (talent percentages).
+ */
+export function attackCheck(roll: Roll, stats: { attr: number, skill: number, def: number, die: number, bonus?: number, armor?: number, possible?: boolean, crit?: number, critDice?: number, scaleBy?: number }) {
   if (stats.possible === false) return { natural: 0, total: 0, hit: false, damage: 0, dice: [] }
   const natural = roll(20)
   const total = natural + stats.attr + stats.skill
   const hit = natural !== 1 && total >= stats.def
   const dice = hit ? [roll(stats.die)] : []
-  if (hit && natural === 20) dice.push(roll(stats.die))
-  const damage = hit ? Math.max(0, dice.reduce((a, b) => a + b, 0) + stats.attr + (stats.bonus ?? 0) - (stats.armor ?? 0)) * scale : 0
+  if (hit && natural >= 20 - (stats.crit ?? 0)) for (let i = 0; i <= (stats.critDice ?? 0); i++) dice.push(roll(stats.die))
+  const damage = hit ? Math.round(Math.max(0, dice.reduce((a, b) => a + b, 0) + stats.attr + (stats.bonus ?? 0) - (stats.armor ?? 0)) * (stats.scaleBy ?? 1)) * scale : 0
   return { natural, total, hit, damage, dice }
 }
 
@@ -274,7 +284,7 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
       } as const
       const [label, attr, skill, dc] = method[intent.method]
       const natural = roll(20)
-      const total = natural + stat(c, attr) + (c.skillRanks[skill] ?? 0) + (intent.method === 'sneak' ? traitOf(c).sneak ?? 0 : 0)
+      const total = natural + stat(c, attr) + rankOf(c, skill) + (intent.method === 'sneak' ? traitOf(c).sneak ?? 0 : 0) + checkTalent(c, skill)
       const text = label + ' D20 ' + natural + '，合計 ' + total + '／' + dc + '，' + (total >= dc ? '成功。' : '未成功。')
       return withXp({ text, minutes: 5 }, total >= dc ? grantXp(c, 5, 'check:' + intent.method + ':' + c.place) : '')
     }
@@ -302,12 +312,14 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
       if (!c.inventory['傷藥']) return reject('你的背包裡沒有傷藥。風車村鐵匠鋪有賣。')
       if (c.hp >= maxHP(c) && c.sta >= maxSTA(c)) return reject('你現在沒有需要恢復的地方。')
       c.inventory['傷藥']--
-      c.hp = Math.min(maxHP(c), c.hp + (8 + c.level) * scale)
+      c.hp = Math.min(maxHP(c), c.hp + Math.round((8 + c.level) * pct(fxOf(c, 'potionPct'))) * scale)
       c.sta = Math.min(maxSTA(c), c.sta + 5 * staScale)
       return { text: '你喝下傷藥，目前 HP ' + c.hp + '、STA ' + c.sta + '。', minutes: 2 }
     }
     case 'equip': {
       if (intent.weapon === c.weapon) return reject('你已經在使用' + weaponNames[c.weapon] + '。')
+      if (fxOf(c, 'noRanged') && rangedWeapons.includes(intent.weapon)) return reject('你走的是劍豪之道，不用火槍、彈弓或弓。要先在天賦林退掉「劍豪之道」。')
+      if (fxOf(c, 'onlyUnarmed') && intent.weapon !== 'fist' && intent.weapon !== 'kick') return reject('你的身體就是武器（肉身即武器），不拿武器。要先在天賦林退掉這個終極天賦。')
       const needs = itemFor(intent.weapon)
       if (needs && !c.inventory[needs])
         return reject('你的背包裡沒有' + needs + '。')
@@ -370,6 +382,7 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
         return reject('多人遊玩時，全隊都要在線並在同一地點，才能一起睡覺。')
       {
         const need = intent.sleep ? 480 : 30
+        const [hpBefore, staBefore] = [c.hp, c.sta]
         const alert = alertWithin(world, need)
         const spent = alert ?? need
         const part = (amount: number) => Math.ceil(amount * spent / need)
@@ -383,10 +396,11 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
         }
         // Whoever can cook feeds everyone resting here: extra STA and a little HP for each rank of 烹飪.
         const cook = cookAt(world, c.place)
-        const cooking = cook ? cook.skillRanks['烹飪'] ?? 0 : 0
+        const cooking = cook ? rankOf(cook, '烹飪') : 0
+        const meal = cook ? pct(fxOf(cook, 'cookPct')) : 1
         if (cooking) {
-          c.sta = Math.min(maxSTA(c), c.sta + cooking * 2 * staScale)
-          if (c.hp > 0) c.hp = Math.min(maxHP(c), c.hp + cooking * scale)
+          c.sta = Math.min(maxSTA(c), c.sta + Math.round(cooking * 2 * staScale * meal))
+          if (c.hp > 0) c.hp = Math.min(maxHP(c), c.hp + Math.round(cooking * meal) * scale)
         }
         // A musician plays for everyone resting on the spot.
         const musician = withJob(party(world), 'musician', c.place)
@@ -397,11 +411,24 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
           c.sta = Math.min(maxSTA(c), c.sta + cabin * 2 * staScale)
           if (c.hp > 0) c.hp = Math.min(maxHP(c), c.hp + Math.ceil(maxHP(c) * .05 * cabin))
         }
+        // Talents of whoever rests here: a tune or a feast for everyone, a healer's care in the night, and one's own way of resting.
+        const here = party(world).map(m => m.character!).filter(x => x.place === c.place && x.hp > 0)
+        const tunes = bestFx(here, 'restSta')
+        if (tunes) c.sta = Math.min(maxSTA(c), c.sta + tunes * staScale)
+        const care = intent.sleep ? bestFx(here, 'sleepHeal') : 0
+        if (care && c.hp > 0) c.hp = Math.min(maxHP(c), c.hp + Math.ceil(maxHP(c) * care / 100 * spent / need))
+        const pace = fxOf(c, 'restPct')
+        if (pace) {
+          c.sta = Math.min(maxSTA(c), staBefore + Math.max(0, Math.round((c.sta - staBefore) * pct(pace, 0))))
+          if (c.hp > 0) c.hp = Math.min(maxHP(c), hpBefore + Math.max(0, Math.round((c.hp - hpBefore) * pct(pace, 0))))
+        }
         return {
           text: (alert ? '睡到一半被周圍的動靜吵醒了（' + Math.max(1, Math.round(spent / 6) / 10) + ' 小時）。' : intent.sleep ? '睡了一覺（8 小時）。' : '稍作休息（30 分鐘）。') +
             (cabin ? '你在' + shipName(world.ship!) + '的船室裡休息，恢復得更好。' : '') +
             (cook ? (cook === c ? '你' : cook.name) + '做了一頓飯，多回復了 ' + cooking * 2 * staScale + ' STA。' : '') +
             (musician ? (musician === c ? '你' : musician.name) + '演奏了一曲，多回復了 ' + 3 * staScale + ' STA。' : '') +
+            (tunes ? '天賦讓大家多回復了 ' + tunes * staScale + ' STA。' : '') + (care ? '有人整晚照看傷勢，多回復了 ' + care + '% HP。' : '') +
+            (pace ? '（你的天賦讓休息的回復量 ' + (pace > 0 ? '+' : '−') + Math.abs(pace) + '%）' : '') +
             'HP ' + c.hp + '／' + maxHP(c) + '，STA ' + c.sta + '／' + maxSTA(c) + '。', minutes: spent,
         }
       }
@@ -430,15 +457,15 @@ export function resolve(world: World, actor: Member, intent: Intent, raw: string
       const day = Math.floor(world.minute / 1440)
       if (world.gathered?.[c.place] === day) return reject('今天已經有人在' + locations[c.place] + '採集過了，明天再來。')
       ;(world.gathered ??= {})[c.place] = day
-      const rank = c.skillRanks['採集'] ?? 0
+      const rank = rankOf(c, '採集')
       const natural = roll(20)
       const total = natural + stat(c, 'PER') + rank
       const line = '採集 D20 ' + natural + '，合計 ' + total + '／12，'
       if (natural === 1 || total < 12) return { text: line + '沒找到能用的東西。', minutes: 30 }
       const twice = natural === 20 ? 2 : 1
-      const herbs = (1 + Math.floor(rank / 2)) * twice
+      const herbs = (1 + Math.floor(rank / 2) + fxOf(c, 'herb')) * twice
       c.inventory['草藥'] = (c.inventory['草藥'] ?? 0) + herbs
-      const wood = world.ship ? twice : 0
+      const wood = world.ship ? twice * (1 + fxOf(c, 'wood')) : 0
       if (world.ship) world.ship.wood += wood
       return withXp({ text: line + '採到草藥 × ' + herbs + (wood ? '，也撿到能修船的木料 × ' + wood : '') + '。草藥可以像繃帶一樣包紮。', minutes: 30 },
         grantXp(c, 5, 'gather:' + c.place))

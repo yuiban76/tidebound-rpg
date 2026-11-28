@@ -1,5 +1,6 @@
 // One roll for a story goal, shared by the Summit War (war.ts) and the story arcs (saga.ts): earlier results and
 // people on the spot help, a failure hurts, and every failed try teaches something.
+import { rankOf } from '../world/talents.ts'
 import { npcs } from '../shared/protocol.ts'
 import type { LocationId, NpcId } from '../shared/protocol.ts'
 import { setFlag } from '../world/flags.ts'
@@ -23,7 +24,7 @@ export function attemptGoal(world: World, actor: Member, goal: Goal, options: {
   const help = Math.min(3, allies.length)
   const tries = world.warTries?.[goal.id] ?? 0
   const natural = roll(20)
-  const total = natural + stat(c, goal.check.attr) + (c.skillRanks[goal.check.skill] ?? 0) + options.helped + help + tries
+  const total = natural + stat(c, goal.check.attr) + rankOf(c, goal.check.skill) + options.helped + help + tries
   const success = natural === 20 || (natural !== 1 && total >= goal.check.dc)
   const bonuses = [options.helped && '先前的戰果 +' + options.helped, help && allies.slice(0, 3).map(npc => npcs[npc]).join('、') + '在旁 +' + help, tries && '再試 +' + tries].filter(Boolean)
   const line = goal.title + '：D20 ' + natural + '，合計 ' + total + '／' + goal.check.dc + (bonuses.length ? '（' + bonuses.join('，') + '）' : '') + '。'

@@ -7,7 +7,9 @@ import { Store } from '../apps/host/store.ts'
 import { locations, npcs } from '../packages/shared/protocol.ts'
 import type { IslandId, LocationId, NpcId } from '../packages/shared/protocol.ts'
 import { makeCharacter, resolve, trainSkill } from '../packages/rules/engine.ts'
-import { catchUpTraining, timeskip, timeskipBlock, train } from '../packages/rules/timeskip.ts'
+import { catchUpTraining, hakiRank, timeskip, timeskipBlock, train } from '../packages/rules/timeskip.ts'
+import { learnTalents } from '../packages/rules/talents.ts'
+import { pathTo } from '../packages/world/talents.ts'
 import { canonTimeline, luffyRoute, minuteOf } from '../packages/world/canon.ts'
 import { crewmates } from '../packages/world/crews.ts'
 import { familiarIntent } from '../packages/world/explore.ts'
@@ -104,7 +106,7 @@ test('沒擲出霸王色的人照樣學會另外兩種；等過兩年或之後�
   void world
 })
 
-test('霸氣：武裝色打得到自然系，見聞色和武裝色提高防禦；用技能點提升，修行前不能練', () => {
+test('霸氣：武裝色打得到自然系，見聞色和武裝色提高防禦；修行後從天賦林提升，修行前不能練', () => {
   const { world, member, c } = party('logueSquare', at(9, 8))
   c.skillPoints = 3
   assert.match(trainSkill(c, '武裝色').text, /還沒學會/)
@@ -113,8 +115,10 @@ test('霸氣：武裝色打得到自然系，見聞色和武裝色提高防禦�
   delete world.combat
   world.npcDown = {}
   train(c, dice(1))
-  assert.equal(trainSkill(c, '武裝色').rejected, undefined)
-  assert.equal(c.skillRanks['武裝色'], 2)
+  assert.match(trainSkill(c, '武裝色').text, /天賦林/)
+  assert.deepEqual(pathTo(c, 'ha.2'), ['h.arm.0', 'ha.2'])
+  assert.equal(learnTalents(c, pathTo(c, 'ha.2')).rejected, undefined)
+  assert.equal(hakiRank(c, '武裝色'), 2)
   const after = act(world, member, { kind: 'attack', target: '斯摩格' }, dice(19, 6, 1))
   assert.match(after.text, /武裝色霸氣/)
   assert.doesNotMatch(after.text, /穿過了斯摩格/)

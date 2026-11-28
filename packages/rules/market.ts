@@ -13,6 +13,7 @@ import { goods, itemFor, npcsAt, shops, weaponItems, weaponNames } from '../worl
 import type { Character, Good, Member, World } from '../world/village.ts'
 import { isDown } from './combat.ts'
 import { maxHP, maxSTA } from './engine.ts'
+import { fxOf, pct } from '../world/talents.ts'
 
 const reject = (text: string) => ({ text, rejected: true as const })
 const beli = (n: number) => n.toLocaleString('en-US') + ' 貝里'
@@ -47,7 +48,7 @@ export function buyWare(world: World, actor: Member, name: string) {
       world.stock[good] ??= item.initial
       if (!world.stock[good]) return reject(item.label + '已售完。')
     }
-    const price = priceFor(world, island, fromTrader, item.price)
+    const price = Math.round(priceFor(world, island, fromTrader, item.price) * pct(fxOf(c, 'shopPct')))
     if (c.money < price) return reject(item.label + '要 ' + beli(price) + '，你只有 ' + beli(c.money) + '。')
     if (!fromTrader) world.stock[good]--
     c.money -= price
@@ -65,7 +66,7 @@ export function buyWare(world: World, actor: Member, name: string) {
   const refused = refuses(trader, c, ware.lawful)
   if (refused) return reject(refused)
   if (ware.kind === 'weapon' && c.level < tierLevel[ware.tier!]) return reject(ware.label + '要等級 ' + tierLevel[ware.tier!] + ' 才駕馭得了，你目前是 ' + c.level + '。')
-  const price = priceFor(world, island, trader, ware.price)
+  const price = Math.round(priceFor(world, island, trader, ware.price) * pct(fxOf(c, 'shopPct')))
   if (c.money < price) return reject(ware.label + '要 ' + beli(price) + '，你只有 ' + beli(c.money) + '。')
   c.money -= price
   let note = ''
@@ -100,7 +101,7 @@ export function sellWare(world: World, actor: Member, name: string, count = 1) {
     c.weapon = 'fist'
     note = '你改為徒手。'
   }
-  const paid = resale(price) * count
+  const paid = Math.round(resale(price) * count * pct(fxOf(c, 'sellPct')))
   c.money += paid
   return { text: npcs[trader] + '收下' + item + (count > 1 ? ' × ' + count : '') + '，付給你 ' + beli(paid) + '。' + note, minutes: 3 }
 }
@@ -110,7 +111,7 @@ export function cashSlips(world: World, actor: Member) {
   const c = actor.character!
   const slips = slipsOf(c)
   if (!slips.length) return reject('你身上沒有賞金單。打倒有懸賞金的海賊或惡徒時，最後出手的人會拿到。')
-  const total = slips.reduce((sum, slip) => sum + slipValue(slip) * c.inventory[slip], 0)
+  const total = Math.round(slips.reduce((sum, slip) => sum + slipValue(slip) * c.inventory[slip], 0) * pct(fxOf(c, 'slipPct')))
   const clear = () => { for (const slip of slips) delete c.inventory[slip] }
   if (marineOffices.includes(c.place)) {
     if (c.bounty > 0) return reject('海軍看了看你的臉，又看了看牆上的懸賞單……他們不會付錢給通緝犯。有懸賞金的人只能找地下掮客換錢。')
@@ -145,9 +146,24 @@ export function useSupply(world: World, c: Character, name: string) {
     return { text: '工匠們用亞當木把' + shipName(world.ship) + '修得比新的還結實，船體 100／100。', minutes: 60, announce: true }
   }
   if (c.hp >= maxHP(c) && c.sta >= maxSTA(c)) return reject('你現在沒有需要恢復的地方。')
-  if (!--c.inventory[ware.label]) delete c.inventory[ware.label]
-  const hp = ((ware.hp ?? 0) + (ware.kind === 'heal' ? c.level : 0)) * scale
+  // Talents: a packed lunch once a day, a cook who wastes nothing, a big appetite, a healer who doubles what medicine does.
+  const day = Math.floor(world.minute / 1440)
+  const bento = ware.kind === 'food' && fxOf(c, 'bento') > 0 && c.bentoDay !== day
+  const saved = ware.kind === 'food' && !bento && chance(world, c, fxOf(c, 'foodSave'))
+  if (bento) c.bentoDay = day
+  if (!bento && !saved && !--c.inventory[ware.label]) delete c.inventory[ware.label]
+  const boost = ware.kind === 'food' ? (fxOf(c, 'foodX2') ? 2 : 1) : pct(fxOf(c, 'potionPct'))
+  const hp = Math.round(((ware.hp ?? 0) + (ware.kind === 'heal' ? c.level : 0)) * boost) * scale
   if (c.hp > 0) c.hp = Math.min(maxHP(c), c.hp + hp)
-  c.sta = Math.min(maxSTA(c), c.sta + (ware.sta ?? 0))
-  return { text: (ware.kind === 'food' ? '你吃了' : '你用了') + ware.label + '，目前 HP ' + c.hp + '、STA ' + c.sta + '。', minutes: ware.kind === 'food' ? 10 : 2 }
+  c.sta = Math.min(maxSTA(c), c.sta + Math.round((ware.sta ?? 0) * boost))
+  return { text: (ware.kind === 'food' ? '你吃了' : '你用了') + ware.label + (bento ? '（今天的便當，不消耗）' : saved ? '（一點也沒浪費，沒有消耗）' : '') +
+    '，目前 HP ' + c.hp + '、STA ' + c.sta + '。', minutes: ware.kind === 'food' ? 10 : 2 }
+}
+
+/** A fixed-chance event that depends only on the moment and the person, so replays and tests agree. */
+function chance(world: World, c: Character, percent: number) {
+  if (percent <= 0) return false
+  let seed = world.minute + 17
+  for (const char of c.name + Object.keys(c.inventory).length) seed = (seed * 31 + char.codePointAt(0)!) >>> 0
+  return seed % 100 < percent
 }

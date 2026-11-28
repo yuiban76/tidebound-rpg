@@ -1,4 +1,5 @@
 // Story arcs with their own goals (packages/world/water7.ts) and the sea train between Water 7 and Enies Lobby.
+import { rankOf } from '../world/talents.ts'
 import { islandAt, islands } from '../world/sea.ts'
 import { locations } from '../shared/protocol.ts'
 import { minuteOf } from '../world/canon.ts'
@@ -59,7 +60,7 @@ export function rideTrain(world: World, actor: Member, roll: Roll, connected: Se
   const lines = ['可可蘿灌下一口酒，拉開火箭人的閘門。這列沒有煞車的海列車衝進了海裡。']
   // Aqua Laguna: the wave hits whoever leaves after 22:00.
   if (world.minute >= minuteOf([47, 22])) {
-    const driver = Math.max(...crew.map(m => stat(m.character!, 'AGI') + (m.character!.skillRanks['航海'] ?? 0)))
+    const driver = Math.max(...crew.map(m => stat(m.character!, 'AGI') + rankOf(m.character!, '航海')))
     const natural = roll(20)
     const safe = natural + driver >= 14
     lines.push('亞誇・拉格娜的巨浪迎面壓下：航海 D20 ' + natural + '，合計 ' + (natural + driver) + '／14，' + (safe ? '你們穩住車身，從浪底鑽了出去！' : '車廂被砸得變形，每個人都受了傷。'))

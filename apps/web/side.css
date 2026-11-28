@@ -235,3 +235,8 @@
 @media (max-width: 480px) {
   .screen-tabs .tab { padding-inline: .2rem; font-size: .8rem; }
 }
+
+/* Named talents on the character panel's talent page */
+.talent-chips { display: flex; flex-wrap: wrap; gap: .3rem; margin: .6rem 0 0; padding: 0; list-style: none; }
+.talent-chips li { padding: .1rem .55rem; border: 1px solid var(--c); border-radius: 999px; font-size: .82rem; font-weight: 700; color: var(--ink); background: color-mix(in srgb, var(--c) 14%, white); }
+.talent-chips li[data-kind='keystone'] { color: #2a1a05; background: linear-gradient(#f0c869, #d59d34); border-color: #8a6a2c; }

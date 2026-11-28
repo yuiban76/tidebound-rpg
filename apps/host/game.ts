@@ -3,6 +3,8 @@ import { AiFault, AiProvider, IntentFormatFault } from '../../packages/ai/provid
 import { aiInput, locations, npcs } from '../../packages/shared/protocol.ts'
 import type { Intent, Message, NpcId } from '../../packages/shared/protocol.ts'
 import { allocatePoint, guideFor, makeCharacter, needsReview, resolve, trainSkill, voteThreshold } from '../../packages/rules/engine.ts'
+import { learnTalents, refundTalent, resetTalents } from '../../packages/rules/talents.ts'
+import { ownedTalents, talentNodes } from '../../packages/world/talents.ts'
 import { addressedNpc, asksAboutShipPurchase, dialogueQuestion, familiarIntent, sceneQuestion } from '../../packages/world/explore.ts'
 import { effectLabels, npcFacts, npcPlace, npcRole, npcsAt, opening, party, paths, people, selfMade } from '../../packages/world/village.ts'
 import { advanceTimeline } from '../../packages/world/timeline.ts'
@@ -361,9 +363,11 @@ export class Game {
     }
     demand(world.started && actor.character, '遊戲尚未開始。')
     demand(!actor.pendingJoin, '請先完成創角並準備，與隊伍會合後才能行動。')
-    if (msg.kind === 'allocate' || msg.kind === 'train') {
-      demand(!world.combat?.participants.includes(id), msg.kind === 'train' ? '戰鬥中無法分配技能點。' : '戰鬥中無法分配屬性點。')
-      const result = msg.kind === 'train' ? trainSkill(actor.character, msg.skill) : allocatePoint(actor.character, msg.attr)
+    if (msg.kind === 'allocate' || msg.kind === 'train' || msg.kind === 'learnTalents' || msg.kind === 'refundTalent' || msg.kind === 'resetTalents') {
+      demand(!world.combat?.participants.includes(id), msg.kind === 'train' ? '戰鬥中無法分配技能點。' : msg.kind === 'allocate' ? '戰鬥中無法分配屬性點。' : '戰鬥中不能調整天賦。')
+      const c = actor.character
+      const result = msg.kind === 'train' ? trainSkill(c, msg.skill) : msg.kind === 'allocate' ? allocatePoint(c, msg.attr)
+        : msg.kind === 'learnTalents' ? learnTalents(c, msg.ids) : msg.kind === 'refundTalent' ? refundTalent(c, msg.id) : resetTalents(c)
       demand(!result.rejected, result.text)
       this.store.transaction(() => {
         world.version++
@@ -560,6 +564,8 @@ export class Game {
     }
     return {
       actor: c.name, race: c.race + '（' + traitOf(c).perk + '）', job: professions[c.profession].label, place: locations[c.place], ...navigation,
+      // The named talents (not the small ones), so the narrator can colour a blow or a feat with them.
+      talents: [...ownedTalents(c)].map(t => talentNodes.get(t)!).filter(t => t.kind === 'notable' || t.kind === 'keystone').map(t => t.name),
       local,
       ...(world.ship?.name && { ourShip: world.ship.name }),
       ...warContext(world, c.place),

@@ -1,4 +1,5 @@
 // What every skill does in the rules, how high it may grow, and the helpers the life skills need.
+import { rankOf } from './talents.ts'
 import type { Attribute, LocationId, Skill } from '../shared/protocol.ts'
 import type { Character, World } from './village.ts'
 
@@ -50,13 +51,13 @@ const presentAt = (world: World, place: LocationId) =>
 
 /** The best cook on the spot, if anyone there can cook. */
 export function cookAt(world: World, place: LocationId) {
-  const cooks = presentAt(world, place).filter(c => (c.skillRanks['烹飪'] ?? 0) > 0)
-  return cooks.sort((a, b) => (b.skillRanks['烹飪'] ?? 0) - (a.skillRanks['烹飪'] ?? 0))[0]
+  const cooks = presentAt(world, place).filter(c => rankOf(c, '烹飪') > 0)
+  return cooks.sort((a, b) => rankOf(b, '烹飪') - rankOf(a, '烹飪'))[0]
 }
 
 /** Someone on the spot with 醫術 2 or more looks after the sleepers, like a ship's doctor would. */
-export const doctorAt = (world: World, place: LocationId) => presentAt(world, place).some(c => (c.skillRanks['醫術'] ?? 0) >= 2)
+export const doctorAt = (world: World, place: LocationId) => presentAt(world, place).some(c => rankOf(c, '醫術') >= 2)
 
 /** The best 航海 rank in the party: each rank shortens a voyage by 3%. */
 export const navigatorRank = (world: World) =>
-  Math.max(0, ...world.members.filter(m => m.character && !m.pendingJoin).map(m => m.character!.skillRanks['航海'] ?? 0))
+  Math.max(0, ...world.members.filter(m => m.character && !m.pendingJoin).map(m => rankOf(m.character!, '航海')))
