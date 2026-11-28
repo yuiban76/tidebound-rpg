@@ -81,7 +81,7 @@ const Edges = memo(function Edges({ states }: { states: Map<string, State>, stam
   })}</g>
 })
 
-/** The nodes. One listener on the layer finds which node was hit, so 500 nodes do not need 500 handlers. */
+/** The nodes. One listener on the layer finds which node was hit, so 1000 nodes do not need 1000 handlers. */
 const Nodes = memo(function Nodes({ states, matches, fresh }: { states: Map<string, State>, stamp: string, matches: Set<string> | null, fresh: Map<string, number> }) {
   return <g className="tf-nodes" data-searching={matches ? '' : undefined}>
     {/* Learned nodes glow through one shared blur. */}

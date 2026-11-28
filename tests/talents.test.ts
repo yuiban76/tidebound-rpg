@@ -1,4 +1,4 @@
-// 天賦林: 500 nodes, three points a level, learned outward from the job's start; the haki sea opens after the two years.
+// 天賦林: 1000 nodes, three points a level, learned outward from the job's start; the haki sea opens after the two years.
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { Game } from '../apps/host/game.ts'
@@ -38,10 +38,14 @@ function brawl(world: World) {
 /** Learns everything on the way to a node. */
 const reach = (c: Character, id: string) => learnTalents(c, pathTo(c, id))
 
-test('天賦林剛好 500 個節點：連線雙向、每個節點都連得到，效果只用規則看得懂的鍵', () => {
+test('天賦林剛好 1000 個節點：連線雙向、每個節點都連得到，效果只用規則看得懂的鍵', () => {
+  assert.equal(talentList.length, 1000)
   assert.equal(talentList.length, talentTotal)
   const kinds = Object.groupBy(talentList, n => n.kind)
-  assert.deepEqual([kinds.root?.length, kinds.notable?.length, kinds.keystone?.length, kinds.minor?.length], [10, 124, 21, 345])
+  assert.deepEqual([kinds.root?.length, kinds.notable?.length, kinds.keystone?.length, kinds.minor?.length], [10, 177, 22, 791])
+  const scopes = new Set(['melee', 'ranged', 'unarmed', 'armed', 'fist', 'kick', 'sword', 'spear', 'staff', 'heavy', 'musket', 'sling', 'bow'])
+  for (const node of talentList) for (const key of Object.keys(node.fx))
+    if (key.includes('@')) assert.ok(scopes.has(key.split('@')[1]), node.id + ' 指定了不存在的武器群組 ' + key)
   for (const node of talentList) for (const other of node.links) assert.ok(talentNodes.get(other)?.links.includes(node.id), node.id + '→' + other)
   const seen = new Set(['job.fighter'])
   const queue = ['job.fighter']
@@ -52,6 +56,48 @@ test('天賦林剛好 500 個節點：連線雙向、每個節點都連得到，
     assert.ok(known.has(key.split('@')[0]) || /^(attr|skill):/.test(key), node.id + ' 用了未知的效果 ' + key)
   // Nodes never sit on top of each other.
   for (const a of talentList) for (const b of talentList) if (a.id < b.id) assert.ok(Math.hypot(a.x - b.x, a.y - b.y) >= 24, a.id + ' / ' + b.id)
+})
+
+/** Steps between two nodes, walking the links. */
+function steps(from: string) {
+  const seen = new Map([[from, 0]])
+  const queue = [from]
+  for (let i = 0; i < queue.length; i++) for (const next of talentNodes.get(queue[i])!.links)
+    if (!seen.has(next)) { seen.set(next, seen.get(queue[i])! + 1); queue.push(next) }
+  return seen
+}
+
+test('天賦林是一張網：只有終極天賦是盡頭、到處都有環路、相鄰海域直接相通、相鄰武器路隔不遠', () => {
+  const ends = talentList.filter(node => node.links.length === 1)
+  assert.deepEqual(ends.filter(node => node.kind !== 'keystone').map(node => node.id), [], '死路只能是終極天賦')
+  const edges = talentList.reduce((sum, node) => sum + node.links.length, 0) / 2
+  assert.ok(edges - talentList.length + 1 >= 250, '至少 250 個獨立環路，現在 ' + (edges - talentList.length + 1))
+  const between = (a: string, b: string) => talentList.filter(node => node.region === a && node.links.some(id => talentNodes.get(id)!.region === b)).length
+  for (const [a, b] of [['combat', 'grit'], ['grit', 'fruit'], ['fruit', 'sea'], ['sea', 'haki'], ['haki', 'combat']])
+    assert.ok(between(a, b) >= 4, a + ' 和 ' + b + ' 之間只有 ' + between(a, b) + ' 條直接連線')
+  // Every named ability of a combat road is at most six steps from one on the road beside it.
+  const order = ['w.sling', 'w.bow', 'c.ranged', 'w.musket', 'c.core', 'w.sword', 'w.spear', 'c.armed', 'w.staff', 'w.heavy', 'c.melee', 'w.kick', 'c.unarmed', 'w.fist']
+  const named = (route: string) => talentList.filter(node => node.route === route && node.kind !== 'minor')
+  for (let i = 0; i + 1 < order.length; i++) for (const node of named(order[i])) {
+    const away = steps(node.id)
+    const nearest = Math.min(...named(order[i + 1]).map(other => away.get(other.id)!))
+    assert.ok(nearest <= 6, node.id + ' 離 ' + order[i + 1] + ' 最近的能力有 ' + nearest + ' 步')
+  }
+  assert.ok(steps('k.sniper').get('k.swordsman')! <= 8, '狙擊之王和劍豪之道不再隔著半座森林')
+})
+
+test('共用樞紐：準星對火槍、彈弓、弓都有效；兵器握法對刀、槍、棍、斧有效；拳腳和近戰也各有共用的能力', () => {
+  const { c } = hero(30)
+  reach(c, 'r.sight')
+  for (const weapon of ['musket', 'sling', 'bow'] as const) assert.ok(fxOf(c, 'hit', weapon) - fxOf(c, 'hit', 'sword') >= 1, '準星對' + weapon + '有效')
+  const { c: blade } = hero(30)
+  reach(blade, 'a.grip')
+  for (const weapon of ['sword', 'spear', 'staff', 'heavy'] as const) assert.ok(fxOf(blade, 'hit', weapon) > fxOf(blade, 'hit', 'fist'), '兵器握法對' + weapon + '有效')
+  assert.equal(fxOf(blade, 'hit', 'musket'), fxOf(blade, 'hit', 'fist'), '兵器握法對射擊和徒手無效')
+  const { c: brawler } = hero(30)
+  reach(brawler, 'm.grapple')
+  assert.equal(fxOf(brawler, 'hit', 'kick') - fxOf(brawler, 'hit', 'musket'), fxOf(brawler, 'hit', 'heavy') - fxOf(brawler, 'hit', 'musket'), '近身纏鬥對所有近戰一樣有效')
+  assert.ok(fxOf(brawler, 'hit', 'kick') > fxOf(brawler, 'hit', 'bow'))
 })
 
 test('每升 1 級得 3 點；只能學連到已學會的天賦，點數不夠就不能學，一條路線要嘛全學、要嘛都不學', () => {
@@ -109,7 +155,8 @@ test('屬性之門讓屬性 +1；HP 和 STA 的天賦會讓上限跟著變，學
   const str = stat(c, 'STR')
   reach(c, 'attr.STR')
   assert.equal(stat(c, 'STR'), str + 1)
-  const { c: other } = hero(10)
+  // Keystones lie at the far end of their roads: about thirty steps out from a start.
+  const { c: other } = hero(15)
   const path = pathTo(other, 'k.unbowed')
   learnTalents(other, path.slice(0, -1))
   const [before, full] = [maxHP(other), other.hp === maxHP(other)]

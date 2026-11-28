@@ -1,4 +1,4 @@
-// The talent forest: 500 nodes on one sea chart. Every level pays three talent points; a node can be learned once it
+// The talent forest: 1000 nodes on one sea chart. Every level pays three talent points; a node can be learned once it
 // touches something already learned. The job's start, the fruit's start (once a fruit is eaten) and the haki start
 // (after the two years) are free and count as starting points. Minor nodes add a little; notables have names and rules;
 // keystones are the strongest and cost something, and only one may be taken in each sea.
@@ -8,7 +8,7 @@ import type { FruitKind } from './fruits.ts'
 import type { Character } from './village.ts'
 
 export const talentsPerLevel = 3
-export const talentTotal = 500
+export const talentTotal = 1000
 /** Learning everything again is free one node at a time; wiping the whole forest at once costs this much per level. */
 export const resetPricePerLevel = 10_000
 /** Keystones that need the character to have grown far. */
@@ -59,7 +59,10 @@ export const fxKeys = [
 export const meleeWeapons: readonly Weapon[] = ['fist', 'kick', 'sword', 'spear', 'staff', 'heavy']
 export const rangedWeapons: readonly Weapon[] = ['musket', 'sling', 'bow']
 /** The groups a weapon belongs to, for narrowed keys. */
-export const weaponScopes = (weapon: Weapon) => [weapon, meleeWeapons.includes(weapon) ? 'melee' : 'ranged', ...(weapon === 'fist' || weapon === 'kick' ? ['unarmed'] : [])]
+export const armedWeapons: readonly Weapon[] = ['sword', 'spear', 'staff', 'heavy']
+/** The groups a weapon belongs to, for narrowed keys: `ranged` (shooting), `melee`, and within melee `unarmed` or `armed`. */
+export const weaponScopes = (weapon: Weapon) => [weapon, meleeWeapons.includes(weapon) ? 'melee' : 'ranged',
+  ...(weapon === 'fist' || weapon === 'kick' ? ['unarmed'] : armedWeapons.includes(weapon) ? ['armed'] : [])]
 
 export const regionInfo: Record<TalentRegion, { label: string, colour: string, about: string }> = {
   start: { label: '舵輪', colour: '#e0b35a', about: '每個職業的起點和六屬性之門' },
@@ -242,57 +245,146 @@ const named: Record<string, Named> = {
   'h.king': notable('王者風範', '邀請夥伴、說服類判定 +2。', { recruit: 2, persuade: 2 }),
   'k.conqCoat': keystone('霸王色纏繞', '傷害 +4，打有霸氣的對手時再 +2。代價：每次攻擊多花 3 STA。需要 40 級。', { dmg: 4, vsHakiDmg: 2, staAttack: 3 }, { conqueror: true, level: awakeningLevel }),
   'k.fullHaki': keystone('霸氣全開', '武裝色、見聞色的等級 ×1.5。代價：每場戰鬥結束時 STA 歸零。', { hakiMult: 50, hakiDrain: 1 }),
+  'h.basics': notable('霸氣的基本功', '命中 +1；每次受到的傷害 −1。', { hit: 1, dr: 1 }),
+  'h.breath': notable('霸氣的呼吸', 'STA 上限 +4；休息、睡覺時多回復 1 STA。', { sta: 4, restSta: 1 }),
+  'h.sense': notable('霸氣感應', '攻擊有霸氣的對手時命中 +1；搜索判定 +1。', { vsHakiHit: 1, search: 1 }),
+
+  // Shared hubs in the combat sea: one ability for every weapon of a kind, between the roads it serves.
+  'r.sight': notable('準星', '所有射擊武器（火槍、彈弓、弓）命中 +1。', { 'hit@ranged': 1 }),
+  'r.pierce': notable('穿透射擊', '射擊無視 1 點護甲。', { 'pierce@ranged': 1 }),
+  'r.weak': notable('瞄準要害', '射擊骰出 19 也算爆擊。', { 'crit@ranged': 1 }),
+  'r.rhythm': notable('連射的節奏', '射擊的連續攻擊少花 1 STA。', { 'staFlurry@ranged': 1 }),
+  'r.first': notable('先發制人', '每場戰鬥第一回合射擊命中 +2。', { 'firstRoundHit@ranged': 2 }),
+  'a.grip': notable('兵器握法', '持兵器（刀劍、長槍、鐵棍、大斧）命中 +1。', { 'hit@armed': 1 }),
+  'a.edge': notable('磨利的鋒刃', '持兵器傷害 +2。', { 'dmg@armed': 2 }),
+  'a.parry': notable('招架', '持兵器時防禦 +1。', { 'def@armed': 1 }),
+  'a.swing': notable('全力揮擊', '持兵器的強力攻擊傷害再 +2。', { 'powerDmg@armed': 2 }),
+  'a.split': notable('劈甲', '持兵器攻擊無視 1 點護甲。', { 'pierce@armed': 1 }),
+  'k.master': keystone('武器大師', '持兵器時命中 +1、傷害 +2，骰出 19 也算爆擊。代價：徒手、腿技和射擊傷害 −4。',
+    { 'hit@armed': 1, 'dmg@armed': 2, 'crit@armed': 1, 'dmg@unarmed': -4, 'dmg@ranged': -4 }),
+  'u.combo': notable('拳腳連打', '徒手或腿技的連續攻擊每擊傷害 +1。', { 'flurryDmg@unarmed': 1 }),
+  'u.close': notable('貼身防禦', '徒手或腿技時防禦 +1。', { 'def@unarmed': 1 }),
+  'u.vital': notable('打要害', '徒手或腿技骰出 19 也算爆擊。', { 'crit@unarmed': 1 }),
+  'u.shock': notable('震擊', '徒手或腿技命中時，10% 機率讓對手愣住、這回合無法出手。', { 'aweOnHit@unarmed': 10 }),
+  'u.burst': notable('爆發力', '徒手或腿技的強力攻擊傷害再 +2。', { 'powerDmg@unarmed': 2 }),
+  'm.grapple': notable('近身纏鬥', '所有近戰（兵器和拳腳）命中 +1。', { 'hit@melee': 1 }),
+  'm.opening': notable('搶攻', '每場戰鬥第一次近戰命中，傷害 +2。', { 'openingDmg@melee': 2 }),
+  'm.step': notable('步法', '近戰時防禦 +1。', { 'def@melee': 1 }),
+  'm.crush': notable('擊碎', '近戰爆擊時再多擲一顆傷害骰。', { 'critDice@melee': 1 }),
+  'm.press': notable('步步進逼', '近戰傷害 +8%。', { 'dmgPct@melee': 8 }),
+
+  // Hubs in the other seas: abilities that serve two roads at once.
+  's.order': notable('號令', '開砲命中 +1；同地夥伴命中 +1。', { cannonHit: 1, allyHit: 1 }),
+  's.together': notable('齊心協力', '每場戰鬥第一回合，同地全隊防禦 +1；同地夥伴傷害 +1。', { round1AuraDef: 1, allyDmg: 1 }),
+  's.back': notable('船長的背影', '邀請夥伴的判定 +1；夥伴傷害 +5%。', { recruit: 1, allyDmgPct: 5 }),
+  's.plan': notable('戰術板', '每場戰鬥第一回合命中 +1；開砲傷害 +1。', { firstRoundHit: 1, cannonDmg: 1 }),
+  'g.calm': notable('沉著', '防禦 +1；每次受到的傷害 −1。', { def: 1, dr: 1 }),
+  'g.grit': notable('咬牙撐住', 'HP 低於 25% 時防禦 +1；上一回合沒被打中時回復 2% HP。', { lowHpDef: 1, regen: 2 }),
+  'g.recover': notable('恢復力', '休息、睡覺的回復量 +15%；包紮回復 +10%。', { restPct: 15, healPct: 10 }),
+  'g.thick': notable('皮粗肉厚', 'HP 上限 +6%。', { hpPct: 6 }),
+  'f.blend': notable('果實與武藝', '果實招式傷害 +1；所有攻擊傷害 +1。', { fruitDmg: 1, dmg: 1 }),
+  'f.pace': notable('能力的節奏', '果實招式傷害 +6%；STA 上限 +3。', { fruitDmgPct: 6, sta: 3 }),
+
+  // Borders: where two seas meet, abilities that belong to both.
+  'b.trade': notable('以傷換傷', 'HP 低於一半時傷害 +2；HP 低於 25% 時防禦 +1。', { lowHpDmg: 2, lowHpDef: 1 }),
+  'b.guardstrike': notable('守中帶攻', '防守架勢的防禦加成 +1；對手打空你之後，下一擊命中 +1。', { guard: 1, missHit: 1 }),
+  'b.patchup': notable('包紮後再上', '戰鬥中包紮回復 +30%；每場戰鬥第一回合防禦 +1。', { fieldHealPct: 30, firstRoundDef: 1 }),
+  'b.hardy': notable('硬底子', '每次受到的傷害 −1；傷害 +1。', { dr: 1, dmg: 1 }),
+  'b.vessel': notable('能力者的體質', 'HP 上限 +4%；果實招式命中 +1。', { hpPct: 4, fruitHit: 1 }),
+  'b.ballast': notable('壓艙石', '在海上戰鬥時，能力者的防禦懲罰少 1；船受到的損傷 −5%。', { seaGuard: 1, wearPct: -5 }),
+  'b.mend': notable('自癒', '上一回合沒被打中時回復 2% HP；吃東西的回復量 +10%。', { regen: 2, cookPct: 10 }),
+  'b.wild': notable('野外求生', '採集時草藥多 1 份；HP 上限 +3%。', { herb: 1, hpPct: 3 }),
+  'b.seaborn': notable('海上的能力者', '航程時間 −5%；果實招式傷害 +1。', { voyagePct: -5, fruitDmg: 1 }),
+  'b.drift': notable('漂流者', '海戰中甩開對手的判定 +2；在海上戰鬥時，能力者的防禦懲罰少 1。', { flee: 2, seaGuard: 1 }),
+  'b.legend': notable('傳說的果實', '觀察類的自由行動判定 +1；果實招式傷害 +4%。', { observe: 1, fruitDmgPct: 4 }),
+  'b.market': notable('黑市門路', '賣東西給行商多拿 10%；果實招式命中 +1。', { sellPct: 10, fruitHit: 1 }),
+  'b.gaze': notable('霸氣的眼神', '交涉判定 +2；觀察類的自由行動判定 +2。', { negotiate: 2, observe: 2 }),
+  'b.voice': notable('萬物之聲', '航行遇上麻煩的機會降低一級；搜索判定 +1。', { lookout: 1, search: 1 }),
+  'b.presence': notable('存在感', '說服類判定 +1；同地夥伴命中 +1。', { persuade: 1, allyHit: 1 }),
+  'b.weather': notable('風的預感', '航程時間 −5%；每場戰鬥第一回合防禦 +1。', { voyagePct: -5, firstRoundDef: 1 }),
+  'b.will': notable('戰意', '命中 +1；攻擊有霸氣的對手時命中再 +1。', { hit: 1, vsHakiHit: 1 }),
+  'b.forged': notable('鍛鍊的拳頭', '徒手或腿技時，武裝色每級傷害再 +1。', { 'armamentDmg@unarmed': 1 }),
+  'b.edgeHaki': notable('刃上的氣', '持兵器時，武裝色每級傷害再 +1。', { 'armamentDmg@armed': 1 }),
+  'b.arrowHaki': notable('箭上的氣', '射擊時，武裝色每級傷害再 +1。', { 'armamentDmg@ranged': 1 }),
 }
 
 type Minor = [string, Fx]
-type Route = { id: string, region: TalentRegion, items: string[], minors: Minor[], gap: number, need?: Need }
+/** `entry`: the sea's entrance opens onto this road (otherwise onto the middle roads). */
+type Route = { id: string, region: TalentRegion, items: string[], minors: Minor[], gap: number, need?: Need, entry?: true }
 
 const weaponLabel: Record<Weapon, string> = { fist: '徒手', kick: '腿技', sword: '刀劍', spear: '長槍', staff: '鐵棍', heavy: '大斧', musket: '火槍', sling: '彈弓', bow: '弓' }
 const weaponRoad = (weapon: Weapon, items: string[]): Route => ({
   id: 'w.' + weapon, region: 'combat', items, gap: 2,
-  minors: [[weaponLabel[weapon] + '傷害 +5%', { ['dmgPct@' + weapon]: 5 }], ['STA 上限 +1', { sta: 1 }]],
+  minors: [[weaponLabel[weapon] + '傷害 +5%', { ['dmgPct@' + weapon]: 5 }], ['STA 上限 +1', { sta: 1 }], ['HP 上限 +1%', { hpPct: 1 }]],
 })
+/** A shared hub: its small nodes help every weapon of the group, so switching weapons inside it wastes nothing. */
+const hub = (id: string, scope: string, label: string, items: string[]): Route => ({
+  id, region: 'combat', items, gap: 2,
+  minors: [[label + '傷害 +3%', { ['dmgPct@' + scope]: 3 }], ['STA 上限 +1', { sta: 1 }], [label + '傷害 +2%、HP 上限 +1%', { ['dmgPct@' + scope]: 2, hpPct: 1 }]],
+})
+/**
+ * Each sea's roads in the order they lie on the chart. Hubs sit between the roads they serve: 射擊 among the guns and bows,
+ * 兵器 among the blades and staves, 拳腳 between kick and fist, and 近戰 where the armed and unarmed roads meet.
+ */
 const routes: Route[] = [
-  // Combat: the shared road in the middle of the sea, the attack methods fanned on both sides.
-  weaponRoad('musket', ['w.musket.quick', 'w.musket.ap', 'w.musket.save', 'k.sniper']),
-  weaponRoad('bow', ['w.bow.draw', 'w.bow.rapid', 'w.bow.far']),
+  // Combat
   weaponRoad('sling', ['w.sling.sure', 'w.sling.spread', 'w.sling.powder']),
+  weaponRoad('bow', ['w.bow.draw', 'w.bow.rapid', 'w.bow.far']),
+  hub('c.ranged', 'ranged', '射擊', ['r.sight', 'r.pierce', 'r.weak', 'r.rhythm', 'r.first', 'k.sniper']),
+  weaponRoad('musket', ['w.musket.quick', 'w.musket.ap', 'w.musket.save']),
+  { id: 'c.core', region: 'combat', entry: true, items: ['c.instinct', 'c.technique', 'c.power', 'c.flurry', 'c.crit', 'c.deadly', 'k.allout'], gap: 2,
+    minors: [['傷害 +3%', { dmgPct: 3 }], ['STA 上限 +1', { sta: 1 }], ['傷害 +1%、HP 上限 +1%', { dmgPct: 1, hpPct: 1 }]] },
   weaponRoad('sword', ['w.sword.iron', 'w.sword.draw', 'w.sword.two', 'k.swordsman']),
-  { id: 'c.core', region: 'combat', items: ['c.instinct', 'c.technique', 'c.power', 'c.flurry', 'c.crit', 'c.deadly', 'k.allout'], gap: 2,
-    minors: [['傷害 +3%', { dmgPct: 3 }], ['STA 上限 +1', { sta: 1 }]] },
   weaponRoad('spear', ['w.spear.thrust', 'w.spear.reach', 'w.spear.pierce']),
+  hub('c.armed', 'armed', '兵器', ['a.grip', 'a.edge', 'a.parry', 'a.swing', 'a.split', 'k.master']),
   weaponRoad('staff', ['w.staff.art', 'w.staff.point', 'w.staff.spin']),
   weaponRoad('heavy', ['w.heavy.brawn', 'w.heavy.cleave', 'w.heavy.quake', 'k.berserk']),
+  hub('c.melee', 'melee', '近戰', ['m.grapple', 'm.opening', 'm.step', 'm.crush', 'm.press']),
   weaponRoad('kick', ['w.kick.steel', 'w.kick.spin', 'w.kick.step']),
+  hub('c.unarmed', 'unarmed', '拳腳', ['u.combo', 'u.close', 'u.vital', 'u.shock', 'u.burst']),
   weaponRoad('fist', ['w.fist.iron', 'w.fist.weight', 'w.fist.chain', 'k.body']),
   // Grand Line
-  { id: 's.sail', region: 'sea', items: ['s.weather', 's.wind', 's.escape', 's.helm', 'k.wander'], gap: 3, minors: [['航程時間 −2%', { voyagePct: -2 }], ['STA 上限 +1', { sta: 1 }]] },
-  { id: 's.guns', region: 'sea', items: ['s.gunner', 's.heavygun', 's.aim', 's.broadside'], gap: 3, minors: [['開砲傷害 +5%', { cannonDmgPct: 5 }], ['HP 上限 +2%', { hpPct: 2 }]] },
-  { id: 's.talk', region: 'sea', items: ['s.tongue', 's.threat', 's.friends', 's.news', 'k.peace'], gap: 3, minors: [['委託 XP +3%', { questXpPct: 3 }], ['STA 上限 +1', { sta: 1 }]] },
-  { id: 's.gold', region: 'sea', items: ['s.haggle', 's.treasure', 's.trader', 's.hunter', 'k.gold'], gap: 3, minors: [['貝里收入 +2%', { beliPct: 2 }], ['商店價格 −1%', { shopPct: -1 }]] },
-  { id: 's.crew', region: 'sea', items: ['s.popular', 's.captain', 's.trust', 's.bond', 'k.flag'], gap: 3, minors: [['夥伴傷害 +3%', { allyDmgPct: 3 }], ['HP 上限 +2%', { hpPct: 2 }]] },
+  { id: 's.sail', region: 'sea', items: ['s.weather', 's.wind', 's.escape', 's.helm', 'k.wander'], gap: 3, minors: [['航程時間 −2%', { voyagePct: -2 }], ['STA 上限 +1', { sta: 1 }], ['航程時間 −1%、HP 上限 +1%', { voyagePct: -1, hpPct: 1 }]] },
+  { id: 's.guns', region: 'sea', items: ['s.gunner', 's.heavygun', 's.aim', 's.broadside'], gap: 3, minors: [['開砲傷害 +5%', { cannonDmgPct: 5 }], ['HP 上限 +2%', { hpPct: 2 }], ['船受到的損傷 −2%', { wearPct: -2 }]] },
+  { id: 's.command', region: 'sea', items: ['s.order', 's.together', 's.back', 's.plan'], gap: 3, minors: [['夥伴傷害 +2%、開砲傷害 +2%', { allyDmgPct: 2, cannonDmgPct: 2 }], ['STA 上限 +1', { sta: 1 }], ['HP 上限 +1%', { hpPct: 1 }]] },
+  { id: 's.crew', region: 'sea', items: ['s.popular', 's.captain', 's.trust', 's.bond', 'k.flag'], gap: 3, minors: [['夥伴傷害 +3%', { allyDmgPct: 3 }], ['HP 上限 +2%', { hpPct: 2 }], ['委託 XP +2%', { questXpPct: 2 }]] },
+  { id: 's.talk', region: 'sea', items: ['s.tongue', 's.threat', 's.friends', 's.news', 'k.peace'], gap: 3, minors: [['委託 XP +3%', { questXpPct: 3 }], ['STA 上限 +1', { sta: 1 }], ['商店價格 −1%', { shopPct: -1 }]] },
+  { id: 's.gold', region: 'sea', items: ['s.haggle', 's.treasure', 's.trader', 's.hunter', 'k.gold'], gap: 3, minors: [['貝里收入 +2%', { beliPct: 2 }], ['商店價格 −1%', { shopPct: -1 }], ['賣價 +2%', { sellPct: 2 }]] },
   // Unbowed sea
-  { id: 'g.body', region: 'grit', items: ['g.steel', 'g.wall', 'g.counter', 'g.stubborn', 'k.rock'], gap: 2, minors: [['HP 上限 +2%', { hpPct: 2 }], ['受到的傷害 −1%', { drPct: 1 }]] },
-  { id: 'g.dodge', region: 'grit', items: ['g.swallow', 'g.critguard', 'g.shadow', 'g.reflex', 'k.unbowed'], gap: 2, minors: [['受到的傷害 −1%', { drPct: 1 }], ['STA 上限 +1', { sta: 1 }]] },
-  { id: 'g.medic', region: 'grit', items: ['g.first', 'g.cure', 'g.field', 'g.herbs', 'k.angel'], gap: 2, minors: [['包紮回復 +5%', { healPct: 5 }], ['HP 上限 +2%', { hpPct: 2 }]] },
-  { id: 'g.food', region: 'grit', items: ['g.glutton', 'g.feast', 'g.bento', 'g.diet', 'k.fury'], gap: 2, minors: [['料理回復 +5%', { cookPct: 5 }], ['STA 上限 +1', { sta: 1 }]] },
-  { id: 'g.ship', region: 'grit', items: ['g.patch', 'g.refit', 'g.timber', 'g.keel'], gap: 2, minors: [['船受到的損傷 −2%', { wearPct: -2 }], ['HP 上限 +2%', { hpPct: 2 }]] },
-  // Devil fruit: each kind of fruit has its own road
+  { id: 'g.body', region: 'grit', items: ['g.steel', 'g.wall', 'g.counter', 'g.stubborn', 'k.rock'], gap: 2, minors: [['HP 上限 +2%', { hpPct: 2 }], ['受到的傷害 −1%', { drPct: 1 }], ['STA 上限 +1', { sta: 1 }]] },
+  { id: 'g.tough', region: 'grit', items: ['g.calm', 'g.grit', 'g.recover', 'g.thick'], gap: 2, minors: [['HP 上限 +2%', { hpPct: 2 }], ['休息回復 +3%', { restPct: 3 }], ['受到的傷害 −1%', { drPct: 1 }]] },
+  { id: 'g.dodge', region: 'grit', items: ['g.swallow', 'g.critguard', 'g.shadow', 'g.reflex', 'k.unbowed'], gap: 2, minors: [['受到的傷害 −1%', { drPct: 1 }], ['STA 上限 +1', { sta: 1 }], ['HP 上限 +1%', { hpPct: 1 }]] },
+  { id: 'g.medic', region: 'grit', items: ['g.first', 'g.cure', 'g.field', 'g.herbs', 'k.angel'], gap: 2, minors: [['包紮回復 +5%', { healPct: 5 }], ['HP 上限 +2%', { hpPct: 2 }], ['藥的回復 +5%', { potionPct: 5 }]] },
+  { id: 'g.food', region: 'grit', items: ['g.glutton', 'g.feast', 'g.bento', 'g.diet', 'k.fury'], gap: 2, minors: [['料理回復 +5%', { cookPct: 5 }], ['STA 上限 +1', { sta: 1 }], ['休息回復 +3%', { restPct: 3 }]] },
+  { id: 'g.ship', region: 'grit', items: ['g.patch', 'g.refit', 'g.timber', 'g.keel'], gap: 2, minors: [['船受到的損傷 −2%', { wearPct: -2 }], ['HP 上限 +2%', { hpPct: 2 }], ['修船 +3', { repair: 3 }]] },
+  // Devil fruit: each kind of fruit has its own road; the shared ones lie in the middle.
   { id: 'f.para', region: 'fruit', items: ['p.apply', 'p.extend', 'p.control', 'p.body', 'k.awakenP'], gap: 2, need: { fruit: 'paramecia' }, minors: [['果實招式傷害 +4%', { fruitDmgPct: 4 }], ['HP 上限 +2%', { hpPct: 2 }]] },
   { id: 'f.core', region: 'fruit', items: ['f.develop', 'f.skill', 'f.resist', 'k.symbiosis'], gap: 2, need: { fruit: 'any' }, minors: [['果實招式傷害 +4%', { fruitDmgPct: 4 }], ['STA 上限 +1', { sta: 1 }]] },
+  { id: 'f.shared', region: 'fruit', items: ['f.blend', 'f.pace'], gap: 3, need: { fruit: 'any' }, minors: [['果實招式傷害 +3%、傷害 +1%', { fruitDmgPct: 3, dmgPct: 1 }], ['HP 上限 +2%', { hpPct: 2 }]] },
   { id: 'f.zoan', region: 'fruit', items: ['z.wild', 'z.beast', 'z.sense', 'z.hybrid', 'k.awakenZ'], gap: 2, need: { fruit: 'zoan' }, minors: [['HP 上限 +2%', { hpPct: 2 }], ['傷害 +3%', { dmgPct: 3 }]] },
   { id: 'f.logia', region: 'fruit', items: ['l.phase', 'l.surge', 'l.disaster', 'l.mend', 'k.awakenL'], gap: 2, need: { fruit: 'logia' }, minors: [['果實招式傷害 +4%', { fruitDmgPct: 4 }], ['受到的傷害 −1%', { drPct: 1 }]] },
   // Haki
-  { id: 'h.arm', region: 'haki', items: ['ha.2', 'h.harden', 'ha.3', 'h.coat', 'ha.4', 'h.black', 'ha.5', 'h.fist', 'ha.6', 'h.clash', 'k.ryuo'], gap: 1, need: { trained: true }, minors: [['傷害 +2%', { dmgPct: 2 }]] },
-  { id: 'h.all', region: 'haki', items: ['k.fullHaki'], gap: 3, need: { trained: true }, minors: [['HP 上限 +2%', { hpPct: 2 }]] },
+  { id: 'h.arm', region: 'haki', items: ['ha.2', 'h.harden', 'ha.3', 'h.coat', 'ha.4', 'h.black', 'ha.5', 'h.fist', 'ha.6', 'h.clash', 'k.ryuo'], gap: 1, need: { trained: true }, minors: [['傷害 +2%', { dmgPct: 2 }], ['HP 上限 +1%', { hpPct: 1 }]] },
+  { id: 'h.all', region: 'haki', items: ['h.basics', 'h.breath', 'h.sense', 'k.fullHaki'], gap: 2, need: { trained: true }, minors: [['HP 上限 +2%', { hpPct: 2 }], ['傷害 +1%、受到的傷害 −1%', { dmgPct: 1, drPct: 1 }]] },
   { id: 'h.conq', region: 'haki', items: ['h.conqueror', 'hc.sta', 'h.awe', 'h.wide', 'h.king', 'k.conqCoat'], gap: 2, need: { trained: true, conqueror: true }, minors: [['傷害 +2%', { dmgPct: 2 }], ['STA 上限 +1', { sta: 1 }]] },
-  { id: 'h.obs', region: 'haki', items: ['ho.2', 'h.read', 'ho.3', 'h.range', 'ho.4', 'h.mind', 'ho.5', 'h.weak', 'ho.6', 'h.field', 'k.future'], gap: 1, need: { trained: true }, minors: [['受到的傷害 −1%', { drPct: 1 }]] },
+  { id: 'h.obs', region: 'haki', items: ['ho.2', 'h.read', 'ho.3', 'h.range', 'ho.4', 'h.mind', 'ho.5', 'h.weak', 'ho.6', 'h.field', 'k.future'], gap: 1, need: { trained: true }, minors: [['受到的傷害 −1%', { drPct: 1 }], ['STA 上限 +1', { sta: 1 }]] },
+]
+
+type Sea = Exclude<TalentRegion, 'start'>
+/** Where two seas meet: a road of abilities that belong to both, joined to the nearest road on either side. */
+type Border = { id: string, region: TalentRegion, between: [Sea, Sea], items: string[], minors: Minor[] }
+const borders: Border[] = [
+  { id: 'b.grit.combat', region: 'grit', between: ['grit', 'combat'], items: ['b.trade', 'b.guardstrike', 'b.patchup', 'b.hardy'], minors: [['傷害 +1%、HP 上限 +1%', { dmgPct: 1, hpPct: 1 }], ['受到的傷害 −1%', { drPct: 1 }]] },
+  { id: 'b.fruit.grit', region: 'grit', between: ['fruit', 'grit'], items: ['b.vessel', 'b.ballast', 'b.mend', 'b.wild'], minors: [['HP 上限 +2%', { hpPct: 2 }], ['果實招式傷害 +2%、HP 上限 +1%', { fruitDmgPct: 2, hpPct: 1 }]] },
+  { id: 'b.sea.fruit', region: 'sea', between: ['sea', 'fruit'], items: ['b.seaborn', 'b.drift', 'b.legend', 'b.market'], minors: [['航程時間 −1%、HP 上限 +1%', { voyagePct: -1, hpPct: 1 }], ['STA 上限 +1', { sta: 1 }]] },
+  { id: 'b.haki.sea', region: 'sea', between: ['haki', 'sea'], items: ['b.gaze', 'b.voice', 'b.presence', 'b.weather'], minors: [['委託 XP +2%', { questXpPct: 2 }], ['HP 上限 +1%、受到的傷害 −1%', { hpPct: 1, drPct: 1 }]] },
+  { id: 'b.combat.haki', region: 'combat', between: ['combat', 'haki'], items: ['b.will', 'b.forged', 'b.edgeHaki', 'b.arrowHaki'], minors: [['傷害 +2%', { dmgPct: 2 }], ['STA 上限 +1', { sta: 1 }]] },
 ]
 
 /** Where each sea lies on the chart (degrees, 0 = east, clockwise) and how wide it is. */
-const sectors: Record<Exclude<TalentRegion, 'start'>, { centre: number, width: number }> = {
-  haki: { centre: -90, width: 56 }, sea: { centre: -27, width: 68 }, fruit: { centre: 34, width: 54 },
-  grit: { centre: 96, width: 70 }, combat: { centre: 188, width: 104 },
+const sectors: Record<Sea, { centre: number, width: number }> = {
+  haki: { centre: -90, width: 54 }, sea: { centre: -26, width: 70 }, fruit: { centre: 36, width: 46 },
+  grit: { centre: 95, width: 68 }, combat: { centre: 187, width: 108 },
 }
 /** The seas' wedges on the chart, for drawing. */
 export const talentSectors: Readonly<typeof sectors> = sectors
@@ -300,7 +392,16 @@ const jobAngles: Record<Profession, number> = { navigator: -42, archaeologist: -
 /** Each attribute gate hangs inside the wheel, behind one job's second notable. */
 const gates: [Attribute, Profession][] = [['INT', 'navigator'], ['PER', 'archaeologist'], ['WIL', 'musician'], ['CON', 'doctor'], ['AGI', 'sniper'], ['STR', 'fighter']]
 const ringRadius = 300
+/** The bearing of a sea's entrance: in front of its entry road, or the middle of the sea. */
+function entryAngle(region: Sea) {
+  const list = routes.filter(route => route.region === region)
+  const index = list.findIndex(route => route.entry)
+  const { centre, width } = sectors[region]
+  return index < 0 ? centre : centre + (index - (list.length - 1) / 2) * width / list.length
+}
 const step = 40
+/** Neighbouring roads of a sea cross every this many nodes, so each sea is a web, not a fan. */
+const ringEvery = 3
 
 function build() {
   const nodes = new Map<string, TalentNode>()
@@ -326,9 +427,19 @@ function build() {
     }
     link(last, b)
   }
+  /** Minors along a circle from a to b (angles in degrees, a before b), linked a → … → b. */
+  const arc = (id: string, a: string, from: number, b: string, to: number, r: number, count: number, region: TalentRegion, kinds: Minor[]) => {
+    let last = a
+    for (let k = 1; k <= count; k++) {
+      const next = minor(id + '.' + k, region, id, kinds[k % kinds.length], at(r, from + (to - from) * k / (count + 1)).x, at(r, from + (to - from) * k / (count + 1)).y)
+      link(last, next)
+      last = next
+    }
+    link(last, b)
+  }
   const pools: Minor[] = [['HP 上限 +2%', { hpPct: 2 }], ['STA 上限 +1', { sta: 1 }]]
 
-  // The wheel: one start for each job, joined in a ring; the job's two notables inside it.
+  // The wheel: one start for each job, joined in a ring; the job's two notables inside it, joined to each other.
   const jobs = (Object.keys(jobAngles) as Profession[]).sort((a, b) => jobAngles[a] - jobAngles[b])
   for (const job of jobs) {
     const [text, fx] = jobSkill[job]
@@ -338,6 +449,7 @@ function build() {
       add({ id, kind: 'notable', region: 'start', route: 'job.' + job, ...named[id], fx: named[id].fx, ...at(218, jobAngles[job] + offset) })
       link('job.' + job, id)
     }
+    link(job + '.a', job + '.b')
   }
   // The ring between starts; the long arc in the north passes the way to the haki sea.
   add({ id: 'ring.north', kind: 'minor', region: 'start', route: 'ring', name: 'HP 上限 +2%', text: 'HP 上限 +2%', fx: { hpPct: 2 }, ...at(ringRadius, -90) })
@@ -347,30 +459,28 @@ function build() {
     const [a, from] = ring[i]
     const [b, rawTo] = ring[(i + 1) % ring.length]
     const to = rawTo <= from ? rawTo + 360 : rawTo
-    const count = Math.max(1, Math.round((to - from) / 15) - 1)
-    let last = a
-    for (let k = 1; k <= count; k++) {
-      const id = 'ring.' + i + '.' + k
-      minor(id, 'start', 'ring', pools[(i + k) % 2], at(ringRadius, from + (to - from) * k / (count + 1)).x, at(ringRadius, from + (to - from) * k / (count + 1)).y)
-      link(last, id)
-      last = id
-    }
-    link(last, b)
+    arc('ring.' + i, a, from, b, to, ringRadius, Math.max(1, Math.round((to - from) / 15) - 1), 'start', pools)
   }
-  // Six attribute gates inside the wheel.
+  // Six attribute gates inside the wheel, on an inner ring of their own: walk from one gate to the next.
   for (const [attr, job] of gates) {
     const id = 'attr.' + attr
     add({ id, kind: 'notable', region: 'start', route: 'attr', name: attributeNames[attr] + '之門', text: attributeNames[attr] + ' +1。', fx: { ['attr:' + attr]: 1 }, ...at(128, jobAngles[job] + 15) })
     chain('attr.' + attr + '.road', job + '.b', id, 1, 'start', pools)
   }
+  const gateAngles = gates.map(([attr, job]) => ['attr.' + attr, jobAngles[job] + 15] as const).sort((a, b) => a[1] - b[1])
+  gateAngles.forEach(([a, from], i) => {
+    const [b, rawTo] = gateAngles[(i + 1) % gateAngles.length]
+    const to = rawTo <= from ? rawTo + 360 : rawTo
+    arc('gates.' + i, a, from, b, to, 128, Math.max(1, Math.round((to - from) / 30)), 'start', pools)
+  })
 
   // Each sea: an entrance (or a free start), then roads fanning outwards.
-  const entrance: Record<Exclude<TalentRegion, 'start'>, string> = { combat: 'gate.combat', sea: 'gate.sea', grit: 'gate.grit', fruit: 'root.fruit', haki: 'root.haki' }
+  const entrance: Record<Sea, string> = { combat: 'gate.combat', sea: 'gate.sea', grit: 'gate.grit', fruit: 'root.fruit', haki: 'root.haki' }
   add({ id: 'root.fruit', kind: 'root', region: 'fruit', route: 'fruit', name: '能力者', text: '吃下惡魔果實時免費得到，開啟這片海域。', fx: {}, need: { fruit: 'any' }, ...at(450, sectors.fruit.centre) })
   add({ id: 'root.haki', kind: 'root', region: 'haki', route: 'haki', name: '霸氣的修行', text: '兩年修行後免費得到：武裝色、見聞色各 1 級，開啟這片海域。', fx: {}, need: { trained: true }, ...at(450, sectors.haki.centre) })
   for (const region of ['combat', 'sea', 'grit'] as const)
-    add({ id: entrance[region], kind: 'minor', region, route: region, name: regionInfo[region].label + '入口', text: 'HP 上限 +2%', fx: { hpPct: 2 }, ...at(450, sectors[region].centre) })
-  const approaches: [Profession | 'ring.north', Exclude<TalentRegion, 'start'>][] = [
+    add({ id: entrance[region], kind: 'minor', region, route: region, name: regionInfo[region].label + '入口', text: 'HP 上限 +2%', fx: { hpPct: 2 }, ...at(450, entryAngle(region)) })
+  const approaches: [Profession | 'ring.north', Sea][] = [
     ['fighter', 'combat'], ['sniper', 'combat'], ['navigator', 'sea'], ['archaeologist', 'sea'], ['musician', 'fruit'],
     ['shipwright', 'grit'], ['doctor', 'grit'], ['cook', 'grit'], ['ring.north', 'haki'],
   ]
@@ -379,66 +489,102 @@ function build() {
     chain('way.' + from + '.' + region, start, entrance[region], 2, region === 'fruit' || region === 'haki' ? 'start' : region, pools)
   }
 
-  // Lay each road out; spare minors (to reach exactly 500) are added afterwards, one per road in turn.
+  /** Keystones and starts stay at the end of their road; everything else may be crossed to. */
+  const crossable = (id?: string) => !!id && nodes.get(id)!.kind !== 'keystone' && nodes.get(id)!.kind !== 'root'
+  /** A road's node at a row, or its outermost crossable node when the road is shorter. */
+  const rowOf = (ids: string[], k: number) => crossable(ids[k]) ? ids[k] : [...ids.slice(0, k + 1)].reverse().find(crossable)
+
+  // Lay each road out; spare minors (to reach exactly the total) go to the shortest roads afterwards, so the roads of a
+  // sea run about as far out as each other and the rings join them all the way.
   const layout = (extra: Map<string, number>) => {
-    const placed: TalentNode[] = []
-    const byRegion = new Map<string, Route[]>()
-    for (const route of routes) byRegion.set(route.region, [...byRegion.get(route.region) ?? [], route])
-    const ends = new Map<string, string[]>()
-    for (const [region, list] of byRegion) {
-      const sector = sectors[region as Exclude<TalentRegion, 'start'>]
-      list.forEach((route, index) => {
-        const angle = sector.centre + (index - (list.length - 1) / 2) * (sector.width / list.length)
-        const sequence: (string | Minor)[] = []
-        let spare = extra.get(route.id) ?? 0
-        route.items.forEach((item, i) => {
-          const gap = route.gap + (spare > 0 && i === route.items.length - 1 ? 1 : 0) + (spare > 1 && i === 0 ? 1 : 0)
-          if (gap > route.gap) spare -= gap - route.gap
-          for (let k = 0; k < gap; k++) sequence.push(route.minors[(sequence.length + index) % route.minors.length])
-          sequence.push(item)
-        })
-        for (; spare > 0; spare--) sequence.splice(Math.max(1, Math.floor(sequence.length / 2)), 0, route.minors[spare % route.minors.length])
-        // Open seas: the roads' first nodes form an arc that the entrance joins in the middle (walk along it to a far road).
-        // Seas with roads that need something (a kind of fruit, Conqueror's haki) join each road to the start instead.
-        const arc = !list.some(other => other.need)
-        const middle = [Math.floor((list.length - 1) / 2), Math.ceil((list.length - 1) / 2)]
-        let last = arc && !middle.includes(index) ? '' : entrance[region as Exclude<TalentRegion, 'start'>]
-        const ids: string[] = []
-        sequence.forEach((item, k) => {
-          const r = 530 + k * step
-          // Roads bend gently so the sea reads like currents, not spokes.
-          const bend = Math.sin(k * .32 + index * 1.7) * Math.min(4, 1 + k * .25) + (index - (list.length - 1) / 2) * k * .05
-          const { x, y } = at(r, angle + bend)
-          let id: string
-          if (typeof item === 'string') {
-            const n = named[item]
-            id = add({ id: item, kind: n.kind === 'keystone' ? 'keystone' : n.kind === 'minor' ? 'minor' : 'notable', region: route.region, route: route.id,
-              name: n.name, text: n.text, fx: n.fx, x, y, need: n.need || route.need ? { ...route.need, ...n.need } : undefined })
-          } else id = minor(route.id + '.' + k, route.region, route.id, item, x, y, route.need)
-          if (last) link(last, id)
-          last = id
-          ids.push(id)
-          placed.push(nodes.get(id)!)
-        })
-        ends.set(route.id, ids)
+    /** Minors before each item; spares widen the gaps in turn (the first gap last, so a road soon reaches a notable). */
+    const sequenceOf = (items: string[], minors: Minor[], gap: number, spare: number, offset: number) => {
+      const gaps = items.map(() => gap)
+      for (let s = 0; s < spare; s++) gaps[items.length > 1 ? 1 + s % (items.length - 1) : 0]++
+      const sequence: (string | Minor)[] = []
+      items.forEach((item, i) => {
+        for (let k = 0; k < gaps[i]; k++) sequence.push(minors[(sequence.length + offset) % minors.length])
+        sequence.push(item)
       })
-      // Neighbouring roads cross over every few nodes, so the sea is a web, not a fan.
+      return sequence
+    }
+    /** Places a road outward along one bearing; it bends a little, never far enough to meet the next road. */
+    const place = (sequence: (string | Minor)[], route: { id: string, region: TalentRegion, need?: Need }, angle: number, swing: number, from: number) => {
+      const ids: string[] = []
+      sequence.forEach((item, k) => {
+        const { x, y } = at(530 + (k + from) * step, angle + Math.sin((k + from) * .32 + angle * .1) * swing)
+        let id: string
+        if (typeof item === 'string') {
+          const n = named[item]
+          id = add({ id: item, kind: n.kind === 'keystone' ? 'keystone' : n.kind === 'minor' ? 'minor' : 'notable', region: route.region, route: route.id,
+            name: n.name, text: n.text, fx: n.fx, x, y, need: n.need || route.need ? { ...route.need, ...n.need } : undefined })
+        } else id = minor(route.id + '.' + k, route.region, route.id, item, x, y, route.need)
+        if (ids.length) link(ids.at(-1)!, id)
+        ids.push(id)
+      })
+      return ids
+    }
+    const ends = new Map<string, string[]>()
+    const outer = new Map<Sea, { first: string, last: string }>()
+    const byRegion = new Map<Sea, Route[]>()
+    for (const route of routes) byRegion.set(route.region as Sea, [...byRegion.get(route.region as Sea) ?? [], route])
+    for (const [region, list] of byRegion) {
+      const sector = sectors[region]
+      const spacing = sector.width / list.length
+      list.forEach((route, index) => {
+        const angle = sector.centre + (index - (list.length - 1) / 2) * spacing
+        ends.set(route.id, place(sequenceOf(route.items, route.minors, route.gap, extra.get(route.id) ?? 0, index), route, angle, spacing * .12, 0))
+      })
+      outer.set(region, { first: list[0].id, last: list.at(-1)!.id })
+      // Open seas: the roads' first nodes form an arc that the entrance joins in the middle.
+      // Seas whose roads need something (a kind of fruit, the two years) join every road to their free start instead.
+      const open = !list.some(other => other.need)
+      const middle = list.some(route => route.entry) ? list.flatMap((route, index) => route.entry ? [index] : [])
+        : [Math.floor((list.length - 1) / 2), Math.ceil((list.length - 1) / 2)]
+      list.forEach((route, index) => { if (!open || middle.includes(index)) link(entrance[region], ends.get(route.id)![0]) })
       for (let i = 0; i + 1 < list.length; i++) {
         const [a, b] = [ends.get(list[i].id)!, ends.get(list[i + 1].id)!]
-        if (!list.some(other => other.need)) link(a[0], b[0])
-        for (const k of [4, 10, 16]) if (a[k] && b[k] && nodes.get(a[k])!.kind === 'minor' && nodes.get(b[k])!.kind === 'minor' &&
-          list[i].need?.fruit === list[i + 1].need?.fruit && !!list[i].need?.conqueror === !!list[i + 1].need?.conqueror) link(a[k], b[k])
+        if (open) link(a[0], b[0])
+        // Rings: neighbouring roads cross every few nodes. A node someone cannot use (another kind of fruit) stays shut by its need.
+        for (let k = ringEvery; k < Math.min(a.length, b.length); k += ringEvery)
+          if (crossable(a[k]) && crossable(b[k])) link(a[k], b[k])
+        // A road never ends in a dead end unless it ends in a keystone: its tip crosses to its neighbour.
+        for (const [tip, other] of [[a, b], [b, a]] as const) {
+          const last = tip.at(-1)!
+          const to = rowOf(other, tip.length - 1)
+          if (crossable(last) && nodes.get(last)!.links.length < 2 && to) link(last, to)
+        }
       }
     }
-    return placed
+    // Border roads run along the line between two seas, joined to the outermost road on each side at every ring.
+    for (const border of borders) {
+      const [left, right] = border.between
+      const [l, r] = [sectors[left], sectors[right]]
+      let [edgeL, edgeR] = [l.centre + l.width / 2, r.centre - r.width / 2]
+      if (edgeR < edgeL - 180) edgeR += 360
+      const ids = place(sequenceOf(border.items, border.minors, 2, extra.get(border.id) ?? 0, 0), border, (edgeL + edgeR) / 2, 0, 2)
+      ends.set(border.id, ids)
+      for (const side of [ends.get(outer.get(left)!.last)!, ends.get(outer.get(right)!.first)!]) {
+        for (let k = 0; k < ids.length; k += ringEvery) { const to = side[k + 2]; if (crossable(to) && crossable(ids[k])) link(ids[k], to) }
+        const tip = rowOf(side, ids.length + 1)
+        if (crossable(ids.at(-1)) && tip) link(ids.at(-1)!, tip)
+      }
+    }
   }
   const before = new Map(nodes)
   layout(new Map())
   const missing = talentTotal - nodes.size
+  // How far out each road reaches (border roads start two rows out); every spare goes to the road that reaches least.
+  const reach = new Map<string, number>([...routes.map(route => [route.id, 0] as const), ...borders.map(border => [border.id, 2] as const)])
+  for (const [id, node] of nodes) if (!before.has(id) && reach.has(node.route)) reach.set(node.route, reach.get(node.route)! + 1)
   for (const id of [...nodes.keys()]) if (!before.has(id)) nodes.delete(id)
   for (const node of nodes.values()) node.links = node.links.filter(id => nodes.has(id))
   const extra = new Map<string, number>()
-  for (let i = 0; i < missing; i++) extra.set(routes[i % routes.length].id, (extra.get(routes[i % routes.length].id) ?? 0) + 1)
+  for (let i = 0; i < missing; i++) {
+    const [road] = [...reach].reduce((best, next) => next[1] < best[1] ? next : best)
+    reach.set(road, reach.get(road)! + 1)
+    extra.set(road, (extra.get(road) ?? 0) + 1)
+  }
   layout(extra)
   return nodes
 }
