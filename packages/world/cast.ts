@@ -6,6 +6,7 @@ import type { LocationId, NpcId } from '../shared/protocol.ts'
 import { castNpcs } from '../shared/atlas.ts'
 import type { Faction } from './foes.ts'
 import { newWorldPeople, newWorldRoutes, othersAfterWar, strawHatAfterWar } from './newworld.ts'
+import { crewmateHaki, crewmates } from './crewmates.ts'
 
 export type CastId = keyof typeof castNpcs
 export type CastPerson = { place: LocationId | null, role: string, known: string }
@@ -108,6 +109,7 @@ export const castPeople: Record<CastId, CastPerson> = {
   jozu: { place: null, role: '白鬍子海賊團第三隊隊長', known: '身體能變成鑽石的壯漢，說話沉穩，是白鬍子海賊團中最可靠的盾牌。' },
   vista: { place: null, role: '白鬍子海賊團第五隊隊長', known: '雙手各持一把長劍的劍士，留著整齊的八字鬍，愛打理自己的花。' },
   ...Object.fromEntries(Object.entries(newWorldPeople).map(([id, { place, role, known }]) => [id, { place, role, known }])),
+  ...Object.fromEntries(Object.entries(crewmates).map(([id, { place, role, known }]) => [id, { place, role, known }])),
 } as Record<CastId, CastPerson>
 
 // [tier, faction] follow the canon tiers in foes.ts: 0 civilian … 6 legend.
@@ -150,6 +152,8 @@ export const castProfiles: Record<CastId, CastProfile> = {
   namur: { tier: 4, faction: 'pirate' }, rakuyo: { tier: 4, faction: 'pirate' }, curiel: { tier: 4, faction: 'pirate' }, blenheim: { tier: 4, faction: 'pirate' },
   ...Object.fromEntries(Object.entries(newWorldPeople).map(([id, { tier, faction, bounty, logia }]) =>
     [id, { tier, faction, ...(bounty && { bounty }), ...(logia && { logia }), ...(tier >= 4 && faction !== 'civilian' || tier >= 5 ? { haki: true } : {}) }])),
+  ...Object.fromEntries(Object.entries(crewmates).map(([id, mate]) =>
+    [id, { tier: mate.tier, faction: mate.faction, ...(mate.bounty && { bounty: mate.bounty }), ...(mate.logia && { logia: true }), ...(crewmateHaki(mate) && { haki: true }) }])),
 } as Record<CastId, CastProfile>
 
 /** The Impel Down breakout (an island quest the players can finish) calls the war off. */

@@ -7,6 +7,7 @@ import { gruntFoe, npcLevel } from './foes.ts'
 import type { Faction, Foe } from './foes.ts'
 import { npcPlace } from './village.ts'
 import { newWorldCrews, reunion } from './newworld.ts'
+import { crewJoins, crewmates as officers } from './crewmates.ts'
 import type { World } from './village.ts'
 
 type CrewMember = {
@@ -22,6 +23,8 @@ export type Crew = {
   grunts?: { name: string, tier: number, count: number, home: LocationId[] }
   /** The name strangers know them by until [day, hour]. */
   cover?: { name: string, until: [number, number] }
+  /** The name they go by from [day, hour] on (CP9 becomes CP0 after the two years). */
+  later?: { name: string, from: [number, number] }
   /** Places where they take on challengers one by one. */
   duels?: LocationId[]
 }
@@ -58,7 +61,7 @@ export const crews: Record<string, Crew> = {
   baroque: { name: '巴洛克工作社', captain: 'crocodile', faction: 'tyrant', members: [{ npc: 'galdino' }, { npc: 'bonclay' }, { npc: 'daz' }] },
   cp9: { name: 'CP9', captain: 'lucci', faction: 'government', members: [{ npc: 'kaku' }, { npc: 'kalifa' }, { npc: 'blueno' }, { npc: 'spandam' },
     { npc: 'jabra' }, { npc: 'kumadori' }, { npc: 'fukurou' }, { npc: 'nero' }],
-    cover: { name: '卡雷拉公司的船匠們', until: [46, 22] }, duels: ['justiceTower'] },
+    cover: { name: '卡雷拉公司的船匠們', until: [46, 22] }, later: { name: 'CP0', from: reunion }, duels: ['justiceTower'] },
   frankyFamily: { name: '佛朗基一家', captain: 'zambai', faction: 'bandit', members: [{ npc: 'kiwi' }, { npc: 'mozu' }],
     grunts: { name: '佛朗基一家的小弟', tier: 1, count: 2, home: ['frankyHouse', 'backStreet'] } },
   enGiants: { name: '守門的巨人', captain: 'oimo', faction: 'government', members: [{ npc: 'kashii' }],
@@ -69,11 +72,23 @@ export const crews: Record<string, Crew> = {
   kuja: { name: '九蛇海賊團', captain: 'hancock', faction: 'pirate', members: [{ npc: 'sandersonia' }, { npc: 'marigold' }, { npc: 'marguerite' }],
     grunts: { name: '九蛇的女戰士', tier: 2, count: 2, home: ['kujaArena', 'kujaCastle'] } },
   kid: { name: '基德海賊團', captain: 'kid', faction: 'pirate', members: [{ npc: 'killer' }] },
+  heart: { name: '紅心海賊團', captain: 'law', faction: 'pirate', members: [] },
+  redHair: { name: '紅髮海賊團', captain: 'shanks', faction: 'pirate', members: [] },
+  blackbeard: { name: '黑鬍子海賊團', captain: 'teach', faction: 'pirate', members: [] },
+  fireTank: { name: '火拳幫', captain: 'bege', faction: 'pirate', members: [] },
+  bartoClub: { name: '巴托俱樂部', captain: 'bartolomeo', faction: 'pirate', members: [] },
+  revolution: { name: '革命軍', captain: 'dragon', faction: 'civilian', members: [] },
+  impel: { name: '推進城的獄卒', captain: 'magellan', faction: 'government', members: [],
+    grunts: { name: '推進城的獄卒', tier: 3, count: 2, home: ['impelGate'] } },
   whitebeard: { name: '白鬍子海賊團', captain: 'whitebeard', faction: 'pirate',
     members: [{ npc: 'marco' }, { npc: 'jozu' }, { npc: 'vista' }, { npc: 'ace' }, { npc: 'izo' }, { npc: 'namur' }, { npc: 'rakuyo' },
       { npc: 'curiel' }, { npc: 'blenheim' }, { npc: 'squard' }, { npc: 'oarsJr' }] },
   ...newWorldCrews,
 }
+
+// Every crew's officers and the people who join a crew for a while (crewmates.ts).
+for (const [npc, { crew, from, until }] of Object.entries(officers)) crews[crew].members.push({ npc: npc as NpcId, from, until })
+for (const { npc, crew, from, until } of crewJoins) crews[crew].members.push({ npc: npc as NpcId, from, until })
 
 /** The crew an NPC captains or belongs to, if any. */
 export function crewOf(npc: NpcId): Crew | undefined {
@@ -90,7 +105,8 @@ const active = (world: Pick<World, 'minute'>, member: CrewMember) =>
 export function crewmates(world: World, target: NpcId, place: LocationId): { crew?: Crew, npcs: NpcId[], grunts: Foe[] } {
   const band = crewOf(target)
   if (!band || band.duels?.includes(place)) return { npcs: [], grunts: [] }
-  const crew = band.cover && world.minute < minuteOf(band.cover.until) ? { ...band, name: band.cover.name } : band
+  const crew = band.cover && world.minute < minuteOf(band.cover.until) ? { ...band, name: band.cover.name }
+    : band.later && world.minute >= minuteOf(band.later.from) ? { ...band, name: band.later.name } : band
   const available = (npc: NpcId) => npc !== target && !world.companions?.[npc] && (world.npcDown?.[npc] ?? 0) <= world.minute
   const captainHere = npcPlace(world, crew.captain) === place
   const npcs: NpcId[] = []

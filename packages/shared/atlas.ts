@@ -125,6 +125,20 @@ export const castNpcs = {
   jabra: '賈布拉', kumadori: '偎取', fukurou: '梟', nero: '奈洛', oimo: '歐伊摩', kashii: '卡西',
   lulu: '露露', tilestone: '戴魯斯通', kiwi: '基威', mozu: '摩茲', chimney: '蒂姆妮', gonbe: '公貝',
   squard: '斯庫亞多', oarsJr: '小奧茲Jr.', izo: '以藏', namur: '那謬爾', rakuyo: '拉克約', curiel: '庫利', blenheim: '布倫海姆',
+  // The officers of every crew, so a crew fights at full strength (packages/world/crewmates.ts).
+  hatchan: '小八', kuroobi: '克羅歐比', chew: '啾', sham: '夏姆', buchi: '布奇', pearl: '珍珠', alvida: '亞爾麗塔',
+  chess: '傑斯', kuromarimo: '克羅馬利摩', sarquiss: '沙奇斯',
+  zala: '寶拉', mr4: 'Mr.4', merryChristmas: '聖誕快樂小姐', mr5: 'Mr.5', valentine: '情人節小姐', goldenweek: '黃金週小姐',
+  oars: '歐斯', ryuma: '龍馬', satori: '薩托利', shura: '修拉', gedatsu: '葛達茲', heat: '海特', wire: '懷亞',
+  bepo: '貝波', shachi: '夏奇', penguin: '佩金', benn: '班・貝克曼', roo: '拉奇・路', yasopp: '耶穌布',
+  laffitte: '拉菲特', augur: '范・奧卡', burgess: '傑斯・巴傑斯', docQ: '多克Q', shiryu: '希留',
+  dosun: '達斯康', zeo: '澤歐', daruma: '達魯瑪', ikaros: '伊卡洛斯・木希',
+  gladius: '古拉迪烏斯', senorPink: '塞尼歐爾・皮克', machvise: '馬哈拜斯', dellinger: '德林傑', laoG: '拉歐G', baby5: '貝比5', buffalo: '巴法羅', jora: '喬拉',
+  smoothie: '夏洛特・斯慕吉', oven: '夏洛特・歐文', daifuku: '夏洛特・大福',
+  ulti: '烏爾緹', pageOne: '佩吉萬', whosWho: '呼死呼', blackMaria: '布拉克瑪利亞', sasaki: '佐佐木', fukurokuju: '福祿壽',
+  pizarro: '阿瓦羅・皮薩羅', devon: '卡塔莉娜・戴彭', wolf: '桑・范・沃爾夫', vascoShot: '巴斯可・修特', jeanBart: '尚・巴爾',
+  vanderDecken: '范德・戴肯九世', wadatsumi: '瓦達茲米', montdor: '夏洛特・蒙多爾', opera: '夏洛特・歐培拉', tamago: '塔瑪戈男爵', pekoms: '佩克姆斯',
+  holdem: '霍爾德姆', stussy: '史特西', vito: '維特', gotti: '哥提', koala: '克爾拉', hack: '哈庫', sadie: '莎蒂', domino: '多米諾', gambia: '甘比亞',
 } as const
 
 /** Original traveling merchants of the 潮行商會, one at every island's port (details in packages/world/traders.ts). */

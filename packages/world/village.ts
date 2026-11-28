@@ -8,6 +8,7 @@ import { beli, beliScale, scale, staScale } from './scale.ts'
 import { canonIslands, canonPeople, minuteOf } from './canon.ts'
 import { water7Aftermath, water7Stages } from './water7.ts'
 import { castPeople } from './cast.ts'
+import { followers } from './crewmates.ts'
 import { traders, traderWares } from './traders.ts'
 import { addedSites, islandLayouts } from './sites.ts'
 import { applyRace, raceTraits } from './races.ts'
@@ -300,7 +301,7 @@ export type World = {
 }
 
 /** What place lookups need: companions resolve through the members, so pass the whole world when you have it. */
-type PlaceWorld = Pick<World, 'npcPlaces'> & Partial<Pick<World, 'companions' | 'members'>>
+type PlaceWorld = Pick<World, 'npcPlaces'> & Partial<Pick<World, 'companions' | 'members' | 'minute'>>
 
 /** Where a companion is: with the player who recruited them, or with the first party member if that player is gone. */
 export function companionPlace(world: Partial<Pick<World, 'members'>>, companion: Companion): LocationId | null {
@@ -312,6 +313,11 @@ export function companionPlace(world: Partial<Pick<World, 'members'>>, companion
 export function npcPlace(world: PlaceWorld, npc: NpcId): LocationId | null {
   const companion = world.companions?.[npc]
   if (companion) return companionPlace(world, companion)
+  // A crew officer stands wherever the one they follow stands, while they belong (crewmates.ts); not beside the players
+  // if the players recruited that person.
+  const lead = followers[npc]
+  if (lead && !world.companions?.[lead.follow as NpcId] && (!lead.from || (world.minute ?? 0) >= minuteOf(lead.from)) &&
+    (!lead.until || (world.minute ?? 0) < minuteOf(lead.until))) return npcPlace(world, lead.follow as NpcId)
   const moved = world.npcPlaces?.[npc]
   return moved !== undefined ? moved : people[npc].place
 }

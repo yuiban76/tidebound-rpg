@@ -7,6 +7,7 @@ import type { NpcId } from '../shared/protocol.ts'
 import { npcs } from '../shared/protocol.ts'
 import { castProfiles } from './cast.ts'
 import { traders } from './traders.ts'
+import { crewmates } from './crewmates.ts'
 
 /** What lets a blow land on a logia body before haki exists: wet sand, sea stone, or a Sky Island dial. */
 export type Weakness = 'water' | 'seastone' | 'dial'
@@ -125,12 +126,14 @@ const canonLevels: Partial<Record<NpcId, number | [number, number]>> = {
   dorry: 48, brogy: 48, hancock: 53, sandersonia: 42, marigold: 42, magellan: 52, hannyabal: 42, ivankov: 50, jinbe: [52, 78],
   marco: 72, jozu: 68, vista: 66, whitebeard: 98, sengoku: 95, garp: 95, akainu: [86, 93], aokiji: [86, 91], kizaru: [86, 93],
   tsuru: 72, teach: [62, 96], rayleigh: 96, shakky: 50, sentomaru: [46, 62], kid: [46, 86], law: [47, 82], drake: [46, 72],
-  hawkins: 45, bonney: [41, 72], killer: [43, 78], bege: [45, 72], oarsJr: 62, dragon: 100, sabo: 84,
+  hawkins: [45, 70], bonney: [41, 72], killer: [43, 78], bege: [45, 72], oarsJr: 62, dragon: 100, sabo: 84,
   // The New World
   hody: 54, caesar: 60, monet: 54, vergo: 64, doflamingo: 76, trebol: 70, diamante: 68, pica: 68, sugar: 42, cavendish: 68,
   bartolomeo: 64, kyros: 72, fujitora: 90, jack: 75, inuarashi: 72, nekomamushi: 72, pedro: 68, carrot: 52, wanda: 52,
   perospero: 74, cracker: 80, katakuri: 86, brulee: 56, bigMom: 97, kaido: 99, king: 89, queen: 87, orochi: 42, denjiro: 76,
   kawamatsu: 74, kinemon: 72, kiku: 68, raizo: 66, yamato: 89,
+  // Every crew's officers (crewmates.ts).
+  ...Object.fromEntries(Object.entries(crewmates).map(([id, mate]) => [id, mate.level])),
 }
 const tierLevels = [1, 4, 9, 16, 26, 45, 92]
 /** Luffy grows along his own voyage, as the story tells it. */

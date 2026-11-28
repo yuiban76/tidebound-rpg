@@ -11,6 +11,7 @@ import { npcPlace, party, people } from './village.ts'
 import type { Companion, World } from './village.ts'
 import { sideAllies, warOn } from './war.ts'
 import { newWorldPeople } from './newworld.ts'
+import { crewmates } from './crewmates.ts'
 
 /** Hammocks on the ship: how many NPC companions can travel with the party at once. */
 /** The whole crew, real players and companions together, tops out at ten. */
@@ -171,7 +172,7 @@ const moves: Partial<Record<NpcId, string>> = {
   law: '房間・切割', kid: '磁力攻擊', killer: '旋轉雙刃', drake: '恐龍衝撞', hawkins: '稻草人反擊', bonney: '老化拳',
   jinbe: '魚人空手道', teach: '黑洞', doflamingo: '操線', marco: '不死鳥之爪', jozu: '鑽石拳', vista: '花之劍舞', ivankov: '新娘拳', pell: '鷹之爪', zeff: '紅腳踢技', igaram: '鐵劍', ganfall: '長槍突刺',
 }
-for (const [id, person] of Object.entries(newWorldPeople)) moves[id as NpcId] ??= person.move
+for (const [id, person] of Object.entries({ ...newWorldPeople, ...crewmates })) moves[id as NpcId] ??= person.move
 /** Hand-written lines for the ones most players will try first; everyone else gets a line by temperament. */
 const lines: Partial<Record<NpcId, Pick<RecruitProfile, 'join' | 'refuse' | 'leave'>>> = {
   kaya: { join: '我一直想親眼看看宅邸外面的世界……如果我能幫上忙，請讓我同行。', refuse: '我還不能丟下這座宅邸和村子，請讓我再想想。', leave: '那我先回家等你們。出海回來，請再說說外面的故事給我聽。' },
